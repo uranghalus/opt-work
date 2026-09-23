@@ -145,9 +145,22 @@ class SamlController extends Controller
      */
     protected function loginUser(Saml2User $samlUser): User
     {
-        $email = $samlUser->getEmail();
+        // Log raw attributes in debug mode so we can inspect what the IdP sends.
+        Log::debug('SAML assertion received.', [
+            'id'         => $samlUser->getId(),
+            'name'       => $samlUser->getName(),
+            'email'      => $samlUser->getEmail(),
+            'attributes' => $samlUser->getRaw(),
+        ]);
+
+        $email = $this->resolveEmail($samlUser);
 
         if (! $email) {
+            Log::warning('SAML: no email found in assertion.', [
+                'id'         => $samlUser->getId(),
+                'attributes' => $samlUser->getRaw(),
+            ]);
+
             throw new LightSamlException('The identity provider did not return an email address.');
         }
 
@@ -155,12 +168,12 @@ class SamlController extends Controller
 
         if (! $user->exists) {
             $user->forceFill([
-                'name' => $samlUser->getName() ?: $email,
-                'email' => $email,
+                'name'              => $samlUser->getName() ?: $email,
+                'email'             => $email,
                 // SAML accounts authenticate through the identity provider, so
                 // an unguessable password keeps the column satisfied while
                 // making password login impossible.
-                'password' => Hash::make(Str::random(64)),
+                'password'          => Hash::make(Str::random(64)),
                 'email_verified_at' => now(),
             ])->save();
         }
@@ -168,6 +181,40 @@ class SamlController extends Controller
         Auth::login($user);
 
         return $user;
+    }
+
+    /**
+     * Resolve an email address from the SAML assertion using multiple strategies:
+     *
+     *  1. Standard attribute map (ClaimTypes, OASIS URIs) via getEmail().
+     *  2. The NameID, if it looks like an email address.
+     *  3. A first-pass scan of every raw attribute value that looks like an email.
+     */
+    protected function resolveEmail(Saml2User $samlUser): ?string
+    {
+        // Strategy 1 – standard mapped attributes.
+        if ($email = $samlUser->getEmail()) {
+            return $email;
+        }
+
+        // Strategy 2 – NameID that happens to be an email address.
+        if ($id = $samlUser->getId()) {
+            if (filter_var($id, FILTER_VALIDATE_EMAIL)) {
+                return $id;
+            }
+        }
+
+        // Strategy 3 – brute-force scan of every raw attribute value.
+        foreach ($samlUser->getRaw() as $attribute) {
+            foreach ($attribute->getAllAttributeValues() as $value) {
+                $string = method_exists($value, 'getValue') ? $value->getValue() : (string) $value;
+                if (filter_var($string, FILTER_VALIDATE_EMAIL)) {
+                    return $string;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

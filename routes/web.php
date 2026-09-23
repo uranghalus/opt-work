@@ -20,8 +20,10 @@ Route::prefix('saml')->group(function () {
     Route::match(['get', 'post'], 'acs', [SamlController::class, 'acs'])->name('saml.acs');
 
     // Single logout service: receives unsolicited logout requests from the
-    // identity provider.
+    // identity provider. The portal registers this as 'saml/logout' so we
+    // expose that path as an alias alongside the canonical 'saml/sls'.
     Route::get('sls', [SamlController::class, 'sls'])->name('saml.sls');
+    Route::get('logout', [SamlController::class, 'sls'])->name('saml.logout');
 
     // Publishes this app's SAML metadata for identity provider configuration.
     Route::get('metadata', [SamlController::class, 'metadata'])->name('saml.metadata');

@@ -9,9 +9,12 @@
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Source Sans 3', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+    --font-mono:
+        'Source Code Pro', ui-monospace, 'Cascadia Mono', 'Segoe UI Mono',
+        Menlo, Consolas, monospace;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -59,82 +62,89 @@
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* OptiWorks Dispatch Board semantic tokens (DESIGN.md) */
+    --color-canvas: var(--canvas);
+    --color-surface-raised: var(--surface-raised);
+    --color-ink-muted: var(--ink-muted);
+    --color-ink-subtle: var(--ink-subtle);
+    --color-border-strong: var(--border-strong);
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-on-brand: var(--on-brand);
+    --color-danger: var(--destructive); /* Accident Red */
+    --color-info: var(--info);
+    --color-warning: var(--warning);
+    --color-escalation: var(--escalation);
+    --color-success: var(--success);
+    --color-owner-urgent: var(--owner-urgent);
+    --color-overlay: var(--overlay);
 }
 
-:root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.87 0 0);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.87 0 0);
-}
-
+/* Light theme only for the MVP (DESIGN.md: no dark mode).
+   The .dark block mirrors the light values so a system-dark session
+   still renders the committed light Dispatch Board. */
+:root,
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+    --background: #eef1f4; /* Concrete Canvas */
+    --foreground: #15202b; /* Operational Ink */
+    --card: #ffffff; /* Clean Surface */
+    --card-foreground: #15202b;
+    --popover: #ffffff;
+    --popover-foreground: #15202b;
+    --primary: #0c6b58; /* Execution Teal */
+    --primary-foreground: #ffffff;
+    --secondary: #f7f9fb; /* Raised Well */
+    --secondary-foreground: #15202b;
+    --muted: #f7f9fb;
+    --muted-foreground: #5b6b7c; /* Muted Ink */
+    --accent: #f0f4f7; /* cool hover tint, one step from canvas */
+    --accent-foreground: #15202b;
+    --destructive: #c0392b; /* Accident Red */
+    --destructive-foreground: #ffffff;
+    --border: #d5dce5; /* Rule Gray */
+    --input: #d5dce5;
+    --ring: #0c6b58; /* focus ring = Execution Teal */
+    --chart-1: #2a5f8f;
+    --chart-2: #0c6b58;
+    --chart-3: #b86e00;
+    --chart-4: #c0392b;
+    --chart-5: #1f7a4c;
+    --radius: 0.625rem;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #15202b;
+    --sidebar-primary: #0c6b58;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f0f4f7;
+    --sidebar-accent-foreground: #15202b;
+    --sidebar-border: #d5dce5;
+    --sidebar-ring: #0c6b58;
+
+    /* Dispatch Board semantic signals */
+    --canvas: #eef1f4;
+    --surface-raised: #f7f9fb;
+    --ink-muted: #5b6b7c;
+    --ink-subtle: #8494a7;
+    --border-strong: #a8b4c4;
+    --brand: #0c6b58;
+    --brand-hover: #095445;
+    --on-brand: #ffffff;
+    --info: #2a5f8f; /* Planned Blue */
+    --warning: #b86e00; /* Deadline Amber */
+    --escalation: #7a1f3d; /* Escalation Wine */
+    --success: #1f7a4c; /* Verified Green */
+    --owner-urgent: #8a4b12; /* Owner Amber-Brown */
+    --overlay: rgba(21, 32, 43, 0.45);
 }
 
 @layer base {
     * {
         @apply border-border;
+    }
+
+    ::selection {
+        background-color: color-mix(in srgb, var(--brand) 20%, transparent);
+        color: var(--foreground);
     }
 
     body {

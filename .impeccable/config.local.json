@@ -1,0 +1,6 @@
+{
+    "buildPath": "code",
+    "hook": {
+        "consent": "accepted"
+    }
+}

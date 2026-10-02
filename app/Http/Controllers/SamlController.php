@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use LightSaml\Error\LightSamlException;
+use LightSaml\Model\Assertion\Attribute;
 use SocialiteProviders\Saml2\Provider;
 use SocialiteProviders\Saml2\User as Saml2User;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
@@ -147,9 +148,9 @@ class SamlController extends Controller
     {
         // Log raw attributes in debug mode so we can inspect what the IdP sends.
         Log::debug('SAML assertion received.', [
-            'id'         => $samlUser->getId(),
-            'name'       => $samlUser->getName(),
-            'email'      => $samlUser->getEmail(),
+            'id' => $samlUser->getId(),
+            'name' => $samlUser->getName(),
+            'email' => $samlUser->getEmail(),
             'attributes' => $samlUser->getRaw(),
         ]);
 
@@ -157,7 +158,7 @@ class SamlController extends Controller
 
         if (! $email) {
             Log::warning('SAML: no email found in assertion.', [
-                'id'         => $samlUser->getId(),
+                'id' => $samlUser->getId(),
                 'attributes' => $samlUser->getRaw(),
             ]);
 
@@ -168,12 +169,12 @@ class SamlController extends Controller
 
         if (! $user->exists) {
             $user->forceFill([
-                'name'              => $samlUser->getName() ?: $email,
-                'email'             => $email,
+                'name' => $samlUser->getName() ?: $email,
+                'email' => $email,
                 // SAML accounts authenticate through the identity provider, so
                 // an unguessable password keeps the column satisfied while
                 // making password login impossible.
-                'password'          => Hash::make(Str::random(64)),
+                'password' => Hash::make(Str::random(64)),
                 'email_verified_at' => now(),
             ])->save();
         }
@@ -206,10 +207,13 @@ class SamlController extends Controller
 
         // Strategy 3 – brute-force scan of every raw attribute value.
         foreach ($samlUser->getRaw() as $attribute) {
+            if (! $attribute instanceof Attribute) {
+                continue;
+            }
+
             foreach ($attribute->getAllAttributeValues() as $value) {
-                $string = method_exists($value, 'getValue') ? $value->getValue() : (string) $value;
-                if (filter_var($string, FILTER_VALIDATE_EMAIL)) {
-                    return $string;
+                if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return $value;
                 }
             }
         }

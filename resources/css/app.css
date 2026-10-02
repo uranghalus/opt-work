@@ -13,12 +13,8 @@
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
     --font-mono:
-<<<<<<< HEAD
-        'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, monospace;
-=======
         'Source Code Pro', ui-monospace, 'Cascadia Mono', 'Segoe UI Mono',
         Menlo, Consolas, monospace;
->>>>>>> c716cfc34a7f8ecb3f4ed78ffe617c6902117210
 
     --radius-lg: 0.75rem;
     --radius-md: 0.5rem;
@@ -103,48 +99,10 @@
     --color-overlay: var(--overlay);
 }
 
-<<<<<<< HEAD
-:root {
-    --background: #EEF1F4;
-    --foreground: #15202B;
-    --card: #FFFFFF;
-    --card-foreground: #15202B;
-    --popover: #FFFFFF;
-    --popover-foreground: #15202B;
-    --primary: #0C6B58;
-    --primary-foreground: #FFFFFF;
-    --secondary: #F7F9FB;
-    --secondary-foreground: #15202B;
-    --muted: #F7F9FB;
-    --muted-foreground: #5B6B7C;
-    --accent: #E4E9EF;
-    --accent-foreground: #15202B;
-    --destructive: #C0392B;
-    --destructive-foreground: #FFFFFF;
-    --border: #D5DCE5;
-    --input: #D5DCE5;
-    --ring: #0C6B58;
-    --chart-1: #2A5F8F;
-    --chart-2: #1F7A4C;
-    --chart-3: #B86E00;
-    --chart-4: #7A1F3D;
-    --chart-5: #5B6B7C;
-    --sidebar: #FFFFFF;
-    --sidebar-foreground: #15202B;
-    --sidebar-primary: #0C6B58;
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #EEF1F4;
-    --sidebar-accent-foreground: #15202B;
-    --sidebar-border: #D5DCE5;
-    --sidebar-ring: #0C6B58;
-}
-
-=======
 /* Light theme only for the MVP (DESIGN.md: no dark mode).
    The .dark block mirrors the light values so a system-dark session
    still renders the committed light Dispatch Board. */
 :root,
->>>>>>> c716cfc34a7f8ecb3f4ed78ffe617c6902117210
 .dark {
     --background: #eef1f4; /* Concrete Canvas */
     --foreground: #15202b; /* Operational Ink */

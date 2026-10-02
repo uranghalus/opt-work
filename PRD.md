@@ -183,7 +183,7 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ## 7. Sketsa Data Model (Entitas + Field Kunci)
 
-_Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb_surat_keluar dikeluarkan sesuai instruksi. Nama field di bawah adalah pembacaan terbaik dari ERD — field yang tidak terbaca jelas ditandai (?) dan harus diverifikasi ulang oleh tim engineering sebelum development. **Keputusan Round 1:** penamaan schema untuk development mengikuti konvensi Laravel seperti implementasi referensi opti-work2 (`users`, `employees`, `positions`, `departments`, `divisions`, `tenants`, `work_orders`, `work_planning`, `work_daily`, `work_data`, `work_data_pekerja`, `schedule_wd`, `extend_requests`, `app_notifications`), bukan nama `fld_*` dari ERD lama — sketsa di bawah tetap sebagai pemetaan konsep._
+_Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di opti-work2), dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb_surat_keluar dikeluarkan sesuai instruksi. **OQ 10 SETTLED (Round 2):** field bertanda (?) di bawah sudah diverifikasi langsung ke foto ERD; koreksi penting: "field tanda tangan digital" di tb_karyawan sebenarnya adalah **fld_call_sign** (+ fld_user_image/foto profil), "fld_business_meeting" di tb_work_order sebenarnya **fld_business_plan**, dan tb_karyawan **tidak punya FK department** (hanya fld_divisi). Sisa ambiguitas resolusi foto ditandai (?). **Keputusan Round 1:** penamaan schema untuk development mengikuti konvensi Laravel seperti implementasi referensi opti-work2 (`users`, `employees`, `positions`, `departments`, `divisions`, `tenants`, `work_orders`, `work_planning`, `work_daily`, `work_data`, `work_data_pekerja`, `schedule_wd`, `extend_requests`, `app_notifications`), bukan nama `fld_*` dari ERD lama — sketsa di bawah tetap sebagai pemetaan konsep._
 
 **tb_user**
 
@@ -191,11 +191,11 @@ _Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb
 
 **tb_karyawan**
 
-- fld_id_karyawan (PK), fld_nik, fld_nama, fld_nama_alias, fld_gender, fld_alamat, fld_no_ktp, fld_telp, fld_jabatan (FK?), fld_divisi (FK), fld_departmen (FK), fld_status_karyawan, field tanda tangan digital (?)
+- fld_id_karyawan (PK), fld_nik, fld_nama, fld_nama_alias, fld_gender, fld_alamat, fld_no_ktp, fld_telp, fld_jabatan (FK), fld_call_sign, fld_divisi (FK), fld_tmk, fld_status_karyawan, fld_keterangan, fld_user_image
 
 **tb_divisi**
 
-- fld_id_divisi (PK), fld_nama_divisi, fld_ext_tlp
+- fld_id_divisi (PK), fld_nama_divisi, fld_nama_department, fld_ext_tlp
 
 **tb_department**
 
@@ -203,36 +203,37 @@ _Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb
 
 **tb_tenant** _(masuk v2 — bukan multi-tenancy arsitektur, ini entitas penyewa tempat)_
 
-- fld_id_tenant (PK), fld_nama_tenant, fld_nama_perusahaan, fld_status, fld_lokasi, fld_phone, fld_area, fld_tipe_tenant, fld_unit(?), fld_kategori, fld_deskripsi, fld_logo, fld_keterangan
+- fld_id_tenant (PK), fld_nama_tenant, fld_nama_perusahaan, fld_status, fld_lokasi, fld_phone, fld_area, fld_tipe_tenant, fld_unit, fld_kategori, fld_deskripsi, fld_logo(?), fld_keterangan
 
 **tb_work_order**
 
-- fld_id_work_order (PK), fld_no_work_order, fld_jam_work_order, fld_department (FK), fld_id_pelapor (FK ke tb_karyawan — Requester), fld_jenis_pekerjaan_kerusakan, fld_prioritas, fld_status_pekerjaan, fld_level, fld_gambar, fld_business_meeting(?), fld_risalah_meeting(?), fld_keterangan, fld_status_hapus
+- fld_id_work_order (PK), fld_no_work_order, fld_tanggal_work_order, fld_jam_work_order, fld_department (FK — department tujuan), fld_department_pemilik_wo (department asal requester), fld_id_pelapor (FK ke tb_karyawan — Requester), fld_jenis_pekerjaan_kerusakan, fld_prioritas, fld_status_pekerjaan, fld_level, fld_lokasi, fld_risalah_meeting, fld_business_plan, fld_keterangan, fld_label, fld_status_hapus. _(Catatan: fld_gambar TIDAK ada di ERD asli — foto bukti ditambahkan belakangan di opti-work2 via migration incident_photos; PRD ini tetap mensyaratkan lampiran gambar per FR-1.1.)_
 
 **tb_work_planning** _(Work Order Terjadwal)_
 
-- fld_no_planning (PK), fld_id_work_order (FK), fld_department, fld_tanggal_planning_start, fld_budget(?), fld_rincian_pekerjaan, fld_lokasi_pekerjaan, fld_id_pic (FK ke tb_karyawan), fld_prioritas, fld_status_pekerjaan, fld_path_folder(?), fld_keterangan, fld_status_hapus
+- fld_no_planning (PK), fld_id_planning (FK ke WO), fld_department, fld_tanggal_planning, fld_tanggal_start, fld_lama_pekerjaan, fld_budget, fld_nama_pekerjaan, fld_rincian_pekerjaan, fld_lokasi_pekerjaan, fld_id_pic (FK ke tb_karyawan), fld_prioritas, fld_status_pekerjaan, fld_risalah_meeting, fld_business_plan, fld_path_folder, fld_keterangan, fld_label, fld_status_hapus
 
 **tb_work_daily**
 
-- fld_no_work_daily (PK), fld_id_work_order (FK, nullable jika tugas rutin murni), fld_tanggal_work_daily, fld_department, fld_rincian_pekerjaan, fld_lokasi_pekerjaan, fld_id_pic (FK), fld_level, fld_prioritas, fld_status_pekerjaan, fld_keterangan, fld_status_hapus
+- fld_no_work_daily (PK), fld_id_work_daily (FK ke WO — terbaca ambigu di foto ERD, kemungkinan fld_id_work_order; konfirmasi saat development), fld_tanggal_work_daily, fld_department, fld_rincian_pekerjaan, fld_lokasi_pekerjaan, fld_id_pic (FK), fld_level, fld_prioritas, fld_status_pekerjaan, fld_keterangan, fld_status_hapus
 
 **tb_work_data** _(Work Data Management — histori)_
 
-- fld_no_kerja (PK), fld_id_pekerjaan (FK ke WO/planning/daily), fld_jam_work_data, fld_department, fld_status_pekerjaan, fld_gambar_sebelum, fld_gambar_sesudah, fld_prediksi_penyebab, fld_hasil_kesimpulan, fld_saran_solusi, fld_tindakan, fld_status_hapus
+- fld_no_kerja (PK), fld_id_pekerjaan (FK ke WO/planning/daily), fld_tanggal_work_data, fld_jam_work_data, fld_department, fld_status_pekerjaan, fld_gambar_sebelum, fld_gambar_sesudah, fld_prediksi_penyebab, fld_hasil_kesimpulan, fld_saran_solusi, fld_tindakan, fld_kode_inventory (keterkaitan inventaris per FR-18 — keluar scope MVP), fld_nama_tenant, fld_status_hapus
 
 **tb_work_data_pekerja** _(relasi karyawan ↔ Work Data / assignment)_
 
-- fld_id_data_pekerja (PK), fld_no_kerja (FK), fld_id_user (FK), fld_id_karyawan (FK)
+- fld_no_data_pekerjaan (PK), fld_id_kerja (FK), fld_id_user (FK), fld_id_karyawan (FK)
 
 **tb_schedule_wd** _(master jadwal kerja)_
 
-- fld_no_schedule_wd (PK), fld_department, fld_tipe_schedule_wd, fld_status_aktif
+- fld_no_schedule_wd (PK), fld_status_aktif, fld_department, fld_tipe_schedule_wd, fld_data_schedule_wd, fld_start_date, fld_end_date, fld_rincian_pekerjaan, fld_lokasi, fld_prioritas, fld_level, fld_id_pic (FK), fld_keterangan, fld_last_create
 
 **Catatan tambahan yang perlu ditambahkan di luar ERD asli (belum ada tabelnya):**
 
-- Entitas **Notification** (id, user_id tujuan, tipe event, referensi ke WO/Daily Work, status dibaca, timestamp) — wajib untuk FR-7.x, belum ada di ERD terlampir.
-- Entitas **Extend Request** (id, referensi WO/Schedule, jenis extend \[deadline WO telat / work schedule\], jumlah hari, alasan, status approval, approver, timestamp) — wajib untuk FR-2.3/2.4, belum eksplisit sebagai tabel terpisah di ERD; kemungkinan disatukan ke tb_work_planning/tb_work_order via field status, tapi ini **Open Question** untuk tim engineering.
+- Entitas **Notification** (id, user_id tujuan, tipe event, referensi ke WO/Daily Work, status dibaca, timestamp) — wajib untuk FR-7.x, belum ada di ERD asli; **sudah terbukti di opti-work2** sebagai tabel `app_notifications` + broadcast Reverb.
+- Entitas **Extend Request** (id, referensi WO/Schedule, jenis extend \[deadline WO telat / work schedule\], jumlah hari, alasan, status approval, approver, timestamp) — **SETTLED (Round 1):** tabel terpisah `extend_requests`, terbukti di opti-work2.
+- Field eskalasi & extend di work_orders (verifikasi opti-work2): `deadline_date`, `escalation_h3_sent_at`, `escalation_h5_sent_at`, `escalation_h6_sent_at`, `is_escalated`, `extend_count`, `extend_reason`, `extended_at` — dari migration `add_deadline_and_escalation_to_tb_work_order`.
 
 ---
 
@@ -274,5 +275,5 @@ _Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb
 7. Channel notifikasi — cukup in-app, atau perlu WA/email gateway di MVP? User menjawab "belum ada batasan teknis", jadi ini masih terbuka. (§6.7 FR-7.2)
 8. Definisi "selesai" saat ini adalah kualitatif (semua fitur jalan + tanpa celah keamanan) — perlu disepakati kriteria ukur objektif, misalnya: lulus UAT 100%, lulus pentest, atau live di 1 department pilot selama X minggu tanpa insiden kritikal.
 9. ~~Relasi Extend Request ke ERD — apakah butuh tabel baru terpisah, atau cukup field status tambahan di tb_work_order/tb_work_planning? (§7)~~ **SETTLED (Round 1):** Extend Request jadi tabel terpisah (`extend_requests`) — sudah terbukti di implementasi referensi opti-work2.
-10. Field-field ERD yang ditandai (?) di §7 perlu diverifikasi langsung ke sumber ERD (bukan hasil baca dari foto) sebelum development dimulai, karena beberapa nama kolom tidak terbaca jelas dari gambar yang dilampirkan.
+10. ~~Field-field ERD yang ditandai (?) di §7 perlu diverifikasi langsung ke sumber ERD (bukan hasil baca dari foto) sebelum development dimulai, karena beberapa nama kolom tidak terbaca jelas dari gambar yang dilampirkan.~~ **SETTLED (Round 2):** diverifikasi langsung ke foto ERD per 06 Jan 2026 (lihat §7); koreksi: call_sign (bukan tanda tangan digital), business_plan (bukan business_meeting), tb_karyawan tanpa FK department. Sisa ambiguitas: FK tb_work_daily (terbaca `fld_id_work_daily`) dan `fld_logo` tb_tenant — konfirmasi akhir saat development.
 11. ~~Hak akses **Super Admin** vs **Direksi** belum dijelaskan — apakah Super Admin setara pengelola konfigurasi RBAC/master data (department, divisi, karyawan) sementara Direksi hanya punya akses read-only untuk monitoring lintas department? Ini menentukan permission set di FR-6.2.~~ **SETTLED (Round 1):** Super Admin setara pengelola konfigurasi RBAC/master data; Direksi ditunda sampai ada kebutuhan nyata.

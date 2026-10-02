@@ -1,6 +1,6 @@
 # PRD: Work Management System (WMS)
 
-**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via package `tenancyforlaravel` **Status:** Draft untuk review — beberapa item ditandai sebagai Open Question dan BELUM boleh dianggap final
+**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via tenant scoping (single database, kolom `tenant_id` + global scope — mengikuti implementasi referensi opti-work2, bukan package `tenancyforlaravel`) **Status:** Draft untuk review — beberapa item ditandai sebagai Open Question dan BELUM boleh dianggap final **Relasi proyek:** opti-works adalah rebuild bersih dari opti-work2 (implementasi referensi) dengan scope MVP dikurangi — Inventory, Kelompok Barang, Surat Masuk/Keluar, dan Tenant CRUD tidak diporting.
 
 ---
 
@@ -34,7 +34,7 @@ Yang dirugikan: seluruh rantai kerja lintas department (Requester → HOD → ka
 - Punya Daily Work rutin (template harian) di luar WO yang di-assign.
 - Pain point saat ini: tidak ada daftar tugas harian terpusat, tidak jelas prioritas antara WO baru vs Daily Work rutin.
 
-_(Role lain yang ikut terdampak sistem: Requester (siapapun pengaju WO), Team Leader (penerima notifikasi telat tahap 1), DGM/GM (eskalasi tahap akhir), **Super Admin** (pengelola konfigurasi sistem/RBAC), **Direksi** (kemungkinan visibility read-only di level tertinggi) — belum dikonfirmasi apakah ini persona terpisah dengan kebutuhan UI berbeda atau cukup di-cover oleh 2 persona di atas, dan belum dikonfirmasi hak akses spesifik Super Admin vs Direksi. **Open Question.**)_
+_(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — setiap user terautentikasi berpotensi jadi Requester, keputusan Round 1), Team Leader (penerima notifikasi telat tahap 1), DGM/GM (eskalasi tahap akhir), **Super Admin** (pengelola konfigurasi sistem/RBAC), **Admin Tenant/Cabang** (manajemen master data dalam lingkup cabangnya), **Viewer/Auditor** (read-only monitoring). **Direksi ditunda** — tidak dibuat sampai ada kebutuhan nyata; Super Admin setara pengelola konfigurasi (keputusan Round 1, lihat §10 OQ 11).)_
 
 ---
 
@@ -169,7 +169,7 @@ _(Role lain yang ikut terdampak sistem: Requester (siapapun pengaju WO), Team Le
 
 ### 6.6 RBAC (Spatie)
 
-- FR-6.1: Role minimal yang harus didukung: Requester, Karyawan Lapangan, Team Leader, HOD, DGM/GM, **Super Admin**, **Direksi**. (Requester bisa jadi bukan role eksklusif — setiap user berpotensi jadi Requester — **Open Question**. Hak akses persis Super Admin — apakah setara konfigurasi RBAC/master data sistem — vs Direksi — apakah hanya read-only monitoring lintas department — juga **Open Question**, lihat §10.)
+- FR-6.1: Role baseline yang harus didukung (mengikuti implementasi referensi opti-work2): **Super Admin, Admin Tenant/Cabang, General Manager/Deputy GM (DGM), HOD, Team Leader, Karyawan, Karyawan Pelaksana (Field Staff), Viewer/Auditor**. **Requester bukan role eksklusif** — setiap user terautentikasi berpotensi jadi Requester (keputusan Round 1). **Direksi ditunda** sampai ada kebutuhan nyata; Super Admin setara pengelola konfigurasi sistem/RBAC/master data (keputusan Round 1).
 - FR-6.2: Setiap permission (create WO, assign, verify, approve extend, dst.) di-assign ke role via Spatie, dapat dikonfigurasi Admin tanpa deploy ulang.
 - FR-6.3: Middleware memastikan user hanya bisa akses route/aksi sesuai permission-nya; percobaan akses tanpa izin menghasilkan 403 dan tercatat di log.
 
@@ -183,7 +183,7 @@ _(Role lain yang ikut terdampak sistem: Requester (siapapun pengaju WO), Team Le
 
 ## 7. Sketsa Data Model (Entitas + Field Kunci)
 
-_Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb_surat_keluar dikeluarkan sesuai instruksi. Nama field di bawah adalah pembacaan terbaik dari ERD — field yang tidak terbaca jelas ditandai (?) dan harus diverifikasi ulang oleh tim engineering sebelum development._
+_Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb_surat_keluar dikeluarkan sesuai instruksi. Nama field di bawah adalah pembacaan terbaik dari ERD — field yang tidak terbaca jelas ditandai (?) dan harus diverifikasi ulang oleh tim engineering sebelum development. **Keputusan Round 1:** penamaan schema untuk development mengikuti konvensi Laravel seperti implementasi referensi opti-work2 (`users`, `employees`, `positions`, `departments`, `divisions`, `tenants`, `work_orders`, `work_planning`, `work_daily`, `work_data`, `work_data_pekerja`, `schedule_wd`, `extend_requests`, `app_notifications`), bukan nama `fld_*` dari ERD lama — sketsa di bawah tetap sebagai pemetaan konsep._
 
 **tb_user**
 
@@ -265,14 +265,14 @@ _Dari ERD terlampir, dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb
 
 ## 10. Open Questions
 
-1. Apakah Requester adalah role terpisah, atau setiap user (apapun rolenya) otomatis bisa jadi Requester? (§6.6)
+1. ~~Apakah Requester adalah role terpisah, atau setiap user (apapun rolenya) otomatis bisa jadi Requester? (§6.6)~~ **SETTLED (Round 1):** Requester bukan role eksklusif — setiap user terautentikasi berpotensi jadi Requester.
 2. Nilai pasti minimal/maksimal hari kerja deadline — apakah selalu 3–6 hari untuk semua jenis WO, atau bervariasi per kategori/prioritas? (§6.2 FR-2.1)
 3. Batas jumlah pengajuan extend per WO — sekali saja atau bisa berulang? (§8)
 4. Mekanisme template Daily Work — didefinisikan per karyawan individual, per jabatan, atau per department? Siapa yang berwenang membuat/mengubah template? (§6.5 FR-5.1)
-5. Apakah "Team Leader" adalah role/jabatan resmi di tb_karyawan, dan bagaimana sistem tahu department mana yang punya Team Leader vs tidak? (§6.2 FR-2.2, §8)
+5. ~~Apakah "Team Leader" adalah role/jabatan resmi di tb_karyawan, dan bagaimana sistem tahu department mana yang punya Team Leader vs tidak? (§6.2 FR-2.2, §8)~~ **SETTLED (Round 1):** Team Leader adalah role Spatie (`team_leader`) mengikuti implementasi referensi opti-work2; sistem tahu department punya Team Leader jika ada user ber-role `team_leader` yang tergabung di department tersebut. Pemetaan TL per department diverifikasi saat development.
 6. Apa yang terjadi jika HOD department tujuan tidak aktif (cuti/resign) saat WO Urgent masuk? (§8)
 7. Channel notifikasi — cukup in-app, atau perlu WA/email gateway di MVP? User menjawab "belum ada batasan teknis", jadi ini masih terbuka. (§6.7 FR-7.2)
 8. Definisi "selesai" saat ini adalah kualitatif (semua fitur jalan + tanpa celah keamanan) — perlu disepakati kriteria ukur objektif, misalnya: lulus UAT 100%, lulus pentest, atau live di 1 department pilot selama X minggu tanpa insiden kritikal.
-9. Relasi Extend Request ke ERD — apakah butuh tabel baru terpisah, atau cukup field status tambahan di tb_work_order/tb_work_planning? (§7)
+9. ~~Relasi Extend Request ke ERD — apakah butuh tabel baru terpisah, atau cukup field status tambahan di tb_work_order/tb_work_planning? (§7)~~ **SETTLED (Round 1):** Extend Request jadi tabel terpisah (`extend_requests`) — sudah terbukti di implementasi referensi opti-work2.
 10. Field-field ERD yang ditandai (?) di §7 perlu diverifikasi langsung ke sumber ERD (bukan hasil baca dari foto) sebelum development dimulai, karena beberapa nama kolom tidak terbaca jelas dari gambar yang dilampirkan.
-11. Hak akses **Super Admin** vs **Direksi** belum dijelaskan — apakah Super Admin setara pengelola konfigurasi RBAC/master data (department, divisi, karyawan) sementara Direksi hanya punya akses read-only untuk monitoring lintas department? Ini menentukan permission set di FR-6.2.
+11. ~~Hak akses **Super Admin** vs **Direksi** belum dijelaskan — apakah Super Admin setara pengelola konfigurasi RBAC/master data (department, divisi, karyawan) sementara Direksi hanya punya akses read-only untuk monitoring lintas department? Ini menentukan permission set di FR-6.2.~~ **SETTLED (Round 1):** Super Admin setara pengelola konfigurasi RBAC/master data; Direksi ditunda sampai ada kebutuhan nyata.

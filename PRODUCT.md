@@ -13,7 +13,7 @@ Primary users are:
 - HODs, such as Budi, who receive incoming Work Orders, decide whether to execute or schedule them, assign workers, monitor SLA risk, approve extensions, and verify results.
 - Field workers, such as Sari, who receive assignments, manage Daily Work, execute jobs, and submit notes and photo evidence from the field.
 
-Supporting role-based users are Requesters, Team Leaders, DGM/GM, Super Admin, and Direksi. Requester capability is intended to be available to authenticated users, but the exact role model remains an open decision.
+Supporting role-based users are Team Leaders, DGM/GM, Super Admin, Admin Tenant/Cabang, and Viewer/Auditor, following the role set proven in the opti-work2 reference implementation. Requester is a capability available to every authenticated user, not an exclusive role; Direksi is deferred until a real need appears.
 
 ## Product Purpose
 
@@ -35,7 +35,7 @@ The product is differentiated by role-shaped work queues and an auditable operat
 
 ## Capabilities and Constraints
 
-- Existing implementation platform: Laravel, Inertia React, MySQL, Spatie Laravel Permission, and a tenancy package.
+- Existing implementation platform: Laravel, Inertia React, MySQL, Spatie Laravel Permission, with multi-cabang via tenant scoping (single database, tenant_id columns plus global scopes) as proven in the opti-work2 reference implementation — not the `tenancyforlaravel` package.
 - Existing frontend is a web application with authenticated routes, dashboard, settings, Tailwind CSS, Radix UI primitives, Lucide icons, and Wayfinder support.
 - MVP capabilities include Work Order creation, cross-department routing, category-specific decisions, assignment, scheduling, field result submission, HOD verification, Daily Work templates and extras, Work Data history, RBAC, notifications, and staged deadline escalation.
 - Urgent by Accident work must be executed directly and must not expose a scheduling option.
@@ -56,7 +56,7 @@ The product is differentiated by role-shaped work queues and an auditable operat
 
 - [DESIGN_BRIEF.md](DESIGN_BRIEF.md) is the design authority for the MVP UI and defines the operating context, role-shaped surfaces, evidence workflow, screen inventory, and interaction constraints.
 - [PRD.md](PRD.md) is the source product requirements document, version 1.0 Draft, and includes the functional requirements, data model sketch, edge cases, success metrics, and open questions.
-- The current codebase contains starter auth, dashboard, welcome, and settings pages but no implemented WMS workflow surfaces yet.
+- The current codebase (opti-works) is a fresh rebuild of the reference implementation and contains starter auth, welcome, and settings pages but no implemented WMS workflow surfaces yet; the opti-work2 repository is the reference implementation with working WMS surfaces (work orders, extend requests, work planning, daily work, work data, notifications, RBAC) and a deliberately larger scope that includes inventory, letters, and tenant CRUD not ported to opti-works.
 - No customer testimonials, production metrics, legal claims, or external proof assets are available; future work must not fabricate them.
 
 ## Product Principles

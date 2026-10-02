@@ -188,9 +188,9 @@ The palette is restrained neutrals plus one structural teal accent and a small s
 
 The system uses an operational shell with a stable navigation frame and role-scoped content.
 
-- Desktop at 1024px and above: 240px left navigation, top bar, and a content area capped near 1200px.
-- Tablet from 768px to 1023px: collapsible icon rail that expands to labels; lists remain full width.
-- Mobile below 768px: bottom navigation with no more than five items, compact top bar, full-width rows, and a sticky action bar in the thumb zone.
+- Desktop at 1024px and above: top header navigation (sticky, 64px tall: logo left, centered section links, theme / notifications / profile right) and a content area capped near 1280px. The 240px left sidebar is retired for the MVP shell.
+- Tablet from 768px to 1023px: the same top header with links collapsed behind a hamburger sheet; lists remain full width.
+- Mobile below 768px: compact top header (logo, hamburger nav sheet, theme toggle, notification bell, avatar); content lists render as full-width cards.
 - Desktop HOD queues use compact 48px rows; mobile field queues use comfortable 56px rows.
 - Desktop Work Order detail uses a two-column main-and-meta layout. Mobile collapses to one column with actions at the bottom.
 - Create Work Order is one column on mobile with a four-step progression; desktop may show the same flow as one long form with a sticky submit action.
@@ -259,8 +259,8 @@ Touch targets are at least 44 by 44px. Mobile list rows are at least 56px high. 
 
 ### Navigation
 
-- **Desktop:** 240px sidebar with permission-driven items: Home, Work Order, Daily Work, Work Data, and Admin only when permitted. Top bar includes cabang, Work Order search, notification bell, and profile.
-- **Tablet:** Collapsible icon rail with labels on expansion.
+- **Desktop:** sticky top header (64px) with the logo left, centered permission-driven section links — Beranda, Work Order, Daily Work, Work Data, and Admin only when permitted — and, on the right, appearance toggle, notification bell, and the user identity block with menu. An active section is marked by a raised white chip with a Strong Rule border.
+- **Tablet:** the same header with links collapsed behind a hamburger sheet until the 1024px breakpoint; lists remain full width.
 - **Mobile:** Bottom navigation with Beranda, WO, Harian, Data, and Lainnya; top bar keeps title and notifications visible.
 - **Permission behavior:** Hide unauthorized navigation. Deep links resolve to an accessible 403 surface; do not expose inert admin chrome.
 

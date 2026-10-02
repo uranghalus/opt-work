@@ -53,7 +53,7 @@ _Avoid_: admin
 ## Places
 
 **Cabang**:
-A branch used as the multi-tenancy boundary; data isolated via tenant scoping in a single database.
+A branch used as the multi-tenancy boundary; identified by path (`/{tenant}/...`), data isolated via the stancl/tenancy package in single-database mode.
 _Avoid_: tenant (untuk arti cabang)
 
 **Tenant**:

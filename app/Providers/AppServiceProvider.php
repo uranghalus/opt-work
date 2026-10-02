@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use SocialiteProviders\Manager\SocialiteWasCalled;
@@ -28,6 +29,17 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureSaml2();
+        $this->configureSuperAdmin();
+    }
+
+    /**
+     * Bypass all permission checks for the Super Admin role.
+     *
+     * See https://spatie.be/docs/laravel-permission/v8/basic-usage/super-admin.
+     */
+    protected function configureSuperAdmin(): void
+    {
+        Gate::before(fn ($user): ?bool => $user->hasRole('super_admin') ? true : null);
     }
 
     /**
@@ -42,16 +54,17 @@ class AppServiceProvider extends ServiceProvider
         );
 
         Password::defaults(
-            fn(): ?Password => app()->isProduction()
+            fn (): ?Password => app()->isProduction()
                 ? Password::min(12)
-                ->mixedCase()
-                ->letters()
-                ->numbers()
-                ->symbols()
-                ->uncompromised()
+                    ->mixedCase()
+                    ->letters()
+                    ->numbers()
+                    ->symbols()
+                    ->uncompromised()
                 : null,
         );
     }
+
     protected function configureSaml2(): void
     {
         Event::listen(function (SocialiteWasCalled $event) {

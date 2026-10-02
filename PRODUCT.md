@@ -35,7 +35,7 @@ The product is differentiated by role-shaped work queues and an auditable operat
 
 ## Capabilities and Constraints
 
-- Existing implementation platform: Laravel, Inertia React, MySQL, Spatie Laravel Permission, with multi-cabang via tenant scoping (single database, tenant_id columns plus global scopes) as proven in the opti-work2 reference implementation — not the `tenancyforlaravel` package.
+- Existing implementation platform: Laravel, Inertia React, MySQL, Spatie Laravel Permission, with multi-cabang via the stancl/tenancy package (tenancyforlaravel.com) in single-database mode — `BelongsToTenant` trait (`tenant_id` column plus automatic global scope) and path-based tenant identification, per ADR 0002.
 - Existing frontend is a web application with authenticated routes, dashboard, settings, Tailwind CSS, Radix UI primitives, Lucide icons, and Wayfinder support.
 - MVP capabilities include Work Order creation, cross-department routing, category-specific decisions, assignment, scheduling, field result submission, HOD verification, Daily Work templates and extras, Work Data history, RBAC, notifications, and staged deadline escalation.
 - Urgent by Accident work must be executed directly and must not expose a scheduling option.

@@ -13,7 +13,10 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                bunny('Source Sans 3', {
+                    weights: [400, 500, 600, 700],
+                }),
+                bunny('Source Code Pro', {
                     weights: [400, 500, 600],
                 }),
             ],

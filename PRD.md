@@ -1,6 +1,6 @@
 # PRD: Work Management System (WMS)
 
-**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via tenant scoping (single database, kolom `tenant_id` + global scope — mengikuti implementasi referensi opti-work2, bukan package `tenancyforlaravel`) **Status:** Draft untuk review — beberapa item ditandai sebagai Open Question dan BELUM boleh dianggap final **Relasi proyek:** opti-works adalah rebuild bersih dari opti-work2 (implementasi referensi) dengan scope MVP dikurangi — Inventory, Kelompok Barang, Surat Masuk/Keluar, dan Tenant CRUD tidak diporting.
+**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via package **stancl/tenancy** (tenancyforlaravel.com, mode single-database — `BelongsToTenant`/`tenant_id` + identifikasi path, keputusan Round 3; lihat docs/adr/0002) **Status:** Draft untuk review — beberapa item ditandai sebagai Open Question dan BELUM boleh dianggap final **Relasi proyek:** opti-works adalah rebuild bersih dari opti-work2 (implementasi referensi) dengan scope MVP dikurangi — Inventory, Kelompok Barang, Surat Masuk/Keluar, dan Tenant CRUD tidak diporting.
 
 ---
 

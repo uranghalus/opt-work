@@ -1,7 +1,5 @@
 <?php
 
-use Laravel\Fortify\Features;
-
 return [
 
     /*
@@ -129,7 +127,7 @@ return [
     |
     */
 
-    'views' => true,
+    'views' => false,
 
     /*
     |--------------------------------------------------------------------------
@@ -142,8 +140,6 @@ return [
     |
     */
 
-    'features' => [
-        Features::resetPasswords(),
-    ],
+    'features' => [],
 
 ];

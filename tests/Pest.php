@@ -1,6 +1,11 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Stancl\Tenancy\Database\Models\Tenant;
+use Stancl\Tenancy\Facades\Tenancy;
 use Tests\TestCase;
 
 /*
@@ -17,6 +22,43 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+|--------------------------------------------------------------------------
+| Shared test helpers
+|--------------------------------------------------------------------------
+|
+| Available to every test file so tenant/permission setup is not repeated.
+|
+*/
+
+function initTenant(string $tenantId): Tenant
+{
+    $tenant = Tenant::query()->firstOrCreate(['id' => $tenantId]);
+
+    Tenancy::initialize($tenant);
+
+    return $tenant;
+}
+
+function createUser(array $attributes = []): User
+{
+    return User::factory()->create($attributes);
+}
+
+function givePermission(User $user, string $permission): void
+{
+    Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+    $user->givePermissionTo($permission);
+}
+
+function makeSuperAdmin(User $user): User
+{
+    Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+    $user->assignRole('super_admin');
+
+    return $user;
+}
 
 /*
 |--------------------------------------------------------------------------

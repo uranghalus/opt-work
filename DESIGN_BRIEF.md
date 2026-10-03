@@ -2,529 +2,402 @@
 
 **Product:** Work Management System (WMS)  
 **Source of truth:** `PRD.md` v1.0 Draft  
+**Visual reference:** Noteflow-style workspace (see §2)  
 **Mode:** Operate (task completion over expression)  
 **Stack context:** Laravel + Inertia React + Spatie RBAC + multi-cabang  
 **Status:** Design authority for MVP UI — confirm before implementation  
-**Language:** UI copy in Bahasa Indonesia (labels below use Indonesian primary / English in parentheses where helpful for engineering)
+**Language:** UI copy in Bahasa Indonesia
 
----
+## Assumptions (locked — unchanged)
 
-## Assumptions (locked for this brief — challenge if wrong)
-
-| # | Assumption | Why |
-|---|------------|-----|
-| A1 | Any authenticated user can create a Work Order (Requester = capability, not exclusive role) | Matches PRD Open Q1 lean toward “everyone can request help”; reduces role friction |
-| A2 | Field worker primary device = phone; HOD/DGM primary = desktop | Sari submits photos on-site; Budi assigns/verifies at desk |
-| A3 | Super Admin = RBAC + master data; Direksi = read-only cross-department | PRD Open Q11 most likely split |
-| A4 | MVP notifications = in-app only (bell + toast + history) | PRD Non-Goal / Open Q7 |
-| A5 | Light theme only for MVP | Outdoor glare + fluorescent offices; dark mode deferred |
-| A6 | One cabang session at a time; cabang switcher in chrome if multi-tenancy package exposes it | Tenancy exists; Tenant CRUD is v2 |
-
-Open Questions from PRD that **do not** block this brief but must be resolved before build: deadline day ranges (Q2), extend count limit (Q3), Daily Work template ownership (Q4), Team Leader modeling (Q5), inactive HOD routing (Q6).
-
----
+A1–A6 unchanged. A5 still holds: **light theme only in MVP**; the appearance toggle is present in the top bar for consistency with the reference chrome but is disabled with a reason tooltip in MVP.
 
 ## 1. Design Principles — 3 Mandatory Rules
 
 ### P1. Status is legible in under 2 seconds without color alone
-Every Work Order and Daily Work item must show **status + category + deadline proximity** as a scannable trio: label text, icon, and color token. Color never carries meaning alone (color-blind field staff, bright sun washout).
 
-**Rationale:** The PRD’s core failure mode is “lost in chat.” The UI’s job is to make *where this job sits in the pipeline* unmistakable — especially Urgent by Accident vs Normal vs SLA escalation.
+Unchanged. Every Work Order and Daily Work card still shows **status + category + deadline proximity** as a scannable trio: label text, icon, and color token. The `WoCard` puts category first (top badge), status via column + progress bar color, deadline in the due row.
 
 ### P2. Role-shaped surfaces, not one overloaded dashboard
-Navigation, home, and primary CTAs are **permission-driven**. Budi (HOD) lands on inbox + SLA risk. Sari (field) lands on “kerja hari ini” (assigned WO + Daily Work). Requester lands on “WO saya.” No persona sees admin chrome they cannot use.
 
-**Rationale:** Six+ roles share one product. A shared mega-dashboard recreates the visibility problem the PRD is solving — noise instead of action.
+Unchanged in spirit, refined in form: the greeting header, module grid, and CTAs are permission-driven. Budi lands on a board of `Menunggu keputusan` and SLA risk. Sari lands on a stacked card list of today's WO + Daily Work. Requester lands on `WO saya`. The board columns are the same five statuses for everyone; only the visible scope changes.
 
 ### P3. Photo-and-proof is a first-class path, not an attachment afterthought
-Create WO, submit hasil, and Work Data closing all treat **image capture + short notes** as the main content path: large tap targets, camera-first on mobile, clear before/after slots, upload failure states designed upfront.
 
-**Rationale:** Field completion and HOD verification both depend on evidence. If photo UX is secondary, adoption collapses back to WhatsApp.
-
----
+Unchanged. `WoCard` surfaces a camera icon with photo count in the meta row so proof is visible from the board.
 
 ## 2. Visual Direction
 
 ### Mood
-**“Papan Distribusi Kerja” (Dispatch Board)** — the feeling of a facility control board and a job ticket clipboard: cool, precise, industrial-operational. Calm neutrals for long shifts; **signal colors** reserved for urgency, SLA breach, and escalation. Dense enough for 20+ open WOs, never cluttered like a marketing SaaS landing page.
 
-Physical scene forcing light mode: Sari outdoors or in plant corridors under harsh light; Budi under cool office fluorescents. Surfaces must stay high-contrast and non-glossy.
+**"Ruang Kerja Operasional" (Operations Workspace)** — the calm, rounded, card-based comfort of a modern task workspace applied to serious operational work. Reference: Noteflow dashboard. Soft shadows, 16px card radius, pill tab navigation, greeting header, module grid, pill-shaped badges, segmented progress bars, avatar stacks. Restrained neutrals + one structural teal + small semantic signal set with paired pastel tints.
 
 ### References (craft, not clone)
-- Facility CMMS / work-order tickets (job number prominence, status stamps)
-- Airport/ops departure boards (scan density, time urgency without decoration)
-- Industrial safety signage vocabulary (category → signal color, always with text)
-- Notion/Linear only for *interaction clarity* of lists and filters — not their startup aesthetics
+
+- Noteflow dashboard: shell (icon rail + top bar with pill tabs), greeting header, module grid, board columns, task card anatomy (priority badge, progress bar, due row, avatar stack, meta counts).
+- Facility CMMS / work-order tickets: the domain semantics (job number, status stamps, category badges) that ride inside the Noteflow-shaped shell.
 
 ### What to avoid
-| Avoid | Why |
-|-------|-----|
-| Purple / indigo SaaS gradients, neon dark mode, glow edges | Generic AI/SaaS look; wrong for facility ops |
-| Warm cream paper + terracotta + display serif | Editorial lifestyle default; not industrial |
-| Broadsheet hairlines + dense newspaper columns | Wrong reading pattern for task execution |
-| Gamified badges, confetti, playful illustration | Undermines audit/SLA seriousness |
-| Card-soup dashboards (stat tiles everywhere) | PRD explicitly defers analytics; home = work queue |
-| Soft pastel status pills without labels | Fails P1 under sun and for color vision deficiency |
-| Inter / Roboto / system-ui as brand statement | Invisible commodity; no product character |
+
+| Avoid                                                      | Why                                                |
+| ---------------------------------------------------------- | -------------------------------------------------- |
+| Purple / indigo SaaS gradients, neon dark mode, glow edges | Wrong for facility ops                             |
+| Warm cream paper + terracotta + display serif              | Editorial lifestyle default; not industrial        |
+| Gamified badges, confetti, playful illustration            | Undermines audit/SLA seriousness                   |
+| Oversized metric heroes / advanced BI charts               | PRD defers analytics; home = work queue            |
+| Pastel status pills without labels                         | Fails P1 under sun and for color vision deficiency |
+| Inter / Roboto / system-ui as brand statement              | Invisible commodity                                |
+| Pill-shaped primary CTAs                                   | Consumer-app tell; pills are for badges/dots only  |
 
 ### Signature interaction
-**Deadline pulse strip** on WO rows approaching/past SLA: a thin left rail that shifts token from `schedule` → `warning` → `danger` → `escalation`, with day-count text (“Telat H+3 · Team Leader”). Motion: 180–220ms ease-out color crossfade only; no bounce. Respect `prefers-reduced-motion` (instant token swap).
 
----
+**Deadline pulse strip** on `WoCard` (3px top rule) and `WoListRow` (3px left rail): shifts token `schedule → warning → danger → escalation` with day-count copy ("Telat H+3 · Team Leader"). Motion: 180–220ms ease-out color crossfade only. Respect `prefers-reduced-motion` (instant token swap).
 
 ## 3. Design Tokens
 
 ### Color strategy
-**Restrained + signal overlay:** neutrals carry 85% of UI; one structural accent (teal) for primary actions; semantic signal palette for category/SLA only. Committed color regions are limited to urgency banners and escalation alerts — never decorative washes.
+
+**Restrained + signal overlay + pastel pair.** Neutrals carry 85% of UI; one structural accent (teal) for primary actions and one neutral high-emphasis (ink) for the top-of-board CTA; semantic signal palette for category/SLA only, each with a paired `*-subtle` tint used for badges and column washes.
 
 ### Color palette
 
-| Token | Hex | Role |
-|-------|-----|------|
-| `--color-canvas` | `#EEF1F4` | App background — cool concrete gray (not cream `#F4F1EA`) |
-| `--color-surface` | `#FFFFFF` | Panels, sheets, list rows |
-| `--color-surface-raised` | `#F7F9FB` | Nested wells, table zebra alternate |
-| `--color-ink` | `#15202B` | Primary text — blue-slate, softer than pure black outdoors |
-| `--color-ink-muted` | `#5B6B7C` | Secondary labels, meta |
-| `--color-ink-subtle` | `#8494A7` | Placeholders, disabled hint |
-| `--color-border` | `#D5DCE5` | Dividers, input borders |
-| `--color-border-strong` | `#A8B4C4` | Focused inactive emphasis |
-| `--color-brand` | `#0C6B58` | Primary actions (Assign, Submit, Approve) — deep teal: “execute / clear / go” without hospital-green or startup-blue |
-| `--color-brand-hover` | `#095445` | Hover/pressed brand |
-| `--color-on-brand` | `#FFFFFF` | Text/icons on brand |
-| `--color-info` | `#2A5F8F` | Scheduled / planned / informational |
-| `--color-warning` | `#B86E00` | Approaching deadline, needs attention |
-| `--color-danger` | `#C0392B` | Urgent by Accident, overdue, reject |
-| `--color-escalation` | `#7A1F3D` | DGM/GM escalation tier (wine — distinct from danger red) |
-| `--color-success` | `#1F7A4C` | Closed, verified, saved |
-| `--color-owner-urgent` | `#8A4B12` | Urgent Request by Owner (amber-brown — distinct from Accident red) |
-| `--color-focus-ring` | `#0C6B58` | Keyboard focus (2px + 2px offset) |
-| `--color-overlay` | `rgba(21, 32, 43, 0.45)` | Modal scrim |
+| Token                                                  | Hex                      | Role                                              |
+| ------------------------------------------------------ | ------------------------ | ------------------------------------------------- |
+| `--color-canvas`                                       | `#EEF1F4`                | App background                                    |
+| `--color-surface`                                      | `#FFFFFF`                | Cards, panels, sheets                             |
+| `--color-surface-raised`                               | `#F7F9FB`                | Nested wells, module icon squares, alternate rows |
+| `--color-surface-sunken`                               | `#E8ECF1`                | Board columns, quiet zones                        |
+| `--color-ink`                                          | `#15202B`                | Primary text                                      |
+| `--color-ink-muted`                                    | `#5B6B7C`                | Secondary labels, meta                            |
+| `--color-ink-subtle`                                   | `#8494A7`                | Placeholders, disabled hints                      |
+| `--color-border`                                       | `#D5DCE5`                | Card borders, dividers, input borders             |
+| `--color-border-strong`                                | `#A8B4C4`                | Focused inactive emphasis                         |
+| `--color-brand`                                        | `#0C6B58`                | Primary actions                                   |
+| `--color-brand-hover`                                  | `#095445`                | Hover/pressed brand                               |
+| `--color-on-brand`                                     | `#FFFFFF`                | Text/icons on brand                               |
+| `--color-info` / `--color-info-subtle`                 | `#2A5F8F` / `#E4EDF6`    | Scheduled / planned / informational               |
+| `--color-warning` / `--color-warning-subtle`           | `#B86E00` / `#F7ECDA`    | Approaching deadline, In Progress                 |
+| `--color-danger` / `--color-danger-subtle`             | `#C0392B` / `#F7E2DF`    | Urgent by Accident, overdue, reject               |
+| `--color-escalation` / `--color-escalation-subtle`     | `#7A1F3D` / `#F2E2E8`    | Escalation tier                                   |
+| `--color-success` / `--color-success-subtle`           | `#1F7A4C` / `#DFEFE6`    | Closed, verified, Completed                       |
+| `--color-owner-urgent` / `--color-owner-urgent-subtle` | `#8A4B12` / `#F3E5D6`    | Urgent Request by Owner                           |
+| `--color-focus-ring`                                   | `#0C6B58`                | Keyboard focus (2px + 2px offset)                 |
+| `--color-overlay`                                      | `rgba(21, 32, 43, 0.45)` | Modal scrim                                       |
 
 **Category → token mapping (mandatory)**
 
-| WO Category | Token | Label (always shown) |
-|-------------|-------|----------------------|
-| Normal | `--color-info` | Normal |
-| Urgent by Accident | `--color-danger` | Urgent · Kecelakaan |
-| Urgent Request by Owner | `--color-owner-urgent` | Urgent · Owner |
+| WO Category             | Token                                                  | Label (always shown) |
+| ----------------------- | ------------------------------------------------------ | -------------------- |
+| Normal                  | `--color-info` + `--color-info-subtle`                 | Normal               |
+| Urgent by Accident      | `--color-danger` + `--color-danger-subtle`             | Urgent · Kecelakaan  |
+| Urgent Request by Owner | `--color-owner-urgent` + `--color-owner-urgent-subtle` | Urgent · Owner       |
 
-**SLA proximity → token**
+**SLA proximity → token (drives DeadlineRail + due row)**
 
-| State | Token | Example label |
-|-------|-------|---------------|
-| On track | `--color-ink-muted` / brand subtle | On track |
-| ≤1 day to deadline | `--color-warning` | Deadline besok |
-| Overdue H+1–2 | `--color-danger` | Telat |
+| State                                 | Token                | Example label  |
+| ------------------------------------- | -------------------- | -------------- |
+| On track                              | `--color-ink-muted`  | On track       |
+| ≤1 day to deadline                    | `--color-warning`    | Deadline besok |
+| Overdue H+1–2                         | `--color-danger`     | Telat          |
 | Escalation H+3 TL / H+5 HOD / H+6 DGM | `--color-escalation` | Eskalasi · HOD |
+
+**Board column → token (drives the 8px status dot in the column header)**
+
+| Column              | Status set       | Dot token         |
+| ------------------- | ---------------- | ----------------- |
+| Menunggu keputusan  | `waiting_hod`    | `--color-warning` |
+| Terjadwal           | `scheduled`      | `--color-info`    |
+| On progress         | `in_progress`    | `--color-brand`   |
+| Menunggu verifikasi | `pending_verify` | `--color-info`    |
+| Selesai             | `closed`         | `--color-success` |
 
 ### Typography
 
-| Role | Family | Why |
-|------|--------|-----|
-| UI / body / headings | **Source Sans 3** | Adobe’s UI-oriented humanist sans; excellent Latin for Bahasa Indonesia; slightly more open apertures than Inter → better glance readability outdoors; free, well-hinted, dense-UI friendly |
-| Identifiers / timestamps / audit | **Source Code Pro** | Tabular-friendly monospace sibling; WO numbers (`WO-2026-00412`), deadlines, and audit lines scan as data, not prose |
-
-**Do not use:** Inter, Plus Jakarta Sans, Space Grotesk, DM Sans, Playfair, or handwritten faces — wrong register for ops + listed as commodity AI defaults.
+Unchanged families: **Source Sans 3** (UI/body/headings) + **Source Code Pro** (identifiers, timestamps, audit). **Do not use:** Inter, Plus Jakarta Sans, Space Grotesk, DM Sans, Playfair, or handwritten faces.
 
 **Type scale** (rem @ 16px root)
 
-| Token | Size | Weight | Line height | Use |
-|-------|------|--------|-------------|-----|
-| `display` | 28px / 1.75rem | 600 | 1.25 | Screen title (desktop) |
-| `title` | 22px / 1.375rem | 600 | 1.3 | Mobile screen title, modal title |
-| `heading` | 18px / 1.125rem | 600 | 1.35 | Section headers |
-| `body` | 16px / 1rem | 400 | 1.5 | Forms, descriptions |
-| `body-strong` | 16px / 1rem | 600 | 1.5 | Row primary label |
-| `caption` | 13px / 0.8125rem | 400 | 1.4 | Meta, timestamps |
-| `micro` | 12px / 0.75rem | 600 | 1.3 | Badges, overlines (min 12px — never smaller for meaning) |
-| `mono` | 13–14px | 500 | 1.4 | WO numbers, IDs |
+| Token         | Size             | Weight | Line height | Use                                |
+| ------------- | ---------------- | ------ | ----------- | ---------------------------------- |
+| `display`     | 32px / 2rem      | 600    | 1.2         | Greeting header name line          |
+| `title`       | 22px / 1.375rem  | 600    | 1.3         | Card titles, modal titles          |
+| `heading`     | 18px / 1.125rem  | 600    | 1.35        | Section and column headers         |
+| `body`        | 16px / 1rem      | 400    | 1.5         | Forms, descriptions                |
+| `body-strong` | 16px / 1rem      | 600    | 1.5         | Card primary label                 |
+| `caption`     | 13px / 0.8125rem | 400    | 1.4         | Meta, due rows, subtitles          |
+| `micro`       | 12px / 0.75rem   | 600    | 1.3         | Badges, overlines                  |
+| `mono`        | 13–14px          | 500    | 1.4         | WO numbers, IDs, counts, due dates |
 
 ### Spacing scale (4px base)
 
 `4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64`
 
-| Token | Value | Typical use |
-|-------|-------|-------------|
-| `space-1` | 4px | Icon gaps, badge padding y |
-| `space-2` | 8px | Compact stack |
-| `space-3` | 12px | Input internal |
-| `space-4` | 16px | Default component gap |
-| `space-5` | 20px | Card/section padding mobile |
-| `space-6` | 24px | Section padding desktop |
-| `space-8` | 32px | Between major blocks |
-| `space-10` | 40px | Page top under header |
-| `space-12` | 48px | Rare spacious break |
-| `space-16` | 64px | Empty-state vertical |
-
-Touch targets: **min 44×44px**; list row min height **56px** mobile.
+Touch targets: **min 44×44px**; list row min height **56px** mobile; card min height **auto** (content-driven).
 
 ### Corner radius
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `radius-sm` | 4px | Badges, chips, inputs |
-| `radius-md` | 8px | Buttons, list containers, sheets |
-| `radius-lg` | 12px | Modals, bottom sheets |
-| `radius-full` | 999px | **Forbidden for primary actions** — reserved only for notification dot |
-
-Rationale: Soft-enough for modern UI, hard enough to feel industrial/ticket-like. Avoid pill CTAs (consumer app tell).
+| Token         | Value | Use                                                                 |
+| ------------- | ----- | ------------------------------------------------------------------- |
+| `radius-xs`   | 4px   | Badges, chips, inputs                                               |
+| `radius-sm`   | 8px   | Buttons, small controls                                             |
+| `radius-md`   | 12px  | Tab pill container, list containers, module icon squares            |
+| `radius-lg`   | 16px  | Cards, kanban columns, panels                                       |
+| `radius-xl`   | 20px  | Modals, bottom sheets                                               |
+| `radius-full` | 999px | **Badges, dots, avatar rings only.** Forbidden for primary actions. |
 
 ### Shadows
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `shadow-none` | none | Default lists (prefer borders over shadow) |
-| `shadow-sm` | `0 1px 2px rgba(21,32,43,0.06)` | Raised buttons subtle |
-| `shadow-md` | `0 4px 12px rgba(21,32,43,0.10)` | Dropdowns, popovers |
-| `shadow-lg` | `0 12px 32px rgba(21,32,43,0.16)` | Modals |
+| Token            | Value                                                          | Use                         |
+| ---------------- | -------------------------------------------------------------- | --------------------------- |
+| `shadow-none`    | none                                                           | Rows inside a card          |
+| `shadow-card`    | `0 1px 2px rgba(21,32,43,0.04), 0 0 0 1px rgba(21,32,43,0.04)` | Default card                |
+| `shadow-raised`  | `0 1px 2px rgba(21,32,43,0.06)`                                | Hover lift, raised controls |
+| `shadow-popover` | `0 4px 12px rgba(21,32,43,0.10)`                               | Dropdowns, popovers         |
+| `shadow-modal`   | `0 12px 32px rgba(21,32,43,0.16)`                              | Modals, bottom sheets       |
 
-Philosophy: **borders first, shadows sparingly.** Ops UIs that over-shadow feel like consumer cards; tickets sit on a board, they don’t float.
+Philosophy: **cards allowed, shadows restrained.** The card halo (border + whisper shadow) is the default surface; heavier shadows are for overlays only.
 
 ### Motion
 
-| Token | Value |
-|-------|-------|
-| `duration-fast` | 120ms |
-| `duration-base` | 200ms |
-| `duration-slow` | 320ms |
+| Token             | Value                          |
+| ----------------- | ------------------------------ |
+| `duration-fast`   | 120ms                          |
+| `duration-base`   | 200ms                          |
+| `duration-slow`   | 320ms                          |
 | `easing-standard` | `cubic-bezier(0.2, 0.0, 0, 1)` |
 
-Only for: sheet present/dismiss, toast enter, status rail color, skeleton shimmer. No page parallax.
-
----
+Only for: sheet present/dismiss, toast enter, status rail color, card hover lift, board column drop settle, skeleton shimmer. No page parallax.
 
 ## 4. Screen Inventory
 
 ### Auth & shell
-| ID | Screen | Purpose |
-|----|--------|---------|
-| S00 | Login | Authenticate; land on role home |
-| S01 | App Shell | Sidebar (desktop) / bottom nav (mobile); cabang indicator; bell; profile |
-| S02 | Notification Center | Full history, mark read, deep-link to entity |
-| S03 | 403 Forbidden | Permission denied with way home |
-| S04 | Offline Banner / Queue | Persistent when disconnected |
+
+| ID  | Screen                 | Purpose                                                                                 |
+| --- | ---------------------- | --------------------------------------------------------------------------------------- |
+| S00 | Login                  | Authenticate; land on role home                                                         |
+| S01 | App Shell              | Left icon rail + top bar (pill tabs, appearance toggle, bell, avatar); cabang indicator |
+| S02 | Notification Center    | Full history, mark read, deep-link to entity                                            |
+| S03 | 403 Forbidden          | Permission denied with way home                                                         |
+| S04 | Offline Banner / Queue | Persistent when disconnected                                                            |
 
 ### Role homes
-| ID | Screen | Purpose |
-|----|--------|---------|
-| H01 | Home · Field (Sari) | Today’s WO assignments + Daily Work checklist |
-| H02 | Home · HOD (Budi) | Inbox WO baru, SLA risk, pending verifikasi, extend requests |
-| H03 | Home · Requester | WO saya — status tracking |
-| H04 | Home · DGM/GM | Escalation queue + schedule-extend approvals |
-| H05 | Home · Direksi | Read-only cross-dept SLA snapshot (minimal; not analytics suite) |
-| H06 | Home · Super Admin | Shortcuts to RBAC & master data |
+
+| ID  | Screen              | Purpose                                                          |
+| --- | ------------------- | ---------------------------------------------------------------- |
+| H01 | Home · Field (Sari) | Greeting + module grid + stacked `WoCard` list + Daily checklist |
+| H02 | Home · HOD (Budi)   | Greeting + module grid + board (default) / list view + SLA risk  |
+| H03 | Home · Requester    | Greeting + module grid + `WO saya` list                          |
+| H04 | Home · DGM/GM       | Greeting + escalation queue card list                            |
+| H05 | Home · Direksi      | Read-only cross-dept SLA snapshot (deferred)                     |
+| H06 | Home · Super Admin  | Module grid of RBAC & master data shortcuts                      |
 
 ### Work Order
-| ID | Screen | Purpose |
-|----|--------|---------|
-| W01 | WO List | Filterable queue (role-scoped) |
-| W02 | WO Create | Multi-step: dept → category → details → attachments |
-| W03 | WO Detail | Single source of truth: status, people, deadline, timeline, actions |
-| W04 | HOD Decision (inline/modal) | Execute now vs schedule (category rules) |
-| W05 | Assign Workers | Multi-select employees + confirm |
-| W06 | Schedule WO | Pick planning date/range for eligible categories |
-| W07 | Submit Hasil | Notes + foto bukti (field) |
-| W08 | Verify Hasil | Approve close / request revision (HOD) |
-| W09 | Extend Deadline Request | Reason + days (max 3) |
-| W10 | Extend Approval | Approve/reject chain |
-| W11 | Extend Schedule Request/Approval | Separate flow for work schedule (DGM/GM) |
+
+| ID  | Screen                           | Purpose                                             |
+| --- | -------------------------------- | --------------------------------------------------- |
+| W01 | WO List / Board                  | Filterable queue; Board/List toggle                 |
+| W02 | WO Create                        | Multi-step: dept → category → details → attachments |
+| W03 | WO Detail                        | Single source of truth in a card                    |
+| W04 | HOD Decision (inline/modal)      | Execute now vs schedule                             |
+| W05 | Assign Workers                   | Multi-select employees + confirm                    |
+| W06 | Schedule WO                      | Pick planning date/range for eligible categories    |
+| W07 | Submit Hasil                     | Notes + foto bukti (field)                          |
+| W08 | Verify Hasil                     | Approve close / request revision                    |
+| W09 | Extend Deadline Request          | Reason + days (max 3)                               |
+| W10 | Extend Approval                  | Approve/reject chain                                |
+| W11 | Extend Schedule Request/Approval | Separate flow (DGM/GM)                              |
 
 ### Daily Work
-| ID | Screen | Purpose |
-|----|--------|---------|
-| D01 | Daily Work · Today | Template + HOD extras for selected date |
-| D02 | Daily Work · Item Detail | Status, lokasi, notes |
-| D03 | Daily Work · Add Extra (HOD) | Assign ad-hoc task to employee + date |
+
+| ID  | Screen                       | Purpose                                      |
+| --- | ---------------------------- | -------------------------------------------- |
+| D01 | Daily Work · Today           | Template + HOD extras as a stacked card list |
+| D02 | Daily Work · Item Detail     | Status, lokasi, notes                        |
+| D03 | Daily Work · Add Extra (HOD) | Assign ad-hoc task                           |
 
 ### Work Data
-| ID | Screen | Purpose |
-|----|--------|---------|
-| WD01 | Work Data List | Search/filter closed job records |
-| WD02 | Work Data Detail | Append-only histori (before/after, kesimpulan, etc.) |
+
+| ID   | Screen           | Purpose                          |
+| ---- | ---------------- | -------------------------------- |
+| WD01 | Work Data List   | Search/filter closed job records |
+| WD02 | Work Data Detail | Append-only history              |
 
 ### Admin (Super Admin)
-| ID | Screen | Purpose |
-|----|--------|---------|
-| A01 | Users & Roles | Spatie role/permission assignment |
-| A02 | Departments / Divisi | Master data (minimal MVP) |
-| A03 | Employees | Link users ↔ karyawan (minimal MVP) |
 
-**Out of MVP UI:** Tenant CRUD, Inventory, Surat, advanced analytics, WA/email settings.
+| ID  | Screen               | Purpose                           |
+| --- | -------------------- | --------------------------------- |
+| A01 | Users & Roles        | Spatie role/permission assignment |
+| A02 | Departments / Divisi | Master data                       |
+| A03 | Employees            | Link users ↔ karyawan             |
 
----
+**Out of MVP UI:** Tenant CRUD, Inventory, Surat, advanced analytics, WA/email settings, dark mode.
 
 ## 5. User Flows
 
-### Journey A — Requester creates WO (lintas department)
-1. Home H03 or FAB → **Buat Work Order**
-2. Pilih department tujuan (required)
-3. Pilih kategori → UI branches:
-   - Urgent by Accident → hide schedule options forever (FR-1.2)
-   - Normal / Owner Urgent → HOD will decide later
-4. Isi jenis, prioritas, personel, deskripsi, lampiran gambar
-5. Submit → toast sukses + notifikasi ke HOD tujuan
-6. Land on W03 (status: menunggu keputusan HOD)
+Unchanged in sequence (A–G). Visual surface updates only:
 
-**Primary action:** Kirim Work Order  
-**Hierarchy:** Category decision first (affects all downstream), then destination, then evidence/details.
+- **Journey A (Requester creates WO):** FAB → **Buat Work Order**; form in a card; category `RadioCard`s; photo slots first-class.
+- **Journey B (HOD triages & assigns):** board column `Menunggu keputusan` → `WoCard` → W03 detail in a card → decision → `AssignPicker`.
+- **Journey C (Field executes):** H01 stacked card list → W03 → W07 submit with before/after slots.
+- **Journey D (HOD verifies):** H02 `Menunggu verifikasi` column → W08 side-by-side evidence.
+- **Journey E (SLA escalation & extend):** overdue `WoCard` shows `Telat H+n · Tier` in the due row; escalation uses the escalation token.
+- **Journey F (Daily Work day):** D01 stacked list with segmented progress per item.
+- **Journey G (Audit):** WD01 table / WD02 read-only document layout.
 
-### Journey B — HOD triages & assigns
-1. Bell / H02 inbox → W03
-2. Decide: **Eksekusi langsung** | **Jadwalkan** (hidden if Accident)
-3. If schedule → W06 set tanggal → confirm
-4. W05 assign ≥1 karyawan → notifikasi ke assignee
-5. Status → ditugaskan / terjadwal
-
-**Primary action:** Assign karyawan (after path decision)  
-**Secondary:** Minta info / reject hanya jika product later adds — MVP focuses assign path.
-
-### Journey C — Field executes & submits
-1. H01 sees WO in “Ditugaskan ke saya”
-2. Open W03 → Start / update progress (status on progress)
-3. W07 submit catatan + foto → status menunggu verifikasi
-4. If revisi → W03 shows catatan HOD; resubmit without deadline reset (FR-1.8)
-
-**Primary action:** Submit hasil  
-**Hierarchy:** What to do → where → proof.
-
-### Journey D — HOD verifies & closes
-1. H02 “Menunggu verifikasi” → W08
-2. Review photos/notes/timeline
-3. Approve → closed + Work Data record generated (FR-3.1)  
-   OR Reject + catatan revisi → back to field
-
-**Primary action:** Setujui & tutup
-
-### Journey E — SLA escalation & extend
-1. System marks overdue; notifications at H+3 / H+5 / H+6
-2. Queue surfaces on H02 / H04 with escalation badge
-3. Authorized role opens W09 → alasan + ≤3 hari
-4. Approval chain W10 (TL→HOD or HOD-only)
-5. Schedule extend is **separate** journey via W11 (DGM/GM) — never mix copy/UI with deadline extend
-
-### Journey F — Daily Work day
-1. H01 / D01 default = hari ini
-2. Check off / set proses / selesai + lokasi
-3. HOD may D03 add extra task → appears on employee D01 + notification
-
-### Journey G — Audit / Work Data
-1. WD01 filter dept + date range
-2. WD02 read-only detail — no edit after close
-
----
-
-## 6. Layout per Screen & Components
+## 6. Layout per Screen
 
 ### Shared shell (S01)
-- **Desktop (≥1024):** Left nav 240px — Home, Work Order, Daily Work, Work Data, Admin (if permitted); top bar: cabang, search WO no., bell, avatar
-- **Tablet (768–1023):** Collapsible nav rail icons + labels on expand
-- **Mobile (<768):** Bottom nav ≤5: Beranda, WO, Harian, Data, Lainnya; top: title + bell; FAB for Buat WO when permitted
+
+- **Desktop (≥1024):** 64px floating left icon rail (Beranda, WO, Harian, Data, Admin if permitted; bottom Bantuan, Keluar) + 64px sticky top bar (logo left, pill-tab section nav center, appearance toggle + bell + avatar right). Content max ~1200–1280px.
+- **Tablet (768–1023):** rail collapses to hamburger sheet; top bar keeps logo, bell, avatar; board scrolls inside its own region only.
+- **Mobile (<768):** bottom nav (Beranda, WO, Harian, Data, Lainnya); top bar keeps title + bell; sticky `+ Buat Work Order` at bottom of content column.
 
 ### H01 Home · Field
-**Sections (top→bottom):**
-1. Header: tanggal + greeting short
-2. **Prioritas hari ini** — overdue/urgent WO stack (max emphasis)
-3. **Work Order ditugaskan** — `WoListRow` list
-4. **Daily Work** — `DailyChecklist`
-5. Empty modules collapse (don’t show hollow cards)
 
-**Components:** `PageHeader`, `SectionLabel`, `WoListRow`, `StatusBadge`, `DeadlineRail`, `DailyChecklist`, `EmptyState`
+1. Greeting header
+2. (Optional) Info banner
+3. Module grid (2 col mobile, 4 col desktop): `WO saya`, `Hari ini`, `Riwayat`
+4. **Prioritas hari ini** — overdue/urgent `WoCard` stack
+5. **Work Order ditugaskan** — `WoCard` list
+6. **Daily Work** — `DailyChecklist` with segmented progress per item
+7. Empty modules collapse
 
 ### H02 Home · HOD
-**Sections:**
-1. **Perlu tindakan** actionable queue (new WO, verify, extend) — primary
-2. **Risiko SLA** overdue / approaching
-3. **Ringkasan tim** light counts only (3–4 metrics max — not analytics)
-4. Quick: Buat tugas harian tambahan
 
-**Components:** `ActionQueue`, `WoListRow`, `StatStrip` (minimal), `Button`
+1. Greeting header
+2. Info banner (only if a policy/system notice applies)
+3. Module grid: `Perlu tindakan`, `Menunggu verifikasi`, `Extend`, `Tim`
+4. **ViewSwitcher** row: `Board` (default) · `List` · `Timeline` · `Kalender`; CTAs right (`+ Buat Work Order` neutral emphasis)
+5. **Board**: 5 columns by status; `WoCard` per item
+6. **Risiko SLA** strip below the board — compact `WoListRow` items only
 
 ### W02 WO Create
-**Layout:** Single-column form, stepper on mobile (4 steps), one long form on desktop with sticky submit.
-1. Department + Category (gated fields follow)
-2. Detail pekerjaan
-3. Prioritas + personel
-4. Lampiran
-**Components:** `Stepper`, `Select`, `RadioCard` (category), `TextArea`, `FileDropzone` / `CameraCapture`, `FormActions`
+
+Single-column card form; stepper on mobile (4 steps); sticky submit on desktop.
 
 ### W03 WO Detail
-**Layout:**
-- **Header band:** WO number (mono) + `StatusBadge` + category + `DeadlineRail`
-- **Action bar:** role-conditional primary/secondary (sticky bottom mobile)
-- **Tabs or stacked sections:** Ringkasan | Penugasan | Bukti | Riwayat
-- **Timeline:** `AuditTimeline` append-only
 
-**Components:** `EntityHeader`, `ActionBar`, `DefinitionList`, `UserChip`, `PhotoGallery`, `AuditTimeline`, `ConfirmDialog`
+Card layout: header band (WO number mono + StatusBadge + CategoryBadge + DeadlineRail), action bar (sticky bottom mobile), tabs `Ringkasan | Penugasan | Bukti | Riwayat`, `AuditTimeline` append-only.
 
 ### W07 Submit Hasil / W08 Verify
-Two-column desktop (form | photo preview); stacked mobile. Before/after slots explicit. Verify shows side-by-side evidence + decide buttons.
+
+Two-column desktop (form | photo preview); stacked mobile. Before/after explicit. Verify shows side-by-side evidence + explicit decide buttons.
 
 ### D01 Daily Work
-Date switcher (prev/today/next) + checklist groups: Rutin | Tambahan. Each row: checkbox/status select, title, lokasi.
+
+Date switcher (prev/today/next) + checklist groups `Rutin` | `Tambahan`. Each item is a compact card row: status toggle, title, lokasi, segmented progress.
 
 ### WD01 / WD02
-Table desktop / card list mobile; detail is read-only document layout with photo grid.
+
+Table desktop / card list mobile; detail is a read-only document layout with a photo grid.
 
 ### A01 RBAC
-Split view desktop: role list | permissions matrix. Mobile: sequential drill-down.
 
----
+Split view desktop: role list | permissions matrix. Mobile: sequential drill-down with "Buka di desktop untuk edit penuh" hint.
 
 ## 7. Component Library
 
 ### Foundations
+
 `Button`, `IconButton`, `Link`, `Input`, `TextArea`, `Select`, `Checkbox`, `Radio`, `RadioCard`, `Switch`, `Label`, `HelperText`, `InlineError`
 
-**Button variants:** `primary` (brand), `secondary` (outline), `ghost`, `danger`, `warning`  
-**Button states:** default, hover, active, focus-visible, loading (spinner + disabled), disabled  
+**Button variants:** `primary` (brand), `neutral-emphasis` (ink), `secondary` (outline), `ghost`, `danger`, `warning`  
+**Button states:** default, hover, active, focus-visible, loading, disabled  
 **Sizes:** `sm` 32px, `md` 40px, `lg` 48px (mobile primaries use `lg`)
 
+### Shell
+
+`IconRail`, `TopBar`, `PillTabNav`, `BottomNav`, `AppearanceToggle`, `NotificationBell`, `UserMenu`
+
+### Home composites
+
+`GreetingHeader`, `InfoBanner`, `ModuleGrid`, `ModuleCard`, `ViewSwitcher`
+
 ### Feedback
-`Toast`, `Banner`, `InlineAlert`, `EmptyState`, `Skeleton`, `Spinner`, `ProgressBar` (upload)
+
+`Toast`, `Banner`, `InlineAlert`, `EmptyState`, `Skeleton`, `Spinner`, `ProgressBar` (segmented and continuous), `UploadProgress`
 
 ### Data display
+
 `StatusBadge` — variants: draft, waiting_hod, scheduled, assigned, in_progress, pending_verify, revision, closed, overdue, escalated  
 `CategoryBadge` — normal | accident | owner  
 `DeadlineRail` — on_track | due_soon | overdue | escalated  
-`WoListRow` — densified row with rail + title + meta + badges  
+`WoCard` — board/list card with priority badge, title, subtitle, progress, due row, avatar stack, meta counts  
+`WoListRow` — dense 48px row for desktop HOD list view  
+`KanbanColumn` — column header (dot + label + count + ⋮), body, drop target  
+`AvatarStack` — assigned workers (max 4 + `+n`) with ring in `surface`  
 `UserChip`, `DeptChip`  
 `PhotoThumb` / `PhotoGallery`  
 `AuditTimeline`  
-`StatStrip` (max 4)  
 `DataTable` + `FilterBar`
 
 ### Navigation & overlay
-`AppSidebar`, `BottomNav`, `TopBar`, `Tabs`, `Breadcrumb` (desktop detail only)  
-`Modal`, `Drawer` / `BottomSheet`, `DropdownMenu`, `ConfirmDialog`  
-`NotificationBell`, `NotificationPanel`
+
+`Modal`, `Drawer` / `BottomSheet`, `DropdownMenu`, `ConfirmDialog`, `NotificationPanel`
 
 ### Domain composites
-`WoCreateForm`, `AssignPicker` (search + multi-select employees), `SchedulePicker`, `ExtendRequestForm`, `VerifyPanel`, `DailyChecklist`, `PermissionGate` (hide vs disable — prefer hide nav; disable with tooltip on in-page forbidden actions)
+
+`WoCreateForm`, `AssignPicker`, `SchedulePicker`, `ExtendRequestForm`, `VerifyPanel`, `DailyChecklist`, `PermissionGate` (hide in nav; disable with tooltip on in-page forbidden actions)
 
 ### Variant rules
+
 - Destructive actions always `ConfirmDialog`
 - Permission-denied controls: hide in nav; on deep link show S03
 - Loading buttons lock double-submit on Assign / Submit / Approve
-
----
+- At most one `neutral-emphasis` button per view (the page's top action)
+- Pill shape (`radius-full`) reserved for badges, dots, avatar rings — never buttons
 
 ## 8. States — Key Screens
 
-| Screen | Empty | Loading | Error | Success | Offline |
-|--------|-------|---------|-------|---------|---------|
-| H01 Field Home | Illustration-free empty: “Belum ada tugas hari ini” + secondary hint | Skeleton rows (3+3) | InlineAlert + Retry | Toast on status update | Top `Banner` sticky; read cache; queue mutations |
-| H02 HOD Home | “Tidak ada yang perlu diproses” (positive empty) | Skeleton action queue | Retry per section | Toast after assign/verify | Same banner; disable assign |
-| W01 WO List | Empty + CTA Buat WO if allowed | Table skeleton | Full-page error + retry | — | Cached list + banner |
-| W02 Create | — | Submit button loading | Field errors + toast on 500 | Toast + navigate W03 | Block submit; save draft local **optional MVP stretch** — if not built, clear message “Perlu koneksi untuk mengirim” |
-| W03 Detail | — | Header+body skeleton | Error with back | Toast on action | Read-only cached; actions disabled |
-| W07 Submit | Empty photo slots with dashed capture CTA | Upload progress per file | Size/type validation; retry failed uploads | Toast; status → pending verify | Queue upload; show “Menunggu koneksi” |
-| W08 Verify | — | — | Conflict if already closed | Toast + closed | Disable approve |
-| D01 Daily | “Template harian belum diatur” (HOD CTA if permitted) | Checklist skeleton | Retry | Row success check animation (reduced-motion: instant) | Local toggle queue |
-| WD01 | No results for filters (distinguish from global empty) | Table skeleton | Retry | — | Cached |
-| S02 Notifications | “Belum ada notifikasi” | List skeleton | Retry | Mark-read optimistic | Show stored; realtime paused label |
-| S00 Login | — | Button loading | Inline credentials error | Redirect home | Form allowed; show connection error on submit fail |
+Unchanged matrix. Additions:
 
-**Global offline pattern:** persistent `Banner` under TopBar: “Anda offline. Perubahan akan dikirim saat online.” Mutation buttons that cannot queue → disabled + reason.
-
----
+- **Board columns** have a per-column empty state: "+ Tidak ada item" caption in `ink-muted`, no illustration.
+- **ModuleCard** with count 0 uses `surface-raised` icon square and `ink-subtle` count; card remains clickable if the module has a list view.
+- **WoCard** during upload shows an inline `UploadProgress` on the meta row.
 
 ## 9. Responsive Behavior
 
-| Breakpoint | Width | Behavior |
-|------------|-------|----------|
-| Mobile | &lt;768px | Bottom nav; sticky ActionBar; full-width rows; camera capture preferred; filters in bottom sheet; single column |
-| Tablet | 768–1023px | Rail nav; lists remain full width; create form 1 col centered max 640px; verify can split 50/50 |
-| Desktop | ≥1024px | Sidebar; content max ~1200px; WO detail 2-col (main + side meta); tables for WO/Work Data; hover affordances OK but never hover-only |
+| Breakpoint | Width      | Behavior                                                                                                                                 |
+| ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile     | <768px     | Bottom nav; sticky `+ Buat WO`; full-width `WoCard` stack (no columns); camera capture preferred; filters in bottom sheet; single column |
+| Tablet     | 768–1023px | Rail collapses to hamburger sheet; board scrolls horizontally inside its own region; create form 1 col centered max 640px; verify 50/50  |
+| Desktop    | ≥1024px    | Icon rail + top bar; content max ~1200–1280px; WO detail 2-col; board 5 columns; list view uses dense rows                               |
 
-**Field-critical mobile rules**
-- Primary CTA thumb-zone (bottom sticky)
-- Photo capture uses `capture="environment"` where supported
-- No horizontal scroll; badges wrap
-- HOD-heavy screens (RBAC matrix, wide tables) may show “Buka di desktop untuk edit penuh” for complex admin on phone — acceptable for Super Admin only
-
-**Density**
-- Mobile: comfortable (56px rows)
-- Desktop HOD queues: compact (48px) to process volume
-
----
+**Field-critical mobile rules** unchanged. **Density:** mobile comfortable (56px rows / card min-height auto); desktop HOD list compact (48px rows).
 
 ## 10. Accessibility
 
-### Contrast (WCAG 2.2 AA minimum)
-| Pair | Requirement | Token check |
-|------|-------------|-------------|
-| Body text on canvas/surface | ≥4.5:1 | `ink` `#15202B` on `#FFFFFF` / `#EEF1F4` ✓ |
-| Muted text | ≥4.5:1 for any required reading | Avoid `ink-subtle` for critical status |
-| Brand button | ≥4.5:1 | White on `#0C6B58` ✓ |
-| Danger / warning badges | Text+icon; if light tint backgrounds, use dark text variants | Provide `*-subtle` bg + dark fg pairs in implementation |
-| Focus ring | 3:1 against adjacent colors | Teal ring on white/gray |
+Unchanged. Additions:
 
-Never rely on red vs green alone for pass/fail — always include text (“Ditolak”, “Disetujui”).
-
-### Focus order
-1. Skip link → Main content  
-2. TopBar (cabang → search → bell → profile)  
-3. Nav (sidebar or bottom — bottom nav is landmark `navigation`)  
-4. Page header / filters  
-5. Primary list / form fields in visual order  
-6. Sticky ActionBar controls last in DOM but `position` fixed — keep them in tab order after main actions via DOM placement at end of `<main>`  
-
-Modals: focus trap; initial focus on title or first field; Escape closes; restore focus to opener.
-
-### Keyboard
-| Control | Keys |
-|---------|------|
-| Global | `/` focuses WO search (desktop) |
-| Lists | `j`/`k` optional stretch — otherwise Tab + Enter |
-| Checkbox Daily Work | Space toggles |
-| Dialog | Esc closes; Enter submits focused primary if type=submit |
-| Menu | Arrows + Esc |
-
-All icon-only buttons: accessible name (`aria-label`).
-
-### ARIA requirements
-- `StatusBadge`: text node required; `aria-label` includes full phrase e.g. “Status: Menunggu verifikasi”
-- Live regions: `aria-live="polite"` on Toast; `assertive` only for SLA breach banners newly appeared
-- Notification bell: `aria-label="Notifikasi, {n} belum dibaca"`
-- Stepper: `aria-current="step"`
-- Tabs: `tablist` / `tab` / `tabpanel` pattern
-- Progress uploads: `role="progressbar"` valuemin/valuemax/valuenow
-- Tables: `<th scope>` ; sortable columns announce state
-- Permission errors: page `h1` “Akses ditolak”
-- Images: alt describing bukti (“Foto sesudah perbaikan panel listrik”); decorative icons `aria-hidden`
-
-### Other
-- `prefers-reduced-motion`: disable shimmer/pulse; instant status changes
-- Hit area ≥44px
-- Form errors: `aria-invalid` + `aria-describedby` pointing to error id; focus first invalid on submit
-- Bahasa Indonesia: consistent terminology (Work Order kept as “Work Order” or “WO” — pick one product term; **recommend “Work Order” full + “WO” in dense lists**)
-
----
+- `ModuleCard` icon squares: decorative tinted background `aria-hidden`, meaningful icon carries the label.
+- `KanbanColumn` uses `role="region"` with `aria-labelledby` pointing to the column header text (dot + count announced as part of the label).
+- `ProgressBar` (segmented): `role="progressbar"` with `aria-valuemin=0`, `aria-valuemax={total}`, `aria-valuenow={done}`; visible label "Progress n/m" also present.
+- `AvatarStack`: `aria-label="Ditugaskan ke {n} karyawan"`; overflow `+n` announced.
+- Board drag-and-drop must have a keyboard fallback: `Move to…` menu on each `WoCard`.
 
 ## Selected Direction Summary (for confirmation)
 
-| Dimension | Decision |
-|-----------|----------|
-| World | Dispatch Board — cool industrial ops, signal urgency |
-| Color | Restrained neutrals + teal action + semantic hazard/SLA palette |
-| Type | Source Sans 3 + Source Code Pro |
-| Home thesis | Role-shaped work queue, not analytics dashboard |
-| Mobile | Field-first for Sari; admin complexity may defer to desktop |
-| Signature | DeadlineRail status strip on WO rows |
-
----
+| Dimension    | Decision                                                                              |
+| ------------ | ------------------------------------------------------------------------------------- |
+| World        | Operations Workspace — Noteflow-style shell + facility ops semantics                  |
+| Shell        | 64px icon rail + 64px top bar with pill-tab nav                                       |
+| Home thesis  | Greeting → info banner → module grid → view switcher → board/list                     |
+| Board        | 5 columns by WO status set; `WoCard` per item                                         |
+| Card anatomy | Category badge · title · subtitle · progress · due row · avatar stack · meta counts   |
+| Color        | Restrained neutrals + teal action + ink emphasis + semantic signals with pastel pairs |
+| Type         | Source Sans 3 + Source Code Pro                                                       |
+| Mobile       | Field-first for Sari; HOD complexity defers to desktop                                |
+| Signature    | DeadlineRail token on card top rule / row left rail                                   |
 
 ## Explicit Anti-Goals (UI)
 
-- No Inventory / Surat / Tenant management screens in MVP  
-- No WhatsApp/email preference centers until channel confirmed  
-- No advanced BI charts  
-- No dark mode in MVP  
-- No gamification  
-
----
+- No Inventory / Surat / Tenant management screens in MVP
+- No WhatsApp/email preference centers until channel confirmed
+- No advanced BI charts
+- No dark mode in MVP (appearance toggle present but disabled with reason)
+- No gamification
+- No pill-shaped primary CTAs
 
 ## Next step
 
-**Confirm or correct** this brief (especially Assumptions A1–A6 and the Dispatch Board direction). After confirmation, implementation may begin from tokens → shell → WO flows; no UI code should precede that confirmation.
+**Confirm or correct** this brief — especially the shift from "Dispatch Board / no card-soup" to "Operations Workspace / Noteflow-style board + cards". After confirmation, implementation may begin from tokens → shell → board → WO flows; no UI code should precede that confirmation.

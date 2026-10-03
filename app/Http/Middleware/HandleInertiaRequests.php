@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
             ],
+            'unreadNotificationsCount' => fn (): int => $request->user()?->unreadNotifications()->count() ?? 0,
             'activeTenant' => tenant()?->getTenantKey() ?? $request->user()?->tenant_id,
             'can' => [
                 'division.read' => $request->user()?->can('division.read') ?? false,

@@ -1,23 +1,28 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowUpRight,
+    CalendarClock,
     ChevronDown,
     Ellipsis,
-    Folder,
+    Eye,
+    Inbox,
     ListFilter,
     Plus,
     RotateCcw,
     Search,
     ShieldAlert,
     TriangleAlert,
+    UserCheck,
     Upload,
-    X,
     Zap,
     type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { CategoryBadge, type WoCategory } from '@/components/category-badge';
 import { DeadlineRail, type DeadlineState } from '@/components/deadline-rail';
+import { GreetingHeader } from '@/components/greeting-header';
+import { InfoBanner } from '@/components/info-banner';
+import { ModuleCard } from '@/components/module-card';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -26,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { create, index as workOrdersIndex } from '@/routes/work-orders';
 
 /*
  * Demo fixture data. The Work Order module (routes + controller) does not
@@ -34,40 +40,55 @@ import { dashboard } from '@/routes';
  * DashboardController ships.
  */
 
-/* Queue cards, styled as the mockup's folder cards */
+/* Queue cards as module cards (DESIGN.md §Module Grid): tinted icon square
+   per status token, primary count, muted label. Board column tokens:
+   waiting_hod → warning, assigned/scheduled/pending_verify → info. */
 type QueueCard = {
     status: WoStatus;
-    title: string;
+    label: string;
     hint: string;
     count: number;
-    emphasis?: boolean;
+    icon: LucideIcon;
+    tone: string;
+    bg: string;
 };
 
 const queueCards: QueueCard[] = [
     {
         status: 'waiting_hod',
-        title: 'Menunggu Keputusan HOD',
+        label: 'Menunggu Keputusan HOD',
         hint: 'perlu eksekusi atau jadwal',
         count: 7,
-        emphasis: true,
+        icon: Inbox,
+        tone: 'text-warning',
+        bg: 'bg-warning-subtle',
     },
     {
         status: 'assigned',
-        title: 'Ditugaskan',
+        label: 'Ditugaskan',
         hint: 'sudah punya penanggung jawab',
         count: 12,
+        icon: UserCheck,
+        tone: 'text-info',
+        bg: 'bg-info-subtle',
     },
     {
         status: 'scheduled',
-        title: 'Terjadwal',
+        label: 'Terjadwal',
         hint: 'masuk rencana kerja',
         count: 5,
+        icon: CalendarClock,
+        tone: 'text-info',
+        bg: 'bg-info-subtle',
     },
     {
         status: 'pending_verify',
-        title: 'Menunggu Verifikasi',
+        label: 'Menunggu Verifikasi',
         hint: 'hasil menunggu persetujuan',
         count: 3,
+        icon: Eye,
+        tone: 'text-info',
+        bg: 'bg-info-subtle',
     },
 ];
 
@@ -251,11 +272,13 @@ function SortableTh({
 }
 
 export default function Dashboard() {
+    const { activeTenant, can } = usePage().props;
     const [statusFilter, setStatusFilter] = useState<'semua' | WoStatus>(
         'semua',
     );
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [showSlaWarning, setShowSlaWarning] = useState(true);
+    const tenant = (activeTenant as string | null) ?? '';
 
     const visibleWorkOrders =
         statusFilter === 'semua'
@@ -294,23 +317,44 @@ export default function Dashboard() {
         <>
             <Head title="Beranda" />
 
-            {/* Page title row */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-[1.75rem] leading-tight font-semibold tracking-tight">
-                    Beranda
-                </h1>
-                <Button className="h-9 gap-1.5 rounded-md px-3">
-                    <Plus aria-hidden="true" className="size-4" />
-                    Buat Work Order
-                </Button>
+            {/* Greeting header + primary CTA (DESIGN.md §Top of every role home) */}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <GreetingHeader subtitle="Kelola antrian dan pantau SLA hari ini." />
+                {(can as Record<string, boolean>)['work-order.create'] && (
+                    <Button
+                        asChild
+                        className="h-10 gap-1.5 rounded-md bg-ink px-4 text-on-brand hover:bg-ink/90"
+                    >
+                        <Link href={create({ tenant })}>
+                            <Plus aria-hidden="true" className="size-4" />
+                            Buat Work Order
+                        </Link>
+                    </Button>
+                )}
             </div>
 
-            {/* Folder-style status queue cards */}
+            {/* Info banner — operational notice only (DESIGN.md §Info Banner) */}
+            {showSlaWarning && (
+                <InfoBanner
+                    iconClassName="text-danger"
+                    message="6 WO telat dan 2 eskalasi aktif — tinjau sekarang agar SLA tidak memburuk."
+                    href={workOrdersIndex({ tenant })}
+                    onDismiss={() => setShowSlaWarning(false)}
+                />
+            )}
+
+            {/* Module grid: status queue cards */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {queueCards.map((card) => (
-                    <button
+                    <ModuleCard
                         key={card.status}
-                        type="button"
+                        icon={card.icon}
+                        iconClassName={card.tone}
+                        iconBgClassName={card.bg}
+                        count={`${card.count} WO`}
+                        label={card.label}
+                        description={card.hint}
+                        pressed={statusFilter === card.status}
                         onClick={() =>
                             setStatusFilter(
                                 statusFilter === card.status
@@ -318,38 +362,7 @@ export default function Dashboard() {
                                     : card.status,
                             )
                         }
-                        aria-pressed={statusFilter === card.status}
-                        className={cn(
-                            'group flex flex-col items-start gap-4 rounded-md border bg-card p-4 text-left transition-shadow duration-150 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
-                            statusFilter === card.status
-                                ? 'border-border-strong ring-1 ring-ring/40'
-                                : 'border-border',
-                        )}
-                    >
-                        <div className="flex w-full items-start justify-between">
-                            <Folder
-                                aria-hidden="true"
-                                className="size-7 fill-ink-subtle/25 text-ink-subtle"
-                            />
-                            <ArrowUpRight
-                                aria-hidden="true"
-                                className="size-4 text-ink-subtle transition-colors group-hover:text-foreground"
-                            />
-                        </div>
-                        <div className="w-full">
-                            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                                {card.title}
-                                {card.emphasis && (
-                                    <span className="rounded-sm bg-info/10 px-1.5 py-0.5 text-xs font-semibold text-info">
-                                        perlu aksi
-                                    </span>
-                                )}
-                            </p>
-                            <p className="mt-0.5 text-xs text-ink-muted">
-                                {card.count} WO · {card.hint}
-                            </p>
-                        </div>
-                    </button>
+                    />
                 ))}
             </div>
 
@@ -691,27 +704,6 @@ export default function Dashboard() {
                                 </span>
                             </p>
                         </div>
-
-                        {showSlaWarning && (
-                            <div className="mt-3 flex items-start justify-between gap-2 rounded-md border border-warning/30 bg-warning/5 px-2.5 py-2">
-                                <p className="flex items-start gap-2 text-xs text-foreground">
-                                    <TriangleAlert
-                                        aria-hidden="true"
-                                        className="mt-0.5 size-3.5 shrink-0 text-warning"
-                                    />
-                                    6 WO telat & 2 eskalasi. Tinjau sekarang agar
-                                    SLA tidak memburuk.
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowSlaWarning(false)}
-                                    aria-label="Tutup peringatan"
-                                    className="shrink-0 rounded-sm p-0.5 text-ink-muted hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
-                                >
-                                    <X aria-hidden="true" className="size-3.5" />
-                                </button>
-                            </div>
-                        )}
                     </section>
 
                     {/* Deadline pulse (mockup: Storage Usage) */}

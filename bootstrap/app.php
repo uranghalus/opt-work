@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -27,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        // There is no local login page; guests are sent straight to the SSO portal.
+        $middleware->redirectGuestsTo(fn () => route('saml.redirect'));
 
         $middleware->web(append: [
             HandleAppearance::class,

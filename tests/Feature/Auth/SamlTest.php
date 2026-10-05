@@ -133,7 +133,7 @@ test('a replayed assertion is rejected', function () {
 
     $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get($responseUrl)
-        ->assertRedirect(route('login'));
+        ->assertRedirect(url('/'));
 });
 
 test('the email attribute identifies the local account', function () {
@@ -149,7 +149,7 @@ test('the email attribute identifies the local account', function () {
 test('an invalid state exception surfaces as a login error', function () {
     $this->withSession(['state' => 'attacker-crafted-state'])
         ->get(FakeIdentityProvider::assertionResponseUrl())
-        ->assertRedirect(route('login'));
+        ->assertRedirect(url('/'));
 });
 
 test('the service provider metadata route renders valid xml', function () {
@@ -175,7 +175,7 @@ test('an idp logout request terminates the local session', function () {
 test('a login error lands back on the login screen with a message', function () {
     $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl(['success' => false]))
-        ->assertRedirect(route('login'));
+        ->assertRedirect(url('/'));
 
     $response->assertSessionHas('errors');
 });

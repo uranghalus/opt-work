@@ -1,12 +1,22 @@
 <?php
 
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', fn () => auth()->check()
+    ? redirect()->route('dashboard')
+    : redirect()->route('saml.redirect')
+)->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
+    Route::prefix('notifications')->name('notifications.')->group(function (): void {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::post('{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
+        Route::post('read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+    });
 });
 Route::prefix('saml')->group(function () {
     // SP-initiated SSO: send the user to the identity provider.

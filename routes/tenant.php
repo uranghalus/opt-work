@@ -6,6 +6,7 @@ use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
+use App\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
 
@@ -65,6 +66,13 @@ Route::prefix('{tenant}')
                 Route::get('{employee}/edit', [EmployeeController::class, 'edit'])->middleware('permission:employee.update')->name('edit');
                 Route::put('{employee}', [EmployeeController::class, 'update'])->middleware('permission:employee.update')->name('update');
                 Route::delete('{employee}', [EmployeeController::class, 'destroy'])->middleware('permission:employee.delete')->name('destroy');
+            });
+
+            Route::prefix('work-orders')->name('work-orders.')->group(function (): void {
+                Route::get('/', [WorkOrderController::class, 'index'])->middleware('permission:work-order.read')->name('index');
+                Route::get('create', [WorkOrderController::class, 'create'])->middleware('permission:work-order.create')->name('create');
+                Route::post('/', [WorkOrderController::class, 'store'])->middleware('permission:work-order.create')->name('store');
+                Route::get('{workOrder}', [WorkOrderController::class, 'show'])->name('show');
             });
         });
     });

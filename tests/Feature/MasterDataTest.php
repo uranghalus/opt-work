@@ -2,41 +2,11 @@
 
 use App\Models\Department;
 use App\Models\Division;
-use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
-
-function initTenant(string $tenantId): Tenant
-{
-    $tenant = Tenant::query()->firstOrCreate(['id' => $tenantId]);
-
-    Tenancy::initialize($tenant);
-
-    return $tenant;
-}
-
-function createUser(array $attributes = []): User
-{
-    return User::factory()->create($attributes);
-}
-
-function givePermission(User $user, string $permission): void
-{
-    Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-    $user->givePermissionTo($permission);
-}
-
-function makeSuperAdmin(User $user): User
-{
-    Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
-    $user->assignRole('super_admin');
-
-    return $user;
-}
 
 beforeEach(function () {
     Tenant::query()->firstOrCreate(['id' => 'hq']);

@@ -78,7 +78,7 @@ class SamlController extends Controller
                 'exception' => $exception,
             ]);
 
-            return redirect()->route('login')->with('status', 'You have been logged out.');
+            return redirect('/')->with('status', 'You have been logged out.');
         }
     }
 
@@ -234,12 +234,12 @@ class SamlController extends Controller
     }
 
     /**
-     * Bounce back to the login screen with a generic, user-safe message.
+     * Bounce back to the root (which re-initiates SSO) with a generic,
+     * user-safe message.
      */
     protected function loginFailure(): RedirectResponse
     {
-        return redirect()
-            ->route('login')
+        return redirect('/')
             ->withErrors(['saml' => 'Sign-in with your organization account failed. Please try again.']);
     }
 }

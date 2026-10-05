@@ -23,34 +23,36 @@ export type OptiNavItem = NavItem & {
     roles?: string[];
 };
 
-export const mainNavItems: OptiNavItem[] = [
-    {
-        title: 'Beranda',
-        href: dashboard(),
-        icon: House,
-    },
-    {
-        title: 'Work Order',
-        href: dashboard(), // WO list route lands with the WO module
-        icon: ClipboardList,
-    },
-    {
-        title: 'Daily Work',
-        href: dashboard(), // D01 Daily Work route lands with the module
-        icon: CalendarClock,
-    },
-    {
-        title: 'Work Data',
-        href: dashboard(), // WD01 history route lands with the module
-        icon: Database,
-    },
-    {
-        title: 'Admin',
-        href: dashboard(), // A01 RBAC route lands with the module; gate by role then
-        icon: Users,
-        roles: ['Super Admin'],
-    },
-];
+export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
+    return [
+        {
+            title: 'Beranda',
+            href: dashboard(),
+            icon: House,
+        },
+        {
+            title: 'Work Order',
+            href: activeTenant ? `/${activeTenant}/work-orders` : dashboard(),
+            icon: ClipboardList,
+        },
+        {
+            title: 'Daily Work',
+            href: dashboard(), // D01 Daily Work route lands with the module
+            icon: CalendarClock,
+        },
+        {
+            title: 'Work Data',
+            href: dashboard(), // WD01 history route lands with the module
+            icon: Database,
+        },
+        {
+            title: 'Admin',
+            href: dashboard(), // A01 RBAC route lands with the module; gate by role then
+            icon: Users,
+            roles: ['Super Admin'],
+        },
+    ];
+}
 
 export const utilityNavItems: OptiNavItem[] = [
     {

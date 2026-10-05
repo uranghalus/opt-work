@@ -41,11 +41,11 @@ return [
         // Static IdP configuration — no live HTTP fetch needed at runtime.
         // Using env values avoids the cURL SSL error that occurred when
         // fetching the metadata URL from gate.appdutamall.com.
-        'metadata'    => null,
-        'entityid'    => env('SAML_IDP_ENTITYID'),
+        'metadata' => null,
+        'entityid' => env('SAML_IDP_ENTITYID'),
         'certificate' => env('SAML_X509_CERT'),
-        'acs'         => env('SAML_SSO_URL'),
-        'slo'         => env('SAML_SLO_URL'),
+        'acs' => env('SAML_SSO_URL'),
+        'slo' => env('SAML_SLO_URL'),
 
         /*
         | Service provider (this application) endpoints.
@@ -57,8 +57,8 @@ return [
         | sp_entityid must match exactly what is registered in the Identity Provider portal.
         */
         'sp_entityid' => env('SAML_SP_ENTITYID'),
-        'sp_acs'      => 'saml/acs',
-        'sp_sls'      => 'saml/logout',
+        'sp_acs' => 'saml/acs',
+        'sp_sls' => 'saml/logout',
 
         // Both ACS bindings are advertised; initiate with HTTP-Redirect.
         'sp_default_binding_method' => SamlConstants::BINDING_SAML2_HTTP_REDIRECT,

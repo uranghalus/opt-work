@@ -59,3 +59,9 @@ _Avoid_: tenant (untuk arti cabang)
 **Tenant**:
 A renter of company-managed property — a v2 entity, not the multi-tenancy boundary.
 _Avoid_: memakai Tenant untuk arti cabang
+
+## Surfaces
+
+**Dispatch Board**:
+The main operational screen of OptiWorks and the name of its design system ("Papan Distribusi Kerja", DESIGN.md): Concrete Canvas ground, Operational Ink text, Execution Teal brand, Source Sans 3 for UI text, Source Code Pro for identifiers.
+_Avoid_: dashboard (itu halaman/route-nya; Dispatch Board adalah bahasa desainnya)

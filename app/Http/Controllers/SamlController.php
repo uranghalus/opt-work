@@ -15,11 +15,6 @@ use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
 use LightSaml\Credential\KeyHelper;
 use LightSaml\Error\LightSamlException;
-use LightSaml\Error\LightSamlSecurityException;
-use LightSaml\Error\LightSamlValidationException;
-use LightSaml\Model\Metadata\KeyDescriptor;
-use LightSaml\Model\Protocol\LogoutResponse;
-use SocialiteProviders\Saml2\InvalidSignatureException;
 use SocialiteProviders\Saml2\Provider;
 use SocialiteProviders\Saml2\User as Saml2User;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
@@ -252,10 +247,13 @@ class SamlController extends Controller
 
         // Strategy 3 – brute-force scan of every raw attribute value.
         foreach ($samlUser->getRaw() as $attribute) {
+            if (! $attribute instanceof Attribute) {
+                continue;
+            }
+
             foreach ($attribute->getAllAttributeValues() as $value) {
-                $string = method_exists($value, 'getValue') ? $value->getValue() : (string) $value;
-                if (filter_var($string, FILTER_VALIDATE_EMAIL)) {
-                    return $string;
+                if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return $value;
                 }
             }
         }

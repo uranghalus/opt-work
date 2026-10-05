@@ -20,7 +20,6 @@ import {
 import { useState, type ReactNode } from 'react';
 import { CategoryBadge, type WoCategory } from '@/components/category-badge';
 import { DeadlineRail, type DeadlineState } from '@/components/deadline-rail';
-import { GreetingHeader } from '@/components/greeting-header';
 import { InfoBanner } from '@/components/info-banner';
 import { ModuleCard } from '@/components/module-card';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
@@ -32,6 +31,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { create, index as workOrdersIndex } from '@/routes/work-orders';
+import type { InertiaConfig } from '@inertiajs/core';
 
 /*
  * Demo fixture data. The Work Order module (routes + controller) does not
@@ -271,8 +271,30 @@ function SortableTh({
     );
 }
 
+/** Primary action of this page, rendered in the shell's heading band. */
+function DashboardActions() {
+    const { permissions, activeTenant } = usePage<
+        InertiaConfig['sharedPageProps']
+    >().props;
+
+    // Tenant-scoped route: without an active cabang there is no URL to
+    // build, so the action is withheld rather than pointed at a dead link.
+    if (!permissions['work-order.create'] || !activeTenant) {
+        return null;
+    }
+
+    return (
+        <Button asChild size="lg">
+            <Link href={create({ tenant: activeTenant })}>
+                <Plus aria-hidden="true" className="size-4" />
+                Buat Work Order
+            </Link>
+        </Button>
+    );
+}
+
 export default function Dashboard() {
-    const { activeTenant, can } = usePage().props;
+    const { activeTenant } = usePage().props;
     const [statusFilter, setStatusFilter] = useState<'semua' | WoStatus>(
         'semua',
     );
@@ -317,28 +339,12 @@ export default function Dashboard() {
         <>
             <Head title="Beranda" />
 
-            {/* Greeting header + primary CTA (DESIGN.md §Top of every role home) */}
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <GreetingHeader subtitle="Kelola antrian dan pantau SLA hari ini." />
-                {(can as Record<string, boolean>)['work-order.create'] && (
-                    <Button
-                        asChild
-                        className="h-10 gap-1.5 rounded-md bg-ink px-4 text-on-brand hover:bg-ink/90"
-                    >
-                        <Link href={create({ tenant })}>
-                            <Plus aria-hidden="true" className="size-4" />
-                            Buat Work Order
-                        </Link>
-                    </Button>
-                )}
-            </div>
-
             {/* Info banner — operational notice only (DESIGN.md §Info Banner) */}
             {showSlaWarning && (
                 <InfoBanner
                     iconClassName="text-danger"
                     message="6 WO telat dan 2 eskalasi aktif — tinjau sekarang agar SLA tidak memburuk."
-                    href={workOrdersIndex({ tenant })}
+                    href={tenant ? workOrdersIndex({ tenant }) : undefined}
                     onDismiss={() => setShowSlaWarning(false)}
                 />
             )}
@@ -808,10 +814,8 @@ export default function Dashboard() {
 }
 
 Dashboard.layout = {
-    breadcrumbs: [
-        {
-            title: 'Beranda',
-            href: dashboard(),
-        },
-    ],
+    breadcrumbs: [{ title: 'Beranda', href: dashboard() }],
+    greeting: true,
+    description: 'Kelola antrian dan pantau SLA hari ini.',
+    actions: DashboardActions,
 };

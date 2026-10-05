@@ -2,7 +2,6 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { create, show } from '@/routes/work-orders';
 import { CategoryBadge } from '@/components/category-badge';
-import Heading from '@/components/heading';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +30,36 @@ type PageProps = {
     workOrders: { data: WorkOrder[] };
 };
 
+/** Primary action of this page, rendered in the shell's heading band. */
+function WorkOrderActions() {
+    const { permissions, activeTenant } = usePage<
+        InertiaConfig['sharedPageProps']
+    >().props;
+
+    // Tenant-scoped route: without an active cabang there is no URL to
+    // build, so the action is withheld rather than pointed at a dead link.
+    if (!permissions['work-order.create'] || !activeTenant) {
+        return null;
+    }
+
+    return (
+        <Button asChild size="lg">
+            <Link href={create({ tenant: activeTenant })}>
+                <Plus aria-hidden />
+                Buat Work Order
+            </Link>
+        </Button>
+    );
+}
+
+WorkOrders.layout = {
+    breadcrumbs: [{ title: 'Work Order' }],
+    title: 'Work Order',
+    description:
+        'Work Order yang Anda buat dan yang ditujukan ke department Anda',
+    actions: WorkOrderActions,
+};
+
 export default function WorkOrders({ workOrders }: PageProps) {
     const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
     const tenant = activeTenant ?? '';
@@ -39,22 +68,7 @@ export default function WorkOrders({ workOrders }: PageProps) {
         <>
             <Head title="Work Order" />
 
-            <div className="space-y-6 px-4 py-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <Heading
-                        title="Work Order"
-                        description="Work Order yang Anda buat dan yang ditujukan ke department Anda"
-                    />
-                    {can['work-order.create'] && (
-                        <Button asChild>
-                            <Link href={create({ tenant })}>
-                                <Plus aria-hidden />
-                                Buat Work Order
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-
+            <div className="space-y-6">
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>

@@ -37,7 +37,7 @@ export default function CreateEmployee({
         <>
             <Head title="Tambah Karyawan" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Tambah Karyawan"
                     description="Daftarkan karyawan baru dalam cabang aktif"

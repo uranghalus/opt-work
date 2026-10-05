@@ -1,24 +1,10 @@
 import { usePage } from '@inertiajs/react';
+import { greetingName, timeGreeting } from '@/lib/greeting';
 
 /*
- * Greeting header (DESIGN.md §Greeting Header): display-size
- * "Selamat pagi/siang/sore, {Nama}" + caption subtitle. Left-aligned,
- * no avatar or illustration; sits under the top bar at 40px top padding.
+ * Greeting header for surfaces that own their own heading (the shell's
+ * heading band renders the same greeting via `greeting: true`).
  */
-function timeGreeting(): string {
-    const hour = new Date().getHours();
-
-    if (hour < 11) {
-        return 'Selamat pagi';
-    }
-
-    if (hour < 15) {
-        return 'Selamat siang';
-    }
-
-    return 'Selamat sore';
-}
-
 export function GreetingHeader({
     subtitle,
     className,
@@ -27,7 +13,7 @@ export function GreetingHeader({
     className?: string;
 }) {
     const { auth } = usePage().props;
-    const name = auth.user?.name ?? '';
+    const name = greetingName(auth.user?.name);
 
     return (
         <div className={className}>

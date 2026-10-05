@@ -10,7 +10,7 @@
 
 ## Assumptions (locked — unchanged)
 
-A1–A6 unchanged. A5 still holds: **light theme only in MVP**; the appearance toggle is present in the top bar for consistency with the reference chrome but is disabled with a reason tooltip in MVP.
+A1–A4 and A6 unchanged. **A5 superseded (2026-10-05, user decision):** both themes ship in the MVP. Light and dark are authored separately (per-token dark values, re-tuned signal colours) and switched by the top bar's segmented appearance control (Terang · Gelap · Sistem), persisted in `localStorage` + the `appearance` cookie so SSR matches.
 
 ## 1. Design Principles — 3 Mandatory Rules
 
@@ -30,7 +30,7 @@ Unchanged. `WoCard` surfaces a camera icon with photo count in the meta row so p
 
 ### Mood
 
-**"Ruang Kerja Operasional" (Operations Workspace)** — the calm, rounded, card-based comfort of a modern task workspace applied to serious operational work. Reference: Noteflow dashboard. Soft shadows, 16px card radius, pill tab navigation, greeting header, module grid, pill-shaped badges, segmented progress bars, avatar stacks. Restrained neutrals + one structural teal + small semantic signal set with paired pastel tints.
+**"Ruang Kerja Operasional" (Operations Workspace)** — the calm, rounded, card-based comfort of a modern task workspace applied to serious operational work. Shell vocabulary (2026-10-05): a dark ink-teal navigation panel beside a light-or-dark canvas, a sticky top bar carrying breadcrumb + appearance + bell + identity, and a shell-owned section heading band. Inside the content: greeting, module grid, soft cards (12–16px radius), pill-shaped badges, segmented progress bars, avatar stacks. Committed teal + full signal set with pastel/alpha tints, group hues for navigation identity only.
 
 ### References (craft, not clone)
 
@@ -230,7 +230,7 @@ Only for: sheet present/dismiss, toast enter, status rail color, card hover lift
 | A02 | Departments / Divisi | Master data                       |
 | A03 | Employees            | Link users ↔ karyawan             |
 
-**Out of MVP UI:** Tenant CRUD, Inventory, Surat, advanced analytics, WA/email settings, dark mode.
+**Out of MVP UI:** Tenant CRUD, Inventory, Surat, advanced analytics, WA/email settings.
 
 ## 5. User Flows
 
@@ -248,9 +248,9 @@ Unchanged in sequence (A–G). Visual surface updates only:
 
 ### Shared shell (S01)
 
-- **Desktop (≥1024):** 64px floating left icon rail (Beranda, WO, Harian, Data, Admin if permitted; bottom Bantuan, Keluar) + 64px sticky top bar (logo left, pill-tab section nav center, appearance toggle + bell + avatar right). Content max ~1200–1280px.
-- **Tablet (768–1023):** rail collapses to hamburger sheet; top bar keeps logo, bell, avatar; board scrolls inside its own region only.
-- **Mobile (<768):** bottom nav (Beranda, WO, Harian, Data, Lainnya); top bar keeps title + bell; sticky `+ Buat Work Order` at bottom of content column.
+- **Desktop (≥1024):** 256px dark navigation panel (logo + cabang chip / Operasional · Data Master · Sistem / Bantuan · identity · Keluar; collapses to a 48px icon rail) + 64px sticky top bar inside the content stratum (panel trigger, breadcrumb trail, appearance switch, bell with unread count, avatar menu) + the shell-owned section heading band. Content max 1400px.
+- **Tablet (768–1023):** the panel stays, collapsed to the icon rail by choice; top bar keeps trigger + breadcrumb + bell + avatar; the board scrolls inside its own region only.
+- **Mobile (<768):** the panel becomes a sheet behind the top-bar trigger; a floating bottom bar (Beranda, WO, Notif, Lainnya) owns navigation and the Lainnya sheet holds every group + the appearance switch + Keluar; the page's primary action sits in the heading band.
 
 ### H01 Home · Field
 
@@ -307,7 +307,7 @@ Split view desktop: role list | permissions matrix. Mobile: sequential drill-dow
 
 ### Shell
 
-`IconRail`, `TopBar`, `PillTabNav`, `BottomNav`, `AppearanceToggle`, `NotificationBell`, `UserMenu`
+`NavPanel` (grouped, tone-tinted, collapsible, unread badge), `AppSidebarHeader` (top bar), `PageHeader` (section heading band), `BottomNav`, `ThemeToggle`, `NotificationBell`, `UserMenu`, `TenantChip` (`CabangSwitcher` pending a tenants prop)
 
 ### Home composites
 
@@ -380,11 +380,11 @@ Unchanged. Additions:
 | Dimension    | Decision                                                                              |
 | ------------ | ------------------------------------------------------------------------------------- |
 | World        | Operations Workspace — Noteflow-style shell + facility ops semantics                  |
-| Shell        | 64px icon rail + 64px top bar with pill-tab nav                                       |
+| Shell        | Dark navigation panel (grouped, collapsible) + sticky top bar + section heading band  |
 | Home thesis  | Greeting → info banner → module grid → view switcher → board/list                     |
 | Board        | 5 columns by WO status set; `WoCard` per item                                         |
 | Card anatomy | Category badge · title · subtitle · progress · due row · avatar stack · meta counts   |
-| Color        | Restrained neutrals + teal action + ink emphasis + semantic signals with pastel pairs |
+| Color        | Two strata: ink-teal panel + canvas; teal for action/current, full signals for status |
 | Type         | Source Sans 3 + Source Code Pro                                                       |
 | Mobile       | Field-first for Sari; HOD complexity defers to desktop                                |
 | Signature    | DeadlineRail token on card top rule / row left rail                                   |
@@ -394,7 +394,7 @@ Unchanged. Additions:
 - No Inventory / Surat / Tenant management screens in MVP
 - No WhatsApp/email preference centers until channel confirmed
 - No advanced BI charts
-- No dark mode in MVP (appearance toggle present but disabled with reason)
+- No un-authored dark mode (dark ships, but never as an inverted light palette)
 - No gamification
 - No pill-shaped primary CTAs
 

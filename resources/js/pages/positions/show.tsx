@@ -18,7 +18,7 @@ export default function ShowPosition({ position }: PageProps) {
         <>
             <Head title={position.nama_position} />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title={position.nama_position}
                     description="Detail position"

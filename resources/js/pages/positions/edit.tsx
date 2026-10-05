@@ -24,7 +24,7 @@ export default function EditPosition({ position }: PageProps) {
         <>
             <Head title="Edit Position" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Edit Position"
                     description={`Ubah data position ${position.nama_position}`}

@@ -26,6 +26,7 @@ use LightSaml\Model\Context\DeserializationContext;
 use LightSaml\Model\Context\SerializationContext;
 use LightSaml\Model\Protocol\AuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest;
+use LightSaml\Model\Protocol\LogoutResponse;
 use LightSaml\Model\Protocol\Response;
 use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\Protocol\Status;
@@ -161,6 +162,38 @@ XML;
     }
 
     /**
+     * A URL for the service provider's single logout service carrying a
+     * signed SAML logout response (HTTP-Redirect binding), as an identity
+     * provider would answer an SP-initiated logout.
+     *
+     * @param  array{signed_by?: 'idp'|'sp', issuer?: string, success?: bool}  $options
+     */
+    public static function logoutResponseUrl(array $options = []): string
+    {
+        $logoutResponse = new LogoutResponse;
+        $logoutResponse
+            ->setID(Helper::generateID())
+            ->setIssueInstant(new DateTime)
+            ->setDestination(self::slsUrl())
+            ->setIssuer(new Issuer($options['issuer'] ?? self::ENTITY_ID))
+            ->setStatus(($options['success'] ?? true)
+                ? (new Status)->setSuccess()
+                : new Status(new StatusCode(SamlConstants::STATUS_RESPONDER), 'The identity provider rejected the logout.'));
+
+        self::sign($logoutResponse, $options);
+
+        $messageContext = new MessageContext;
+        $messageContext->setMessage($logoutResponse);
+
+        $binding = (new BindingFactory)->create(SamlConstants::BINDING_SAML2_HTTP_REDIRECT);
+
+        /** @var RedirectResponse $redirect */
+        $redirect = $binding->send($messageContext);
+
+        return $redirect->getTargetUrl();
+    }
+
+    /**
      * Decode the AuthnRequest carried by a redirect to the identity provider.
      */
     public static function decodeAuthnRequest(string $url): AuthnRequest
@@ -173,6 +206,22 @@ XML;
         $authnRequest = SamlMessage::fromXML($xml, new DeserializationContext);
 
         return $authnRequest;
+    }
+
+    /**
+     * Decode the LogoutRequest carried by a redirect to the single logout
+     * service.
+     */
+    public static function decodeLogoutRequest(string $url): LogoutRequest
+    {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $xml = (string) gzinflate((string) base64_decode((string) ($query['SAMLRequest'] ?? ''), true));
+
+        /** @var LogoutRequest $logoutRequest */
+        $logoutRequest = SamlMessage::fromXML($xml, new DeserializationContext);
+
+        return $logoutRequest;
     }
 
     /**

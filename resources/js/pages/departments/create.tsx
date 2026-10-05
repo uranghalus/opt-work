@@ -40,7 +40,7 @@ export default function CreateDepartment({
         <>
             <Head title="Tambah Department" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Tambah Department"
                     description="Daftarkan department baru dalam cabang aktif"

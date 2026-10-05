@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
@@ -22,15 +23,11 @@
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style>
             html {
-<<<<<<< HEAD
-                background-color: #EEF1F4;
+                background-color: #eef1f4;
             }
 
             html.dark {
-                background-color: #15202B;
-=======
-                background-color: #eef1f4;
->>>>>>> c716cfc34a7f8ecb3f4ed78ffe617c6902117210
+                background-color: #0a1015;
             }
         </style>
 

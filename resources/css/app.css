@@ -16,65 +16,68 @@
         'Source Code Pro', ui-monospace, 'Cascadia Mono', 'Segoe UI Mono',
         Menlo, Consolas, monospace;
 
-    --radius-lg: 0.75rem;
-    --radius-md: 0.5rem;
-    --radius-sm: 0.25rem;
-    --radius-xl: 1rem;
-    --radius-2xl: 1.25rem;
+    --radius-sm: 0.25rem; /* 4px  — badges, chips, inputs */
+    --radius-md: 0.5rem; /* 8px  — buttons, small controls */
+    --radius-lg: 0.75rem; /* 12px — tab containers, list containers */
+    --radius-xl: 1rem; /* 16px — cards, panels */
+    --radius-2xl: 1.25rem; /* 20px — modals, sheets */
 
-    --color-canvas: #EEF1F4;
-    --color-surface: #FFFFFF;
-    --color-surface-raised: #F7F9FB;
-    --color-surface-sunken: #E8ECF1;
-    --color-ink: #15202B;
-    --color-ink-muted: #5B6B7C;
-    --color-ink-subtle: #8494A7;
-    --color-border-strong: #A8B4C4;
-    --color-brand: #0C6B58;
-    --color-brand-hover: #095445;
-    --color-on-brand: #FFFFFF;
-    --color-info: #2A5F8F;
-    --color-warning: #B86E00;
-    --color-danger: #C0392B;
-    --color-escalation: #7A1F3D;
-    --color-success: #1F7A4C;
-    --color-owner-urgent: #8A4B12;
-    --color-focus-ring: #0C6B58;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
+    /* Elevation: one story. Border at rest, shadow for lift and overlays. */
+    --shadow-card: 0 1px 2px rgba(20, 33, 43, 0.05);
+    --shadow-raised: 0 2px 6px -1px rgba(20, 33, 43, 0.12);
+    --shadow-popover: 0 8px 24px -4px rgba(20, 33, 43, 0.16);
+    --shadow-modal: 0 20px 48px -12px rgba(20, 33, 43, 0.3);
+
+    /* Legacy glass tokens (superseded header shell still references them). */
+    --shadow-glass: 0 8px 32px -8px rgba(21, 32, 43, 0.14);
+    --shadow-glass-deep: 0 16px 48px -12px rgba(21, 32, 43, 0.22);
+    --shadow-glow-brand: 0 4px 16px -2px rgba(12, 107, 88, 0.45);
+
+    /* ---- Bridges: Tailwind utility names → runtime theme variables ---- */
     --color-background: var(--background);
     --color-foreground: var(--foreground);
-
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
-
     --color-popover: var(--popover);
     --color-popover-foreground: var(--popover-foreground);
-
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
-
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
-
     --color-muted: var(--muted);
     --color-muted-foreground: var(--muted-foreground);
-
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
-
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
-
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
-
     --color-chart-1: var(--chart-1);
     --color-chart-2: var(--chart-2);
     --color-chart-3: var(--chart-3);
     --color-chart-4: var(--chart-4);
     --color-chart-5: var(--chart-5);
 
+    /* Navigation panel (contrast stratum) */
+    --color-panel: var(--panel);
+    --color-panel-raised: var(--panel-raised);
+    --color-panel-hover: var(--panel-hover);
+    --color-panel-active: var(--panel-active);
+    --color-panel-border: var(--panel-border);
+    --color-panel-ink: var(--panel-ink);
+    --color-panel-ink-muted: var(--panel-ink-muted);
+    --color-panel-ink-subtle: var(--panel-ink-subtle);
+
+    /* Group/module identity hues — nav icon tints only, never status */
+    --color-mod-ops: var(--mod-ops);
+    --color-mod-master: var(--mod-master);
+    --color-mod-system: var(--mod-system);
+
+    /* shadcn sidebar primitive → navigation panel */
     --color-sidebar: var(--sidebar);
     --color-sidebar-foreground: var(--sidebar-foreground);
     --color-sidebar-primary: var(--sidebar-primary);
@@ -84,22 +87,28 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
-    /* OptiWorks Dispatch Board semantic tokens (DESIGN.md) */
+    /* Dispatch Board semantic tokens (DESIGN.md) */
     --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
     --color-surface-raised: var(--surface-raised);
     --color-surface-sunken: var(--surface-sunken);
+    --color-ink: var(--ink);
     --color-ink-muted: var(--ink-muted);
     --color-ink-subtle: var(--ink-subtle);
     --color-border-strong: var(--border-strong);
     --color-brand: var(--brand);
     --color-brand-hover: var(--brand-hover);
+    --color-brand-strong: var(--brand-strong);
+    --color-brand-deep: var(--brand-deep);
+    --color-brand-soft: var(--brand-soft);
     --color-on-brand: var(--on-brand);
-    --color-danger: var(--destructive); /* Accident Red */
     --color-info: var(--info);
     --color-warning: var(--warning);
+    --color-danger: var(--danger);
     --color-escalation: var(--escalation);
     --color-success: var(--success);
     --color-owner-urgent: var(--owner-urgent);
+    --color-focus-ring: var(--focus-ring);
     --color-overlay: var(--overlay);
     --color-info-subtle: var(--info-subtle);
     --color-warning-subtle: var(--warning-subtle);
@@ -107,77 +116,176 @@
     --color-escalation-subtle: var(--escalation-subtle);
     --color-success-subtle: var(--success-subtle);
     --color-owner-urgent-subtle: var(--owner-urgent-subtle);
-
-    /* Elevation & motion vocabulary (DESIGN.md shadows + motion) */
-    --shadow-card: 0 1px 2px rgba(21, 32, 43, 0.04), 0 0 0 1px rgba(21, 32, 43, 0.04);
-    --shadow-raised: 0 1px 2px rgba(21, 32, 43, 0.06);
-    --shadow-popover: 0 4px 12px rgba(21, 32, 43, 0.1);
-    --shadow-modal: 0 12px 32px rgba(21, 32, 43, 0.16);
-    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Light theme only for the MVP (DESIGN.md: no dark mode).
-   The .dark block mirrors the light values so a system-dark session
-   still renders the committed light Dispatch Board. */
-:root,
-.dark {
+/*
+ | Light theme — the working canvas of a facility operations floor:
+ | daylight, cool concrete surfaces, a deep instrument panel for navigation.
+ */
+:root {
+    color-scheme: light;
+
     --background: #eef1f4; /* Concrete Canvas */
-    --foreground: #15202b; /* Operational Ink */
+    --foreground: #14212b; /* Operational Ink */
     --card: #ffffff; /* Clean Surface */
-    --card-foreground: #15202b;
+    --card-foreground: #14212b;
     --popover: #ffffff;
-    --popover-foreground: #15202b;    --primary: #0c6b58; /* Execution Teal */
+    --popover-foreground: #14212b;
+    --primary: #0c6b58; /* Execution Teal */
     --primary-foreground: #ffffff;
     --secondary: #f7f9fb; /* Raised Well */
-    --secondary-foreground: #15202b;
+    --secondary-foreground: #14212b;
     --muted: #f7f9fb;
-    --muted-foreground: #5b6b7c; /* Muted Ink */
-    --accent: #f0f4f7; /* cool hover tint, one step from canvas */
-    --accent-foreground: #15202b;
+    --muted-foreground: #566675; /* Muted Ink */
+    --accent: #eef3f7; /* cool hover tint, one step from canvas */
+    --accent-foreground: #14212b;
     --destructive: #c0392b; /* Accident Red */
     --destructive-foreground: #ffffff;
-    --border: #d5dce5; /* Rule Gray */
-    --input: #d5dce5;
+    --border: #d9e1e8; /* Rule Gray */
+    --input: #d9e1e8;
     --ring: #0c6b58; /* focus ring = Execution Teal */
     --chart-1: #2a5f8f;
     --chart-2: #0c6b58;
     --chart-3: #b86e00;
     --chart-4: #c0392b;
     --chart-5: #1f7a4c;
-    --radius: 0.625rem;
-    --sidebar: #ffffff;
-    --sidebar-foreground: #15202b;
-    --sidebar-primary: #0c6b58;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #f0f4f7;
-    --sidebar-accent-foreground: #15202b;
-    --sidebar-border: #d5dce5;
-    --sidebar-ring: #0c6b58;
 
-    /* Dispatch Board semantic signals */
     --canvas: #eef1f4;
+    --surface: #ffffff;
     --surface-raised: #f7f9fb;
     --surface-sunken: #e8ecf1;
-    --ink-muted: #5b6b7c;
-    --ink-subtle: #8494a7;
-    --border-strong: #a8b4c4;
+    --ink: #14212b;
+    --ink-muted: #566675;
+    --ink-subtle: #8395a5;
+    --border-strong: #a9b7c4;
+
     --brand: #0c6b58;
-    --brand-hover: #095445;
+    --brand-hover: #0a5748;
+    --brand-strong: #12a383; /* luminous teal for indicators and icons */
+    --brand-deep: #084c3e;
+    --brand-soft: #dcefe9;
     --on-brand: #ffffff;
     --info: #2a5f8f; /* Planned Blue */
     --warning: #b86e00; /* Deadline Amber */
+    --danger: #c0392b; /* Accident Red */
     --escalation: #7a1f3d; /* Escalation Wine */
     --success: #1f7a4c; /* Verified Green */
     --owner-urgent: #8a4b12; /* Owner Amber-Brown */
-    --overlay: rgba(21, 32, 43, 0.45);
+    --focus-ring: #0c6b58;
+    --overlay: rgba(20, 33, 43, 0.45);
 
-    /* Pastel pairs for badges, column washes, module icon squares (DESIGN.md) */
     --info-subtle: #e4edf6;
     --warning-subtle: #f7ecda;
     --danger-subtle: #f7e2df;
     --escalation-subtle: #f2e2e8;
     --success-subtle: #dfefe6;
     --owner-urgent-subtle: #f3e5d6;
+
+    /* Contrast panel (navigation stratum) — dark in both themes. */
+    --panel: #0d1b22;
+    --panel-raised: #12262f;
+    --panel-hover: rgba(255, 255, 255, 0.06);
+    --panel-active: rgba(18, 163, 131, 0.18);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --panel-ink: #e7eff4;
+    --panel-ink-muted: #9db0bc;
+    --panel-ink-subtle: #6e8391;
+
+    /* Group identity hues (nav icon tints) */
+    --mod-ops: #12a383;
+    --mod-master: #2f6fb5;
+    --mod-system: #8ba6b8;
+
+    --sidebar: var(--panel);
+    --sidebar-foreground: var(--panel-ink);
+    --sidebar-primary: var(--brand-strong);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: var(--panel-hover);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: var(--panel-border);
+    --sidebar-ring: var(--brand-strong);
+}
+
+/*
+ | Dark theme — the same floor after hours: deep blue-black panel,
+ | lifted cards, signal colours re-tuned for contrast (never inverted).
+ */
+.dark {
+    color-scheme: dark;
+
+    --background: #0a1015;
+    --foreground: #e9f1f6;
+    --card: #101922;
+    --card-foreground: #e9f1f6;
+    --popover: #131f29;
+    --popover-foreground: #e9f1f6;
+    --primary: #12836b;
+    --primary-foreground: #ffffff;
+    --secondary: #17232d;
+    --secondary-foreground: #e9f1f6;
+    --muted: #16212b;
+    --muted-foreground: #9aaab8;
+    --accent: #17232d;
+    --accent-foreground: #e9f1f6;
+    --destructive: #e05a4a;
+    --destructive-foreground: #14060a;
+    --border: #22303b;
+    --input: #2b3a46;
+    --ring: #3ecfa6;
+    --chart-1: #74acd8;
+    --chart-2: #3ecfa6;
+    --chart-3: #e5ab4e;
+    --chart-4: #ec8474;
+    --chart-5: #52c08c;
+
+    --canvas: #0a1015;
+    --surface: #101922;
+    --surface-raised: #17232d;
+    --surface-sunken: #0d151c;
+    --ink: #e9f1f6;
+    --ink-muted: #9aaab8;
+    --ink-subtle: #74899a;
+    --border-strong: #3a4c5a;
+
+    --brand: #12836b; /* filled actions: white text stays ≥4.5:1 */
+    --brand-hover: #0f6f5b;
+    --brand-strong: #3ecfa6; /* indicators, icon tints, active label */
+    --brand-deep: #0b5a4a;
+    --brand-soft: rgba(62, 207, 166, 0.14);
+    --on-brand: #ffffff;
+    --info: #74acd8;
+    --warning: #e5ab4e;
+    --danger: #ec8474;
+    --escalation: #dc8fae;
+    --success: #52c08c;
+    --owner-urgent: #dfa35f;
+    --focus-ring: #3ecfa6;
+    --overlay: rgba(3, 7, 10, 0.62);
+
+    --info-subtle: rgba(116, 172, 216, 0.16);
+    --warning-subtle: rgba(229, 171, 78, 0.16);
+    --danger-subtle: rgba(236, 132, 116, 0.16);
+    --escalation-subtle: rgba(220, 143, 174, 0.16);
+    --success-subtle: rgba(82, 192, 140, 0.16);
+    --owner-urgent-subtle: rgba(223, 163, 95, 0.16);
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-raised: 0 3px 10px -2px rgba(0, 0, 0, 0.55);
+    --shadow-popover: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+    --shadow-modal: 0 24px 56px -12px rgba(0, 0, 0, 0.7);
+
+    --panel: #070d12;
+    --panel-raised: #0c161d;
+    --panel-hover: rgba(255, 255, 255, 0.05);
+    --panel-active: rgba(62, 207, 166, 0.18);
+    --panel-border: rgba(255, 255, 255, 0.07);
+    --panel-ink: #e7eff4;
+    --panel-ink-muted: #9db0bc;
+    --panel-ink-subtle: #6e8391;
+
+    --mod-ops: #3ecfa6;
+    --mod-master: #74acd8;
+    --mod-system: #93a9b8;
 }
 
 @layer base {
@@ -185,12 +293,70 @@
         @apply border-border;
     }
 
-    ::selection {
-        background-color: color-mix(in srgb, var(--brand) 20%, transparent);
-        color: var(--foreground);
+    html {
+        -webkit-tap-highlight-color: transparent;
+        scrollbar-color: var(--border-strong) transparent;
     }
 
     body {
         @apply bg-background text-foreground;
+        font-synthesis-weight: none;
+        text-rendering: optimizeLegibility;
+    }
+
+    /* Browser surfaces ship with the palette. */
+    ::selection {
+        background-color: color-mix(in srgb, var(--brand-strong) 28%, transparent);
+        color: var(--foreground);
+    }
+
+    input,
+    textarea,
+    [contenteditable] {
+        caret-color: var(--brand-strong);
+    }
+
+    :focus-visible {
+        outline-color: var(--focus-ring);
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        border: 2px solid transparent;
+        border-radius: 999px;
+        background-clip: content-box;
+        background-color: color-mix(in srgb, var(--border-strong) 70%, transparent);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--border-strong);
+    }
+
+    /* Panel scrollbars live on the dark stratum. */
+    [data-slot='sidebar'] ::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.16);
+    }
+
+    [data-slot='sidebar'] ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.28);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        ::before,
+        ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
     }
 }

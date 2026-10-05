@@ -29,6 +29,44 @@ owner-urgent: "#8A4B12"
 owner-urgent-subtle: "#F3E5D6"
 focus-ring: "#0C6B58"
 overlay: "rgba(21, 32, 43, 0.45)"
+panel: "#0D1B22"
+panel-raised: "#12262F"
+panel-hover: "rgba(255, 255, 255, 0.06)"
+panel-active: "rgba(18, 163, 131, 0.18)"
+panel-border: "rgba(255, 255, 255, 0.09)"
+panel-ink: "#E7EFF4"
+panel-ink-muted: "#9DB0BC"
+panel-ink-subtle: "#6E8391"
+mod-ops: "#12A383"
+mod-master: "#2F6FB5"
+mod-system: "#8BA6B8"
+
+themes:
+light:
+canvas: "#EEF1F4"
+surface: "#FFFFFF"
+ink: "#14212B"
+ink-muted: "#566675"
+border: "#D9E1E8"
+brand: "#0C6B58"
+brand-strong: "#12A383"
+panel: "#0D1B22"
+dark:
+canvas: "#0A1015"
+surface: "#101922"
+surface-raised: "#17232D"
+ink: "#E9F1F6"
+ink-muted: "#9AAAB8"
+border: "#22303B"
+brand: "#12836B"
+brand-strong: "#3ECFA6"
+panel: "#070D12"
+info: "#74ACD8"
+warning: "#E5AB4E"
+danger: "#EC8474"
+escalation: "#DC8FAE"
+success: "#52C08C"
+owner-urgent: "#DFA35F"
 
 typography:
 display:
@@ -148,9 +186,10 @@ The shift from the earlier "Dispatch Board" framing is deliberate: the product n
 
 **Key Characteristics:**
 
-- Light, high-contrast, soft-shadowed cards on a cool concrete canvas.
-- Left icon rail + top bar with pill-tab section navigation.
-- Greeting header + info banner as the top of every role home.
+- Two surface strata: a deep **contrast panel** for navigation over a quiet working canvas.
+- Grouped sidebar panel (Operasional · Data Master · Sistem) beside a sticky top bar.
+- **Shell-owned section heading band**: module chip · title or greeting · description · primary actions.
+- Light and dark themes ship together, each tuned by hand — never an inverted palette.
 - Module grid for role-scoped entry points (WO Baru, Verifikasi, Extend, Daily).
 - Board (kanban) view of Work Orders by status, with dense list view toggle.
 - Task cards with priority badge, progress bar, due row, avatar stack, meta counts.
@@ -200,6 +239,12 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 
 **The Pastel Pair Rule.** When a signal color is used as a background tint (badge, column wash, module icon square), it must always use the paired `*-subtle` token with the full-strength token as foreground/icon, and always include a text label.
 
+**The Two-Strata Rule.** Navigation lives on the ink-teal panel (`panel`); work lives on the canvas. Content surfaces never sit on the panel stratum, and the panel is never tinted with a signal colour.
+
+**The Twin-Tune Rule (dark mode).** Dark is authored, not inverted: teal and every signal colour are re-picked for their own contrast, `*-subtle` becomes an alpha tint over the card, and elevation shifts from hairline borders to deeper shadows. Both themes hold the same floors (body text ≥4.5:1).
+
+**The Group-Hue Rule.** `mod-ops`, `mod-master`, and `mod-system` tint navigation icons and the heading-band chip only. A group hue never encodes status, never fills a surface, and never appears without its label.
+
 ## Typography
 
 **Display Font:** Source Sans 3 (with a sans-serif fallback)
@@ -225,10 +270,12 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 
 ## Layout
 
-The system uses a workspace shell with a floating icon rail and a top bar that holds the section navigation.
+The system uses a two-strata shell: a dark navigation panel beside a light-or-dark working canvas.
 
-- **Shell.** A 64px floating left icon rail (Beranda, Work Order, Daily Work, Work Data, Admin if permitted; bottom: Bantuan, Keluar) sits beside a content column. The top bar (64px) spans the content column and holds: OptiWorks logo left, pill-tab section navigation center, and on the right the appearance toggle, notification bell, and the user avatar with menu.
-- **Content column.** Max width ~1200–1280px, centered with generous top padding (40px).
+- **Shell.** A 256px navigation panel (collapses to a 48px icon rail with ⌘/Ctrl+B, the rail, or the top-bar trigger; state persists in the `sidebar_state` cookie) sits beside the content stratum. Panel header: logo mark + two-tone wordmark + cabang chip. Panel body: three groups (Operasional · Data Master · Sistem) with tracked micro-cap captions and group-tinted icons. Panel footer: Bantuan, then the identity block (avatar, name, email) with its menu. The panel is dark in both themes — it is a stratum, not a theme surface.
+- **Top bar (64px, sticky).** Inside the content stratum: panel trigger, breadcrumb trail (current section only on phones), then the account cluster — appearance switch (Terang · Gelap · Sistem), notification bell with unread count, and the avatar menu. The bar is calm at rest and gains a hairline and soft shadow once content scrolls beneath it.
+- **Section heading band.** Rendered by the shell from the page's layout props: module icon chip in the module's identity tint, `h1` (either the page title or the time-aware greeting), one supporting line capped at 65ch, and the page's primary actions right-aligned. Pages never render their own page heading or padding.
+- **Content column.** Max width 1400px, centered, padding 16px (phone) / 24px (sm) / 32px (lg), bottom padding 7rem on phones to clear the floating bar.
 - **Top of every role home.**
     1. **Greeting header** — display-size "Selamat pagi/siang/sore, {Nama}" + caption subtitle.
     2. **Info banner** — one rounded pill, brand or ink emphasis, single message and one link ("Lihat detail"). One per page maximum.
@@ -237,8 +284,8 @@ The system uses a workspace shell with a floating icon rail and a top bar that h
     5. **Board / list content** — see below.
 - **Board view (signature).** Kanban columns by Work Order status group, in order: `Menunggu keputusan` → `Terjadwal` → `On progress` → `Menunggu verifikasi` → `Selesai`. Each column header: colored dot + label + count + ⋮. Column background: `surface-sunken`. Cards below.
 - **List view.** Dense 48px rows for desktop HOD queues, using `WoListRow` (deadline rail + title + mono WO number + category/status badges + deadline proximity).
-- **Tablet (768–1023px).** Icon rail collapses to a hamburger sheet; top bar keeps logo + bell + avatar; board scrolls horizontally inside its own region (no page-level horizontal scroll); list remains full width.
-- **Mobile (<768px).** Bottom navigation (Beranda, WO, Harian, Data, Lainnya); top bar keeps title + bell. Board collapses to a single-column stacked card list grouped by status; sticky `+ Buat Work Order` action at the bottom of the content column.
+- **Tablet (768–1023px).** The panel survives (collapse it to the icon rail for more width); top bar keeps trigger + breadcrumb + bell + identity; board scrolls horizontally inside its own region (no page-level horizontal scroll); list remains full width.
+- **Mobile (<768px).** The panel becomes a sheet behind the top-bar trigger; a floating bottom bar (four destinations + Lainnya) owns navigation, and the Lainnya sheet carries every group, the appearance switch with labels, and Keluar. Board collapses to a single-column stacked card list grouped by status; the page's primary action lives in the heading band, never as a floating button over content.
 - **Desktop Work Order detail** uses a two-column main-and-meta layout inside a card. Mobile collapses to one column with a sticky action bar.
 - **Create Work Order** is one column on mobile with a four-step progression; on desktop a single long form inside a card with a sticky submit action.
 - **Filters move into a bottom sheet on mobile.** No workflow introduces page-level horizontal scrolling.
@@ -287,10 +334,11 @@ Touch targets are at least 44 by 44px. Mobile list rows are at least 56px high. 
 
 ### Shell & Navigation
 
-- **Icon rail (desktop ≥1024px):** 64px wide, floating, icon-only buttons (44px targets) with tooltips on hover/focus. Active item: raised white chip with `Strong Rule` border. Bottom group: Bantuan, Keluar.
-- **Top bar (64px, sticky):** logo left; pill-tab section navigation center (`Beranda · Work Order · Daily Work · Work Data · Admin` when permitted) where the active tab is a raised white chip with `Strong Rule` border inside a `surface-sunken` pill container; right side holds appearance toggle, notification bell, and the user identity block with menu.
-- **Bottom navigation (mobile <768px):** Beranda, WO, Harian, Data, Lainnya.
-- **Permission behavior:** hide unauthorized navigation. Deep links resolve to an accessible 403 surface; do not expose inert admin chrome.
+- **Navigation panel (desktop ≥768px):** 256px dark stratum (`panel`) with 1px `panel-border` hairline; collapses to a 48px icon rail. Group captions in 11px tracked micro caps (`panel-ink-subtle`). Item: 36px row, group-hue icon, `panel-ink-muted` label; hover fills `panel-hover`; the current item gets a `panel-active` teal chip, `panel-ink` label, and a 3px `brand-strong` marker on the panel edge. Unread notifications ride a count badge (a dot when collapsed).
+- **Top bar (64px, sticky, content stratum):** trigger, breadcrumb trail, then the account cluster — appearance switch, bell with unread count, avatar menu. Hairline + `shadow-card` appear only after scroll; the bar is translucent (`surface/70 → /90` + backdrop blur).
+- **Section heading band:** module chip (36px, group tint on `*-/12` with a `*/25` ring), `h1`, optional 65ch description, and the page's primary action (`primary`, 40px) on the right. One heading owner per page.
+- **Bottom navigation (mobile <768px):** floating bar (4 destinations + Lainnya) of 48px targets inside a 64px pill, `surface/95` + blur, active item filled `brand`; the Lainnya sheet carries all groups, the labelled appearance switch, and Keluar.
+- **Permission behavior:** hide unauthorized navigation (`permissions.*.read`); modules without a route render inert with a "Segera" marker instead of a fake link. Deep links resolve to an accessible 403 surface; do not expose inert admin chrome.
 
 ### Buttons
 
@@ -397,5 +445,6 @@ Submit Hasil and Verify Hasil use a two-column desktop layout and a stacked mobi
 - **Don't** use pastel status pills without labels or rely on red versus green alone.
 - **Don't** use Inter, Roboto, system-ui, display serifs, or handwritten faces as the brand voice.
 - **Don't** use gamified badges, confetti, playful illustrations, or consumer-style pill CTAs (pill shape reserved for badges and dots, not primary buttons).
-- **Don't** ship dark mode, inventory, surat, tenant CRUD, or external notification preference screens in the MVP UI.
+- **Don't** invert the palette for dark mode (a dark theme is authored per token, never a flipped light theme), ship inventory, surat, tenant CRUD, or external notification preference screens in the MVP UI.
+- **Don't** tint the navigation panel with signal colours, and never let a group hue carry meaning without its label.
 - **Don't** turn the product into a marketing landing page; the first screen is the user's work queue.

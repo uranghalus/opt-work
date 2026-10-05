@@ -51,7 +51,7 @@ export default function EditDepartment({
         <>
             <Head title="Edit Department" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Edit Department"
                     description={`Ubah data department ${department.kode_department}`}

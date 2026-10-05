@@ -1,68 +1,285 @@
 import {
+    Bell,
+    BriefcaseBusiness,
+    Building2,
     CalendarClock,
     ClipboardList,
     Database,
     House,
     LayoutGrid,
+    LifeBuoy,
+    Network,
     Settings,
+    ShieldCheck,
     Users,
     type LucideIcon,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
+import departments from '@/routes/departments';
+import divisions from '@/routes/divisions';
+import employees from '@/routes/employees';
+import { index as notificationsIndex } from '@/routes/notifications';
+import positions from '@/routes/positions';
+import { index as workOrdersIndex } from '@/routes/work-orders';
 import type { NavItem } from '@/types';
 
 /**
  * OptiWorks navigation (DESIGN_BRIEF §6 S01, PRD §5 MVP scope).
- * Permission-driven: pages gate visibility at render time via
- * `roles`; unauthenticated/unpermitted items are hidden, not disabled.
- * `roles?: string[]` is a forward hook — role data arrives with RBAC,
- * until then every item renders for every authenticated user.
+ *
+ * One source of truth for the sidebar, the mobile sheet, and the bottom nav.
+ * Permission-driven: tenant-scoped and role-scoped items disappear (not
+ * disabled) when the user cannot reach them; modules without a route yet are
+ * rendered disabled with a "Segera" hint instead of pointing at a fake URL.
  */
+export type NavTone = 'ops' | 'master' | 'system';
+
 export type OptiNavItem = NavItem & {
     /** Spatie role names allowed to see this item (forward hook for RBAC). */
     roles?: string[];
+    /** Shared `can` key that must be true for this item to render. */
+    permission?: string;
+    /** Group identity hue used for the icon tint. */
+    tone?: NavTone;
+    /** Compact label used by the mobile bottom navigation. */
+    shortTitle?: string;
+    /** Reads the shared unread notification count and renders a badge. */
+    badge?: 'notifications';
+    /** Module not built yet (or no cabang active): rendered inert. */
+    disabled?: boolean;
+    /** Reason shown in the tooltip when an item is inert. */
+    hint?: string;
 };
 
-export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
-    return [
-        {
-            title: 'Beranda',
+export type OptiNavGroup = {
+    id: string;
+    label: string;
+    tone: NavTone;
+    items: OptiNavItem[];
+};
+
+type NavContext = {
+    activeTenant?: string | null;
+    permissions?: Record<string, boolean>;
+};
+
+/** Group hues: identity for a navigation area — never a status signal. */
+export const navToneStyles: Record<
+    NavTone,
+    { icon: string; chip: string; chipRing: string }
+> = {
+    ops: {
+        icon: 'text-mod-ops',
+        chip: 'bg-mod-ops/12',
+        chipRing: 'ring-mod-ops/25',
+    },
+    master: {
+        icon: 'text-mod-master',
+        chip: 'bg-mod-master/12',
+        chipRing: 'ring-mod-master/25',
+    },
+    system: {
+        icon: 'text-mod-system',
+        chip: 'bg-mod-system/12',
+        chipRing: 'ring-mod-system/25',
+    },
+};
+
+/** A tenant-scoped href, or an inert item when no cabang is active. */
+function tenantItem(
+    activeTenant: string | null,
+    build: (tenant: string) => NonNullable<NavItem['href']>,
+): Pick<OptiNavItem, 'href' | 'disabled' | 'hint'> {
+    if (!activeTenant) {
+        return {
             href: dashboard(),
-            icon: House,
+            disabled: true,
+            hint: 'Pilih cabang untuk membuka modul ini',
+        };
+    }
+
+    return { href: build(activeTenant) };
+}
+
+function modulePending(name: string): Pick<OptiNavItem, 'disabled' | 'hint'> {
+    return { disabled: true, hint: `${name} segera hadir` };
+}
+
+export function navGroups({
+    activeTenant = null,
+    permissions = {},
+}: NavContext): OptiNavGroup[] {
+    const tenant = activeTenant ?? null;
+
+    const groups: OptiNavGroup[] = [
+        {
+            id: 'ops',
+            label: 'Operasional',
+            tone: 'ops',
+            items: [
+                {
+                    title: 'Beranda',
+                    shortTitle: 'Beranda',
+                    href: dashboard(),
+                    icon: House,
+                    tone: 'ops',
+                },
+                {
+                    title: 'Work Order',
+                    shortTitle: 'WO',
+                    icon: ClipboardList,
+                    tone: 'ops',
+                    ...tenantItem(tenant, (t) =>
+                        workOrdersIndex({ tenant: t }),
+                    ),
+                },
+                {
+                    title: 'Daily Work',
+                    shortTitle: 'Harian',
+                    href: dashboard(),
+                    icon: CalendarClock,
+                    tone: 'ops',
+                    ...modulePending('Daily Work'),
+                },
+                {
+                    title: 'Work Data',
+                    shortTitle: 'Data',
+                    href: dashboard(),
+                    icon: Database,
+                    tone: 'ops',
+                    ...modulePending('Work Data'),
+                },
+                {
+                    title: 'Notifikasi',
+                    shortTitle: 'Notif',
+                    href: notificationsIndex(),
+                    icon: Bell,
+                    tone: 'ops',
+                    badge: 'notifications',
+                },
+            ],
         },
         {
-            title: 'Work Order',
-            href: activeTenant ? `/${activeTenant}/work-orders` : dashboard(),
-            icon: ClipboardList,
+            id: 'master',
+            label: 'Data Master',
+            tone: 'master',
+            items: [
+                {
+                    title: 'Department',
+                    icon: Building2,
+                    tone: 'master',
+                    permission: 'department.read',
+                    ...tenantItem(tenant, (t) =>
+                        departments.index({ tenant: t }),
+                    ),
+                },
+                {
+                    title: 'Divisi',
+                    icon: Network,
+                    tone: 'master',
+                    permission: 'division.read',
+                    ...tenantItem(tenant, (t) =>
+                        divisions.index({ tenant: t }),
+                    ),
+                },
+                {
+                    title: 'Posisi',
+                    icon: BriefcaseBusiness,
+                    tone: 'master',
+                    permission: 'employee.read',
+                    ...tenantItem(tenant, (t) =>
+                        positions.index({ tenant: t }),
+                    ),
+                },
+                {
+                    title: 'Karyawan',
+                    icon: Users,
+                    tone: 'master',
+                    permission: 'employee.read',
+                    ...tenantItem(tenant, (t) =>
+                        employees.index({ tenant: t }),
+                    ),
+                },
+            ],
         },
         {
-            title: 'Daily Work',
-            href: dashboard(), // D01 Daily Work route lands with the module
-            icon: CalendarClock,
+            id: 'system',
+            label: 'Sistem',
+            tone: 'system',
+            items: [
+                {
+                    title: 'Admin',
+                    href: dashboard(),
+                    icon: ShieldCheck,
+                    tone: 'system',
+                    roles: ['Super Admin'],
+                    ...modulePending('Manajemen pengguna & role'),
+                },
+                {
+                    title: 'Pengaturan',
+                    shortTitle: 'Atur',
+                    href: '/settings/profile',
+                    icon: Settings,
+                    tone: 'system',
+                },
+            ],
         },
-        {
-            title: 'Work Data',
-            href: dashboard(), // WD01 history route lands with the module
-            icon: Database,
-        },
-        {
-            title: 'Admin',
-            href: dashboard(), // A01 RBAC route lands with the module; gate by role then
-            icon: Users,
-            roles: ['Super Admin'],
-        },
+    ];
+
+    return groups
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(
+                (item) =>
+                    !item.permission || permissions[item.permission] === true,
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
+}
+
+/**
+ * Flat primary navigation for the header tabs, the tablet menu, and the
+ * icon rail: the operations group plus role-gated system entries.
+ */
+export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
+    const groups = navGroups({ activeTenant });
+    const ops = groups.find((group) => group.id === 'ops');
+    const system = groups.find((group) => group.id === 'system');
+
+    return [
+        ...(ops?.items ?? []),
+        ...(system?.items ?? []).filter((item) => item.roles !== undefined),
     ];
 }
 
+/** Footer utilities: help is not shipped yet, so it stays inert. */
 export const utilityNavItems: OptiNavItem[] = [
     {
-        title: 'Pengaturan',
-        href: '/settings/profile',
-        icon: Settings,
+        title: 'Bantuan',
+        href: dashboard(),
+        icon: LifeBuoy,
+        disabled: true,
+        hint: 'Pusat bantuan segera hadir',
     },
 ];
+
+/** Mobile bottom bar entries (≤4 destinations; "Lainnya" holds the rest). */
+export function mobileNavItems({
+    activeTenant,
+    permissions,
+}: NavContext): OptiNavItem[] {
+    const ops = navGroups({ activeTenant, permissions }).find(
+        (group) => group.id === 'ops',
+    );
+
+    return (ops?.items ?? []).filter((item) => !item.disabled).slice(0, 4);
+}
 
 /** Always resolves to an icon: falls back to LayoutGrid when unset. */
 export function navIcon(item: OptiNavItem): LucideIcon {
     return item.icon ?? (LayoutGrid as unknown as LucideIcon);
+}
+
+/** Icon tint for an item, falling back to the operations hue. */
+export function navToneIcon(item: OptiNavItem): string {
+    return navToneStyles[item.tone ?? 'ops'].icon;
 }

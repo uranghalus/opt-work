@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { create, edit, index, show } from '@/routes/divisions';
-import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -24,6 +23,33 @@ type PageProps = {
     divisions: { data: Division[] };
 };
 
+/** Primary action of this page, rendered in the shell's heading band. */
+function DivisionActions() {
+    const { can, activeTenant } = usePage<
+        InertiaConfig['sharedPageProps']
+    >().props;
+
+    if (!can?.create) {
+        return null;
+    }
+
+    return (
+        <Button asChild size="lg">
+            <Link href={create({ tenant: activeTenant ?? '' })}>
+                <Plus aria-hidden />
+                Tambah Divisi
+            </Link>
+        </Button>
+    );
+}
+
+Divisions.layout = {
+    breadcrumbs: [{ title: 'Data Master' }, { title: 'Divisi' }],
+    title: 'Divisi',
+    description: 'Kelompok divisi perusahaan dalam cabang aktif',
+    actions: DivisionActions,
+};
+
 export default function Divisions(props: PageProps) {
     const { divisions } = props;
     const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
@@ -32,24 +58,7 @@ export default function Divisions(props: PageProps) {
         <>
             <Head title="Divisi" />
 
-            <div className="space-y-6 px-4 py-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <Heading
-                        title="Divisi"
-                        description="Kelompok divisi perusahaan dalam cabang aktif"
-                    />
-                    {can.create && (
-                        <Button asChild>
-                            <Link
-                                href={create({ tenant: activeTenant ?? '' })}
-                            >
-                                <Plus aria-hidden />
-                                Tambah Divisi
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-
+            <div className="space-y-6">
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>

@@ -17,7 +17,7 @@ export default function ShowDivision({ division }: PageProps) {
         <>
             <Head title={division.nama_division} />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title={division.nama_division}
                     description="Detail divisi"

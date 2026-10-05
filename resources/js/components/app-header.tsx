@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Bell, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
+import { Bell, Building2, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
@@ -40,19 +40,17 @@ type Props = {
 };
 
 /*
- * Top bar (DESIGN.md §Shell & Navigation, 64px, sticky):
- * logo left, pill-tab section navigation center, right cluster with
- * appearance toggle, notification bell, and user identity block.
- * Tablet (768-1023px) collapses the rail into a hamburger sheet; mobile
+ * Glassy Modern shell — floating translucent chrome over the concrete
+ * canvas: backdrop-blur surfaces, luminous top-edge highlights, and the
+ * evolved teal gradient reserved for where-the-user-is signals (logo orb,
+ * active tab chip, bell badge). Blur and ambient shadow deepen on scroll.
+ * Tablet (768-1023px) collapses nav into a hamburger sheet; mobile
  * (<768px) keeps logo + bell + avatar (bottom nav owns navigation).
  */
 
-const shadowRaised = 'shadow-raised';
-const shadowPopover = 'shadow-popover';
-
 /**
- * Tracks whether the page has scrolled past `threshold` so the sticky header
- * can wake its soft shadow only when content passes beneath it.
+ * Tracks whether the page has scrolled past `threshold` so the sticky
+ * header deepens its translucency and ambient shadow on scroll.
  */
 function useScrolled(threshold = 8): boolean {
     const [scrolled, setScrolled] = useState(false);
@@ -69,15 +67,17 @@ function useScrolled(threshold = 8): boolean {
 }
 
 /**
- * Pill-tab section navigation (DESIGN.md): tabs inside a surface-sunken
- * pill container; the active tab is a raised white chip with Strong Rule
- * border. Hover/press never shift layout — borders exist on both states.
+ * Pill-tab section navigation inside a frosted glass capsule. The active
+ * tab is a raised white chip with a teal icon and a soft brand glow.
  */
 function PillTabs({ items }: { items: OptiNavItem[] }) {
     return (
         <nav
             aria-label="Navigasi utama"
-            className="hidden items-center gap-0.5 rounded-lg border border-border/60 bg-surface-sunken p-0.5 lg:flex"
+            className={cn(
+                'hidden items-center gap-1 rounded-full border border-white/70 bg-card/60 p-1 backdrop-blur-md lg:flex',
+                'shadow-[0_2px_8px_rgba(21,32,43,0.06),inset_0_1px_0_rgba(255,255,255,0.7)]',
+            )}
         >
             {items.map((item) => (
                 <PillTab key={item.title} item={item} />
@@ -97,18 +97,20 @@ function PillTab({ item }: { item: OptiNavItem }) {
             prefetch
             aria-current={active ? 'page' : undefined}
             className={cn(
-                'group inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-200 ease-standard motion-reduce:transition-none',
-                'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
+                'group relative inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm whitespace-nowrap transition-all duration-200 ease-standard active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100',
+                'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:outline-none',
                 active
-                    ? 'border-border-strong bg-card text-foreground shadow-raised'
-                    : 'border-transparent text-ink-muted hover:bg-card/60 hover:text-foreground',
+                    ? 'bg-white font-semibold text-foreground shadow-[0_2px_10px_-2px_rgba(12,107,88,0.35),0_1px_3px_rgba(21,32,43,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] ring-1 ring-brand/20'
+                    : 'font-medium text-ink-muted hover:bg-white/60 hover:text-foreground',
             )}
         >
             <Icon
                 aria-hidden="true"
                 className={cn(
-                    'size-4 shrink-0',
-                    active ? 'text-brand' : 'opacity-70 group-hover:opacity-100',
+                    'size-4 shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100',
+                    active
+                        ? 'text-brand'
+                        : 'opacity-70 group-hover:opacity-100',
                 )}
             />
             {item.title}
@@ -127,16 +129,16 @@ function MobileMenu() {
                     variant="ghost"
                     size="icon"
                     aria-label="Buka menu navigasi"
-                    className="relative size-10 cursor-pointer rounded-md after:absolute after:-inset-1 after:content-['']"
+                    className="relative size-10 cursor-pointer rounded-full border border-white/70 bg-card/60 shadow-[0_2px_8px_rgba(21,32,43,0.06),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md after:absolute after:-inset-1 after:content-['']"
                 >
                     <Menu aria-hidden="true" className="size-5" />
                 </Button>
             </SheetTrigger>
             <SheetContent
                 side="left"
-                className="w-80 gap-0 border-r border-border/80 bg-card p-0"
+                className="w-80 gap-0 border-r border-white/60 bg-card/90 p-0 backdrop-blur-xl"
             >
-                <SheetHeader className="border-b border-border/70 px-5 py-4">
+                <SheetHeader className="border-b border-border/60 px-5 py-4">
                     <SheetTitle className="sr-only">Menu navigasi</SheetTitle>
                     <AppLogo />
                 </SheetHeader>
@@ -152,7 +154,7 @@ function MobileMenu() {
                             <SheetNavLink key={item.title} item={item} />
                         ))}
                     </nav>
-                    <div className="mt-5 border-t border-border/70 pt-4">
+                    <div className="mt-5 border-t border-border/60 pt-4">
                         <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
                             Lainnya
                         </p>
@@ -161,7 +163,7 @@ function MobileMenu() {
                                 <SheetClose key={item.title} asChild>
                                     <Link
                                         href={toUrl(item.href)}
-                                        className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-ink-muted transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+                                        className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-ink-muted transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                                     >
                                         {item.title}
                                     </Link>
@@ -175,7 +177,7 @@ function MobileMenu() {
     );
 }
 
-/** Sheet nav link: icon-led, multi-signal active state. */
+/** Sheet nav link: active item glows with the brand gradient chip. */
 function SheetNavLink({ item }: { item: OptiNavItem }) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const Icon = navIcon(item);
@@ -188,17 +190,19 @@ function SheetNavLink({ item }: { item: OptiNavItem }) {
                 prefetch
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                    'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-150',
+                    'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-200',
                     'hover:bg-accent hover:text-foreground',
                     'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
-                    active ? 'bg-accent text-foreground' : 'text-ink-muted',
+                    active
+                        ? 'bg-gradient-to-br from-brand-strong to-brand font-semibold text-on-brand shadow-glow-brand'
+                        : 'text-ink-muted',
                 )}
             >
                 <Icon
                     aria-hidden="true"
                     className={cn(
                         'size-[18px] shrink-0',
-                        active ? 'text-brand' : 'opacity-70',
+                        active ? 'text-on-brand' : 'opacity-70',
                     )}
                 />
                 {item.title}
@@ -210,21 +214,27 @@ function SheetNavLink({ item }: { item: OptiNavItem }) {
 function NotificationButton() {
     const { unreadNotificationsCount } = usePage().props;
     const unread = Number(unreadNotificationsCount ?? 0);
+    const label = unread > 99 ? '99+' : unread;
 
     return (
         <Button
             variant="ghost"
             size="icon"
             asChild
-            className="relative size-10 cursor-pointer rounded-md text-ink-muted hover:bg-accent hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
+            className="relative size-9 cursor-pointer rounded-full text-ink-muted hover:bg-white/70 hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
         >
-            <Link href={notificationsIndex()} aria-label={`Notifikasi${unread > 0 ? ` (${unread} belum dibaca)` : ''}`}>
+            <Link
+                href={notificationsIndex()}
+                aria-label={`Notifikasi${unread > 0 ? ` (${unread} belum dibaca)` : ''}`}
+            >
                 <Bell aria-hidden="true" className="size-[18px] opacity-80" />
                 {unread > 0 && (
                     <span
                         aria-hidden="true"
-                        className="absolute top-2 right-2 size-2 rounded-full bg-warning ring-2 ring-card"
-                    />
+                        className="absolute -top-0.5 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-brand-strong to-brand px-1 text-[0.625rem] leading-none font-bold text-on-brand ring-2 ring-white shadow-glow-brand"
+                    >
+                        {label}
+                    </span>
                 )}
             </Link>
         </Button>
@@ -243,19 +253,25 @@ function AppearanceMenu() {
                     variant="ghost"
                     size="icon"
                     aria-label="Ganti tema tampilan"
-                    className="size-10 cursor-pointer rounded-md text-ink-muted hover:bg-accent hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
+                    className="size-9 cursor-pointer rounded-full text-ink-muted hover:bg-white/70 hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
                 >
                     {isDark ? (
-                        <Sun aria-hidden="true" className="size-[18px] opacity-80" />
+                        <Sun
+                            aria-hidden="true"
+                            className="size-[18px] opacity-80"
+                        />
                     ) : (
-                        <Moon aria-hidden="true" className="size-[18px] opacity-80" />
+                        <Moon
+                            aria-hidden="true"
+                            className="size-[18px] opacity-80"
+                        />
                     )}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
                 align="end"
                 sideOffset={8}
-                className={cn('rounded-lg border-border/80', shadowPopover)}
+                className="rounded-xl border-white/60 bg-card/90 shadow-glass backdrop-blur-xl"
             >
                 <DropdownMenuRadioGroup
                     value={appearance}
@@ -289,17 +305,14 @@ function UserMenu() {
                 <Button
                     variant="ghost"
                     aria-label={`Menu pengguna: ${auth.user?.name ?? ''}`}
-                    className={cn(
-                        'group h-10 cursor-pointer gap-2.5 rounded-lg border border-border/70 bg-card py-1 pr-2 pl-1 hover:bg-accent/60 sm:pr-2.5',
-                        shadowRaised,
-                    )}
+                    className="group h-11 cursor-pointer gap-2.5 rounded-full border border-white/70 bg-card/60 p-1 pr-2 shadow-[0_2px_8px_rgba(21,32,43,0.06),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md transition-all duration-200 hover:bg-white/80 hover:shadow-glass sm:pr-2.5"
                 >
-                    <Avatar className="size-8 overflow-hidden rounded-full ring-1 ring-border-strong/50 transition-shadow duration-150 group-hover:ring-brand/40">
+                    <Avatar className="size-8 overflow-hidden rounded-full ring-1 ring-brand/25 transition-shadow duration-150 group-hover:shadow-glow-brand group-hover:ring-brand/50">
                         <AvatarImage
                             src={auth.user?.avatar}
                             alt={auth.user?.name}
                         />
-                        <AvatarFallback className="rounded-full bg-secondary text-foreground">
+                        <AvatarFallback className="rounded-full bg-brand-soft text-brand">
                             {getInitials(auth.user?.name ?? '')}
                         </AvatarFallback>
                     </Avatar>
@@ -320,7 +333,7 @@ function UserMenu() {
             <DropdownMenuContent
                 align="end"
                 sideOffset={8}
-                className={cn('w-60 rounded-lg border-border/80', shadowPopover)}
+                className="w-60 rounded-xl border-white/60 bg-card/90 shadow-glass backdrop-blur-xl"
             >
                 {auth.user && <UserMenuContent user={auth.user} />}
             </DropdownMenuContent>
@@ -328,16 +341,30 @@ function UserMenu() {
     );
 }
 
+/** Logo orb plus the active cabang chip — cabang context stays operational truth. */
 function HeaderBrand() {
+    const { activeTenant } = usePage().props;
+
     return (
-        <Link
-            href={dashboard()}
-            prefetch
-            aria-label="Beranda OptiWorks"
-            className="-ml-1.5 flex shrink-0 items-center rounded-lg p-1.5 transition-colors duration-150 hover:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
-        >
-            <AppLogo />
-        </Link>
+        <div className="flex min-w-0 items-center gap-2.5">
+            <Link
+                href={dashboard()}
+                prefetch
+                aria-label="Beranda OptiWorks"
+                className="-ml-1.5 flex shrink-0 items-center rounded-full p-1.5 transition-colors duration-150 hover:bg-white/60 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+            >
+                <AppLogo />
+            </Link>
+            {activeTenant && (
+                <span className="hidden items-center gap-1.5 rounded-full border border-white/70 bg-card/60 px-2.5 py-1 text-xs font-medium text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md md:inline-flex">
+                    <Building2
+                        aria-hidden="true"
+                        className="size-3.5 text-brand"
+                    />
+                    <span className="max-w-40 truncate">{activeTenant}</span>
+                </span>
+            )}
+        </div>
     );
 }
 
@@ -348,12 +375,17 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     return (
         <header
             className={cn(
-                'sticky top-0 z-30 border-b bg-canvas transition-[border-color,box-shadow] duration-300 ease-out motion-reduce:transition-none',
+                'sticky top-0 z-30 backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow] duration-300 ease-standard motion-reduce:transition-none',
                 scrolled
-                    ? 'border-border shadow-[0_2px_12px_rgba(21,32,43,0.08),0_1px_3px_rgba(21,32,43,0.05)]'
-                    : 'border-border/80',
+                    ? 'border-b border-white/50 bg-card/80 shadow-glass'
+                    : 'border-b border-transparent bg-card/50',
             )}
         >
+            {/* Luminous top-edge highlight */}
+            <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent"
+            />
             <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center justify-between gap-2 px-4 md:px-6">
                 {/* Tablet hamburger (768-1023px) — mobile owns navigation via bottom nav */}
                 <div className="hidden md:block lg:hidden">
@@ -367,16 +399,14 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
 
                 {/* Right cluster: appearance + notification bell + user identity */}
                 <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-                    <div
-                        className={cn(
-                            'flex items-center gap-0.5 rounded-lg border border-border/70 bg-card p-0.5',
-                            shadowRaised,
-                        )}
-                    >
-                        <AppearanceMenu />
+                    <div className="flex items-center gap-0.5 rounded-full border border-white/70 bg-card/60 p-1 shadow-[0_2px_8px_rgba(21,32,43,0.06),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md">
+                        {/* Mobile keeps bell + avatar only (theme lives in Pengaturan) */}
+                        <span className="max-md:hidden">
+                            <AppearanceMenu />
+                        </span>
                         <span
                             aria-hidden="true"
-                            className="h-5 w-px bg-border"
+                            className="h-5 w-px bg-border/70 max-md:hidden"
                         />
                         <NotificationButton />
                     </div>
@@ -384,9 +414,9 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                 </div>
             </div>
 
-            {/* Breadcrumb row on the same surface, separated by a hairline */}
+            {/* Breadcrumb row on the same glass surface, separated by a hairline */}
             {breadcrumbs.length > 1 && (
-                <div className="mx-auto flex h-10 w-full max-w-[1280px] items-center border-t border-border/60 px-4 text-sm text-ink-muted md:px-6">
+                <div className="mx-auto flex h-10 w-full max-w-[1280px] items-center border-t border-white/50 px-4 text-[0.8125rem] text-ink-muted md:px-6">
                     <Breadcrumbs breadcrumbs={breadcrumbs} />
                 </div>
             )}

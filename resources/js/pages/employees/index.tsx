@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { create, edit, index, show } from '@/routes/employees';
-import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -28,6 +27,33 @@ type PageProps = {
     employees: { data: Employee[] };
 };
 
+/** Primary action of this page, rendered in the shell's heading band. */
+function EmployeeActions() {
+    const { can, activeTenant } = usePage<
+        InertiaConfig['sharedPageProps']
+    >().props;
+
+    if (!can?.create) {
+        return null;
+    }
+
+    return (
+        <Button asChild size="lg">
+            <Link href={create({ tenant: activeTenant ?? '' })}>
+                <Plus aria-hidden />
+                Tambah Karyawan
+            </Link>
+        </Button>
+    );
+}
+
+Employees.layout = {
+    breadcrumbs: [{ title: 'Data Master' }, { title: 'Karyawan' }],
+    title: 'Karyawan',
+    description: 'Data karyawan dalam cabang aktif',
+    actions: EmployeeActions,
+};
+
 export default function Employees(props: PageProps) {
     const { employees } = props;
     const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
@@ -37,22 +63,7 @@ export default function Employees(props: PageProps) {
         <>
             <Head title="Karyawan" />
 
-            <div className="space-y-6 px-4 py-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <Heading
-                        title="Karyawan"
-                        description="Data karyawan dalam cabang aktif"
-                    />
-                    {can.create && (
-                        <Button asChild>
-                            <Link href={create({ tenant })}>
-                                <Plus aria-hidden />
-                                Tambah Karyawan
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-
+            <div className="space-y-6">
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>

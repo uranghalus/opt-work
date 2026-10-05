@@ -6,9 +6,10 @@ import { IconRail } from '@/components/icon-rail';
 import type { AppLayoutProps } from '@/types';
 
 /*
- * Workspace shell (DESIGN.md §Layout): floating 64px icon rail beside a
- * content column whose top bar holds the pill-tab section navigation.
- * Mobile (<768px) swaps the rail for bottom navigation.
+ * Workspace shell (Glassy Modern redesign): a floating frosted-glass
+ * capsule icon rail beside a content column whose translucent top bar
+ * (backdrop-blur, deepen-on-scroll) holds the pill-tab section navigation.
+ * Mobile (<768px) swaps the rail for a floating glass pill bottom nav.
  */
 export default function AppHeaderLayout({
     children,

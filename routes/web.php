@@ -35,6 +35,10 @@ Route::prefix('saml')->group(function () {
     Route::get('sls', [SamlController::class, 'sls'])->name('saml.sls');
     Route::get('logout', [SamlController::class, 'sls'])->name('saml.logout');
 
+    // SP-initiated single logout: ends the local session, then forwards a
+    // LogoutRequest to the identity provider's SLO endpoint.
+    Route::post('slo', [SamlController::class, 'initiateLogout'])->name('saml.slo');
+
     // Publishes this app's SAML metadata for identity provider configuration.
     Route::get('metadata', [SamlController::class, 'metadata'])->name('saml.metadata');
 });

@@ -172,6 +172,84 @@ test('an idp logout request terminates the local session', function () {
     expect($this->app['auth']->guard()->check())->toBeFalse();
 });
 
+test('a completed login remembers the name id for single logout', function () {
+    $this->withSession(['state' => FakeIdentityProvider::STATE])
+        ->get(FakeIdentityProvider::assertionResponseUrl());
+
+    expect(session('saml.name_id'))->toBe(FakeIdentityProvider::EMAIL);
+});
+
+test('logging out sends a logout request to the identity provider', function () {
+    $user = User::factory()->create();
+
+    $response = actingAs($user)
+        ->withSession(['saml.name_id' => FakeIdentityProvider::EMAIL])
+        ->post(route('saml.slo'));
+
+    $response->assertRedirect();
+
+    $logoutUrl = (string) $response->headers->get('Location');
+
+    expect($logoutUrl)->toContain(FakeIdentityProvider::SLO_URL);
+
+    $logoutRequest = FakeIdentityProvider::decodeLogoutRequest($logoutUrl);
+
+    expect($logoutRequest->getNameID()->getValue())->toBe(FakeIdentityProvider::EMAIL)
+        ->and($logoutRequest->getIssuer()->getValue())->toBe(FakeIdentityProvider::spEntityId())
+        ->and($logoutRequest->getDestination())->toBe(FakeIdentityProvider::SLO_URL)
+        ->and($this->app['auth']->guard()->check())->toBeFalse();
+});
+
+test('logging out without a remembered name id lands on the root', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->post(route('saml.slo'))
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeFalse();
+});
+
+test('the identity provider logout response completes the logout', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get(FakeIdentityProvider::logoutResponseUrl())
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeFalse();
+});
+
+test('a logout response with an unexpected signature is rejected', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get(FakeIdentityProvider::logoutResponseUrl(['signed_by' => 'sp']))
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeTrue();
+});
+
+test('a logout response from an unexpected issuer is rejected', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get(FakeIdentityProvider::logoutResponseUrl(['issuer' => 'https://evil.example/metadata']))
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeTrue();
+});
+
+test('an unsuccessful logout response is rejected', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get(FakeIdentityProvider::logoutResponseUrl(['success' => false]))
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeTrue();
+});
+
 test('a login error lands back on the login screen with a message', function () {
     $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl(['success' => false]))

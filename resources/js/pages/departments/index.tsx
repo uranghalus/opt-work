@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { create, edit, index, show } from '@/routes/departments';
-import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -27,6 +26,34 @@ type PageProps = {
     departments: { data: Department[] };
 };
 
+/** Primary action of this page, rendered in the shell's heading band. */
+function DepartmentActions() {
+    const { can, activeTenant } = usePage<
+        InertiaConfig['sharedPageProps']
+    >().props;
+
+    if (!can?.create) {
+        return null;
+    }
+
+    return (
+        <Button asChild size="lg">
+            <Link href={create({ tenant: activeTenant ?? '' })}>
+                <Plus aria-hidden />
+                Tambah Department
+            </Link>
+        </Button>
+    );
+}
+
+Departments.layout = {
+    breadcrumbs: [{ title: 'Data Master' }, { title: 'Department' }],
+    title: 'Department',
+    description:
+        'Department perusahaan dalam cabang aktif, termasuk HOD penanggung jawabnya',
+    actions: DepartmentActions,
+};
+
 export default function Departments(props: PageProps) {
     const { departments } = props;
     const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
@@ -36,22 +63,7 @@ export default function Departments(props: PageProps) {
         <>
             <Head title="Department" />
 
-            <div className="space-y-6 px-4 py-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <Heading
-                        title="Department"
-                        description="Department perusahaan dalam cabang aktif, termasuk HOD penanggung jawabnya"
-                    />
-                    {can.create && (
-                        <Button asChild>
-                            <Link href={create({ tenant })}>
-                                <Plus aria-hidden />
-                                Tambah Department
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-
+            <div className="space-y-6">
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>

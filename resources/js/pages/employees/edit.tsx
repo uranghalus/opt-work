@@ -46,7 +46,7 @@ export default function EditEmployee({
         <>
             <Head title="Edit Karyawan" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Edit Karyawan"
                     description={`Ubah data karyawan ${employee.nama_employee}`}

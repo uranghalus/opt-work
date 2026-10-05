@@ -4,12 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
+use LightSaml\Binding\BindingFactory;
+use LightSaml\Context\Profile\MessageContext;
+use LightSaml\Credential\KeyHelper;
 use LightSaml\Error\LightSamlException;
+use LightSaml\Error\LightSamlSecurityException;
+use LightSaml\Error\LightSamlValidationException;
+use LightSaml\Model\Metadata\KeyDescriptor;
+use LightSaml\Model\Protocol\LogoutResponse;
+use SocialiteProviders\Saml2\InvalidSignatureException;
 use SocialiteProviders\Saml2\Provider;
 use SocialiteProviders\Saml2\User as Saml2User;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
@@ -63,11 +73,41 @@ class SamlController extends Controller
     }
 
     /**
-     * Consume an unsolicited SAML logout request from the identity provider
-     * (IdP-initiated single logout) and answer it.
+     * Terminate the local session and start a single logout at the identity
+     * provider (SP-initiated SLO).
+     */
+    public function initiateLogout(Request $request): Response
+    {
+        $nameId = $request->session()->get('saml.name_id');
+
+        $this->logoutLocally();
+
+        if (! $nameId) {
+            return redirect('/');
+        }
+
+        try {
+            return $this->driver()->logoutRequest($nameId);
+        } catch (Throwable $exception) {
+            Log::warning('SAML single logout request failed.', [
+                'exception' => $exception,
+            ]);
+
+            return redirect('/');
+        }
+    }
+
+    /**
+     * Single logout service: answers an unsolicited logout request from the
+     * identity provider (IdP-initiated SLO), or completes a logout this
+     * service provider started (SP-initiated SLO).
      */
     public function sls(): Response
     {
+        if (request()->has('SAMLResponse')) {
+            return $this->finishInitiatedLogout();
+        }
+
         $this->logoutLocally();
 
         try {
@@ -180,6 +220,12 @@ class SamlController extends Controller
 
         Auth::login($user);
 
+        // Remember the NameID so SP-initiated single logout can address the
+        // identity provider after the local session is gone.
+        if ($nameId = $samlUser->getId()) {
+            request()->session()->put('saml.name_id', $nameId);
+        }
+
         return $user;
     }
 
@@ -227,6 +273,123 @@ class SamlController extends Controller
         request()->session()->invalidate();
 
         request()->session()->regenerateToken();
+    }
+
+    /**
+     * Finish a logout this service provider initiated: validate the identity
+     * provider's LogoutResponse and land back on the root, where the closed
+     * identity provider session yields a fresh login instead of a re-login.
+     */
+    protected function finishInitiatedLogout(): RedirectResponse
+    {
+        try {
+            $this->validateLogoutResponse($this->receiveLogoutResponse());
+
+            $this->logoutLocally();
+        } catch (Throwable $exception) {
+            Log::warning('SAML logout response rejected.', [
+                'exception' => $exception,
+            ]);
+        }
+
+        return redirect('/')->with('status', 'You have been logged out.');
+    }
+
+    /**
+     * Deserialize the LogoutResponse delivered to the single logout service.
+     *
+     * @throws LightSamlException
+     */
+    protected function receiveLogoutResponse(): LogoutResponse
+    {
+        $request = request();
+
+        $bindingFactory = new BindingFactory;
+        $bindingType = $bindingFactory->detectBindingType($request);
+
+        if (! $bindingType) {
+            throw new LightSamlException('No SAML binding detected on the logout response.');
+        }
+
+        $messageContext = new MessageContext;
+        $bindingFactory->create($bindingType)->receive($request, $messageContext);
+
+        $message = $messageContext->getMessage();
+
+        if (! $message instanceof LogoutResponse) {
+            throw new LightSamlException('The single logout service did not receive a logout response.');
+        }
+
+        return $message;
+    }
+
+    /**
+     * Validate a LogoutResponse against the configured identity provider.
+     *
+     * @throws Throwable
+     */
+    protected function validateLogoutResponse(LogoutResponse $logoutResponse): void
+    {
+        if (! $logoutResponse->getStatus()->isSuccess()) {
+            throw new LightSamlValidationException('The identity provider rejected the logout.');
+        }
+
+        $issuer = $this->driver()
+            ->getIdentityProviderEntityDescriptor()
+            ->getEntityID();
+
+        if ($logoutResponse->getIssuer()?->getValue() !== $issuer) {
+            throw new LightSamlValidationException('The logout response issuer did not match the identity provider.');
+        }
+
+        // The portal registers 'saml/logout' as its SLS while metadata-based
+        // setups advertise 'saml/sls'; either is a valid destination here.
+        if ($destination = $logoutResponse->getDestination()) {
+            $validDestinations = [URL::to('saml/sls'), URL::to('saml/logout')];
+
+            if (! in_array($destination, $validDestinations, true)) {
+                throw new LightSamlValidationException('The logout response destination did not match this service provider.');
+            }
+        }
+
+        $this->validateLogoutResponseSignature($logoutResponse);
+    }
+
+    /**
+     * Verify the LogoutResponse signature with an identity provider key.
+     *
+     * @throws InvalidSignatureException
+     */
+    protected function validateLogoutResponseSignature(LogoutResponse $logoutResponse): void
+    {
+        $signatureReader = $logoutResponse->getSignature();
+
+        if (! $signatureReader) {
+            throw new InvalidSignatureException('The logout response had no available signature');
+        }
+
+        $idpSsoDescriptor = $this->driver()
+            ->getIdentityProviderEntityDescriptor()
+            ->getFirstIdpSsoDescriptor();
+
+        $keyDescriptors = array_merge(
+            $idpSsoDescriptor->getAllKeyDescriptorsByUse(KeyDescriptor::USE_SIGNING),
+            $idpSsoDescriptor->getAllKeyDescriptorsByUse(null),
+        );
+
+        foreach ($keyDescriptors as $keyDescriptor) {
+            $key = KeyHelper::createPublicKey($keyDescriptor->getCertificate());
+
+            try {
+                if ($signatureReader->validate($key)) {
+                    return;
+                }
+            } catch (LightSamlSecurityException) {
+                continue;
+            }
+        }
+
+        throw new InvalidSignatureException('The signature of the logout response could not be verified');
     }
 
     /**

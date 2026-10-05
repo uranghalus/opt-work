@@ -52,6 +52,15 @@ class HandleInertiaRequests extends Middleware
                 'department.read' => $request->user()?->can('department.read') ?? false,
                 'employee.read' => $request->user()?->can('employee.read') ?? false,
             ],
+            // Navigation gating. Kept apart from `can` because pages pass
+            // their own `can` map (create/update) and would override it.
+            'permissions' => [
+                'division.read' => $request->user()?->can('division.read') ?? false,
+                'department.read' => $request->user()?->can('department.read') ?? false,
+                'employee.read' => $request->user()?->can('employee.read') ?? false,
+                'work-order.read' => $request->user()?->can('work-order.read') ?? false,
+                'work-order.create' => $request->user()?->can('work-order.create') ?? false,
+            ],
         ];
     }
 }

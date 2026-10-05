@@ -21,7 +21,7 @@ export default function ShowDepartment({ department }: PageProps) {
         <>
             <Head title={department.kode_department} />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title={department.nama_department ?? department.kode_department}
                     description="Detail department"

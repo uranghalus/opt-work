@@ -21,7 +21,7 @@ export default function ShowEmployee({ employee }: PageProps) {
         <>
             <Head title={employee.nama_employee} />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title={employee.nama_employee}
                     description="Detail karyawan"

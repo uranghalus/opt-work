@@ -41,7 +41,7 @@ The product is differentiated by role-shaped work queues and an auditable operat
 - Urgent by Accident work must be executed directly and must not expose a scheduling option.
 - Work Order and Daily Work status must be understandable through text and icon as well as color; color cannot be the only status signal.
 - The field workflow must support large touch targets, camera-first evidence capture, before/after proof, short notes, and clear upload failure states.
-- MVP is light-theme only; the primary field workflow is mobile-oriented while HOD workflows are desktop-oriented.
+- Light and dark themes are both in MVP and are authored per token (dark is never an inverted light palette); the primary field workflow is mobile-oriented while HOD workflows are desktop-oriented.
 - One cabang is active per session; a cabang switcher may be exposed in the application chrome if the tenancy package supports it.
 - PRD Open Questions remain undecided until confirmed: deadline ranges by type, extension count limits, Daily Work template ownership, Team Leader modeling, inactive-HOD routing, notification channels beyond in-app, Extend Request data modeling, ERD field verification, and Super Admin versus Direksi permissions.
 - Out of MVP: tenant CRUD, inventory, incoming/outgoing letters, external notification gateways, and advanced analytics.

@@ -1,19 +1,25 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { LifeBuoy, LogOut } from 'lucide-react';
-import { mainNavItems, navIcon, type OptiNavItem } from '@/components/nav-items';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    mainNavItems,
+    navIcon,
+    type OptiNavItem,
+} from '@/components/nav-items';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import { logout } from '@/routes';
+import { submitLogout } from '@/lib/logout';
 import { cn } from '@/lib/utils';
 
 /*
- * Desktop icon rail (DESIGN.md §Shell & Navigation, >=1024px):
- * 64px floating rail, icon-only 44px targets, tooltips on hover/focus.
- * Active item: raised white chip with Strong Rule border.
- * Bottom group: Bantuan (disebabkan belum ada surface, disabled), Keluar.
+ * Desktop icon rail (>=1024px), Glassy Modern shell: a floating frosted
+ * capsule rail over the concrete canvas with a luminous top-edge
+ * highlight. The active item is a gradient-teal chip with a soft brand
+ * glow. Bottom group: Bantuan (disabled, coming soon), Keluar.
  */
-
-const activeChip = 'border border-border-strong bg-card shadow-raised';
 
 function RailLink({ item }: { item: OptiNavItem }) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
@@ -29,18 +35,18 @@ function RailLink({ item }: { item: OptiNavItem }) {
                     aria-current={active ? 'page' : undefined}
                     aria-label={item.title}
                     className={cn(
-                        'flex size-11 items-center justify-center rounded-md transition-colors duration-200 ease-standard motion-reduce:transition-none',
+                        'flex size-11 items-center justify-center rounded-full transition-all duration-200 ease-standard active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
                         'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
                         active
-                            ? activeChip
-                            : 'border border-transparent text-ink-muted hover:bg-card/70 hover:text-foreground',
+                            ? 'bg-gradient-to-br from-brand-strong to-brand shadow-glow-brand ring-1 ring-white/30'
+                            : 'text-ink-muted hover:bg-white/70 hover:text-foreground',
                     )}
                 >
                     <Icon
                         aria-hidden="true"
                         className={cn(
                             'size-[18px] shrink-0',
-                            active ? 'text-brand' : 'opacity-80',
+                            active ? 'text-on-brand' : 'opacity-80',
                         )}
                     />
                 </Link>
@@ -54,16 +60,14 @@ function RailLogout() {
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Link
-                    href={logout()}
-                    method="post"
-                    as="button"
+                <button
+                    type="button"
+                    onClick={submitLogout}
                     aria-label="Keluar"
-                    onClick={() => router.flushAll()}
-                    className="flex size-11 items-center justify-center rounded-md text-ink-muted transition-colors duration-200 ease-standard motion-reduce:transition-none hover:bg-card/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+                    className="flex size-11 items-center justify-center rounded-full text-ink-muted transition-all duration-200 ease-standard hover:bg-white/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none motion-reduce:transition-none"
                 >
                     <LogOut aria-hidden="true" className="size-[18px]" />
-                </Link>
+                </button>
             </TooltipTrigger>
             <TooltipContent side="right">Keluar</TooltipContent>
         </Tooltip>
@@ -76,22 +80,31 @@ export function IconRail() {
     return (
         <aside
             aria-label="Navigasi utama"
-            className="sticky top-0 hidden h-screen w-16 shrink-0 lg:block"
+            className="sticky top-0 hidden h-screen w-20 shrink-0 lg:block"
         >
-            <nav className="flex h-full flex-col items-center gap-1 py-4">
+            <nav
+                className={cn(
+                    'mx-3 my-4 flex h-[calc(100%-32px)] flex-col items-center gap-1.5 rounded-[28px] py-4',
+                    'border border-white/70 bg-card/60 backdrop-blur-xl',
+                    'shadow-[0_8px_32px_-8px_rgba(21,32,43,0.14),0_2px_6px_rgba(21,32,43,0.05),inset_0_1px_0_rgba(255,255,255,0.7)]',
+                )}
+            >
                 {mainNavItems(activeTenant).map((item) => (
                     <RailLink key={item.title} item={item} />
                 ))}
 
-                <div className="mt-auto flex flex-col items-center gap-1 border-t border-border/60 pt-4">
+                <div className="mt-auto flex flex-col items-center gap-1.5 border-t border-border/50 pt-4">
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <span
                                 aria-disabled="true"
                                 aria-label="Bantuan"
-                                className="flex size-11 items-center justify-center rounded-md text-ink-subtle"
+                                className="flex size-11 items-center justify-center rounded-full text-ink-subtle"
                             >
-                                <LifeBuoy aria-hidden="true" className="size-[18px]" />
+                                <LifeBuoy
+                                    aria-hidden="true"
+                                    className="size-[18px]"
+                                />
                             </span>
                         </TooltipTrigger>
                         <TooltipContent side="right">

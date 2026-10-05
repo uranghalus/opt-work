@@ -15,7 +15,7 @@ export default function CreatePosition() {
         <>
             <Head title="Tambah Position" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Tambah Position"
                     description="Daftarkan jabatan baru dalam cabang aktif"

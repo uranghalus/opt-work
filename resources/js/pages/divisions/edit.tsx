@@ -26,7 +26,7 @@ export default function EditDivision({ division }: PageProps) {
         <>
             <Head title="Edit Divisi" />
 
-            <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
+            <div className="mx-auto w-full max-w-xl space-y-6">
                 <Heading
                     title="Edit Divisi"
                     description={`Ubah data divisi ${division.nama_division}`}

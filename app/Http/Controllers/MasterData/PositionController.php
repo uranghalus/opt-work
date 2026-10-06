@@ -11,7 +11,7 @@ use Inertia\Response;
 
 class PositionController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
         $positions = Position::query()
             ->with(['department', 'division'])
@@ -22,11 +22,6 @@ class PositionController extends Controller
 
         return Inertia::render('positions/index', [
             'positions' => $positions,
-            'can' => [
-                'create' => $request->user()?->can('employee.create') ?? false,
-                'update' => $request->user()?->can('employee.update') ?? false,
-                'delete' => $request->user()?->can('employee.delete') ?? false,
-            ],
         ]);
     }
 

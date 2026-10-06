@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Settings\ProfileController;
-use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\TenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -24,11 +24,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 
-    // RBAC — manajemen role & permission assignment (global, bukan per cabang).
-    Route::prefix('settings/roles')->name('roles.')->middleware('permission:rbac.manage')->group(function (): void {
-        Route::get('/', [RoleController::class, 'index'])->name('index');
-        Route::post('/', [RoleController::class, 'store'])->name('store');
-        Route::put('{role}', [RoleController::class, 'update'])->name('update');
-        Route::delete('{role}', [RoleController::class, 'destroy'])->name('destroy');
+    // Cabang (branch) administration — platform level, deliberately outside the
+    // {tenant} prefix. Gate is narrower than ensure.tenant.access: branch admins
+    // manage their own branch's data, not the branch record.
+    Route::prefix('settings/tenants')->name('tenants.')->middleware('ensure.platform.tenant.access')->group(function (): void {
+        Route::get('/', [TenantController::class, 'index'])->name('index');
+        Route::get('create', [TenantController::class, 'create'])->name('create');
+        Route::post('/', [TenantController::class, 'store'])->name('store');
+        Route::get('{tenant}', [TenantController::class, 'show'])->name('show');
+        Route::get('{tenant}/edit', [TenantController::class, 'edit'])->name('edit');
+        Route::put('{tenant}', [TenantController::class, 'update'])->name('update');
+        Route::delete('{tenant}', [TenantController::class, 'destroy'])->name('destroy');
     });
 });

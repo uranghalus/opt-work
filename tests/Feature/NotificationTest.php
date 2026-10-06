@@ -1,10 +1,10 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
-use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {

@@ -85,7 +85,9 @@ function PanelNavItem({
         'hover:bg-white/5 hover:text-panel-ink',
         'data-[active=true]:bg-brand-strong/15! data-[active=true]:font-semibold data-[active=true]:text-brand-strong',
         'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
-        'group-data-[collapsible=icon]:justify-center',
+        // Collapsed, the button is a 40px square (size-10!) inside a full-width row, so
+        // justify-center no longer centers anything — mx-auto does.
+        'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto',
     );
 
     const icon = (
@@ -189,9 +191,13 @@ function PanelNavGroup({
 
 /** Cabang context: the active branch this session operates in. */
 function TenantChip({ tenant }: { tenant: string | null }) {
+    const { tenants } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const active = tenants.find((item) => item.id === tenant);
+    const label = active?.name ?? tenant;
+
     return (
         <span
-            title={tenant ? `Cabang: ${tenant}` : 'Belum ada cabang aktif'}
+            title={label ? `Cabang: ${label}` : 'Belum ada cabang aktif'}
             className={cn(
                 'flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-700/60 bg-panel-raised/80 p-2.5 text-left',
                 'transition-colors duration-150 hover:border-slate-600 motion-reduce:transition-none',
@@ -208,10 +214,10 @@ function TenantChip({ tenant }: { tenant: string | null }) {
                 </span>
                 <span className="min-w-0 group-data-[collapsible=icon]:hidden">
                     <span className="block text-[0.625rem] leading-none font-bold tracking-wider text-slate-400 uppercase">
-                        Cabang Utama
+                        Cabang Aktif
                     </span>
                     <span className="mt-0.5 block truncate text-xs font-semibold text-slate-200">
-                        {tenant ?? 'Pilih cabang'}
+                        {label ?? 'Pilih cabang'}
                     </span>
                 </span>
             </span>
@@ -225,13 +231,6 @@ function TenantChip({ tenant }: { tenant: string | null }) {
 
 /** Primary action: raise a new Work Order from anywhere in the shell. */
 function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
-    const { permissions } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const hasPermission = permissions['work-order.create'];
-
-    if (!hasPermission) {
-        return null;
-    }
-
     if (!tenant) {
         return (
             <span
@@ -268,10 +267,10 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
 }
 
 export function AppSidebar() {
-    const { permissions, activeTenant, unreadNotificationsCount } =
+    const { activeTenant, unreadNotificationsCount } =
         usePage<InertiaConfig['sharedPageProps']>().props;
     const { state } = useSidebar();
-    const groups = navGroups({ activeTenant, permissions });
+    const groups = navGroups({ activeTenant });
     const unread = Number(unreadNotificationsCount ?? 0);
 
     return (

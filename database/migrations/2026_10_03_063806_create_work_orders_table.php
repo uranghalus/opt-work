@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('work_orders', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('tenant_id')->constrained('tenants');
+            $table->string('tenant_id')->constrained('tenants');
             $table->string('nomor_wo', 50);
             $table->foreignId('requester_user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignUuid('target_department_id')->constrained('departments')->cascadeOnDelete();

@@ -12,7 +12,7 @@ use Inertia\Response;
 
 class DivisionController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
         $divisions = Division::query()
             ->withCount('departments')
@@ -22,11 +22,6 @@ class DivisionController extends Controller
 
         return Inertia::render('divisions/index', [
             'divisions' => $divisions,
-            'can' => [
-                'create' => $request->user()?->can('division.create') ?? false,
-                'update' => $request->user()?->can('division.update') ?? false,
-                'delete' => $request->user()?->can('division.delete') ?? false,
-            ],
         ]);
     }
 

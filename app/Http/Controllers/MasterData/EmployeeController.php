@@ -15,7 +15,7 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
         $employees = Employee::query()
             ->with(['department', 'position', 'division'])
@@ -25,11 +25,6 @@ class EmployeeController extends Controller
 
         return Inertia::render('employees/index', [
             'employees' => $employees,
-            'can' => [
-                'create' => $request->user()?->can('employee.create') ?? false,
-                'update' => $request->user()?->can('employee.update') ?? false,
-                'delete' => $request->user()?->can('employee.delete') ?? false,
-            ],
         ]);
     }
 

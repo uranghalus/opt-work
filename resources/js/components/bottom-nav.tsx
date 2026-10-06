@@ -83,11 +83,13 @@ function SheetNavRow({ item }: { item: OptiNavItem }) {
 }
 
 export function BottomNav() {
-    const { activeTenant, permissions, auth, name } =
+    const { activeTenant, auth, name, tenants } =
         usePage<InertiaConfig['sharedPageProps']>().props;
     const { isCurrentOrParentUrl } = useCurrentUrl();
-    const items = mobileNavItems({ activeTenant, permissions });
-    const groups = navGroups({ activeTenant, permissions });
+    const tenantLabel =
+        tenants?.find((item) => item.id === activeTenant)?.name ?? activeTenant;
+    const items = mobileNavItems({ activeTenant });
+    const groups = navGroups({ activeTenant });
 
     return (
         <nav
@@ -153,7 +155,7 @@ export function BottomNav() {
                                 <p className="text-left text-xs text-ink-muted">
                                     Cabang aktif:{' '}
                                     <span className="font-semibold text-ink">
-                                        {activeTenant}
+                                        {tenantLabel}
                                     </span>
                                 </p>
                             )}

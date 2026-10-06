@@ -19,32 +19,9 @@ import { cn } from '@/lib/utils';
 import { submitLogout } from '@/lib/logout';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 
-/** Human labels for the seeded Spatie role slugs (RoleAndPermissionSeeder). */
-const ROLE_LABELS: Record<string, string> = {
-    super_admin: 'Super Admin',
-    admin_tenant: 'Admin Cabang',
-    general_manager: 'General Manager',
-    deputy_general_manager: 'Deputy GM',
-    hod: 'HOD',
-    team_leader: 'Team Leader',
-    karyawan: 'Karyawan',
-    field_staff: 'Karyawan Pelaksana',
-    viewer: 'Viewer / Auditor',
-};
-
-function roleLabel(role: string | null | undefined): string | null {
-    if (!role) {
-        return null;
-    }
-
-    return (
-        ROLE_LABELS[role] ??
-        role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-    );
-}
-
-/** Identity block at the foot of the navigation panel. Matches mockup:
-    avatar gradient, name, role, logout icon. Avatar click opens dropdown. */
+/** Identity block at the foot of the navigation panel: avatar, name, logout.
+    Avatar click opens the account dropdown. The former role line is gone with
+    RBAC; the identity flag returns with it. */
 export function NavUser() {
     const { auth } = usePage().props;
     const { state } = useSidebar();
@@ -55,9 +32,6 @@ export function NavUser() {
     if (!auth?.user) {
         return null;
     }
-
-    // Primary Spatie role, with the email as a last-resort label.
-    const userRole = roleLabel(auth.role) ?? auth.user.email;
 
     const handleLogout = () => {
         cleanup();
@@ -93,7 +67,7 @@ export function NavUser() {
                                         {auth.user.name}
                                     </p>
                                     <p className="truncate text-[0.6875rem] font-normal text-panel-ink-muted">
-                                        {userRole}
+                                        {auth.user.email}
                                     </p>
                                 </div>
                                 <ChevronsUpDown

@@ -2,10 +2,10 @@
 
 use App\Models\Department;
 use App\Models\Division;
+use App\Models\Tenant;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
@@ -64,8 +64,6 @@ it('returns 404 for a foreign cabang department via route binding', function () 
 it('denies cabang pages for users without tenant linkage', function () {
     $user = createUser();
 
-    givePermission($user, 'division.read');
-
     $this
         ->actingAs($user)
         ->get('/hq/divisions')
@@ -75,18 +73,14 @@ it('denies cabang pages for users without tenant linkage', function () {
 it('denies cabang pages for users from another cabang', function () {
     $user = createUser(['tenant_id' => 'plant-1']);
 
-    givePermission($user, 'division.read');
-
     $this
         ->actingAs($user)
         ->get('/hq/divisions')
         ->assertForbidden();
 });
 
-it('allows reading cabang pages with permission and tenant linkage', function () {
+it('allows reading cabang pages with tenant linkage alone', function () {
     $user = createUser(['tenant_id' => 'hq']);
-
-    givePermission($user, 'division.read');
 
     $this
         ->actingAs($user)
@@ -94,10 +88,8 @@ it('allows reading cabang pages with permission and tenant linkage', function ()
         ->assertOk();
 });
 
-it('denies creating a division without the create permission', function () {
+it('allows creating a division without any role', function () {
     $user = createUser(['tenant_id' => 'hq']);
-
-    givePermission($user, 'division.read');
 
     $this
         ->actingAs($user)
@@ -105,7 +97,9 @@ it('denies creating a division without the create permission', function () {
             'kode_division' => 'DIV-OPS',
             'nama_division' => 'Operasional',
         ])
-        ->assertForbidden();
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('divisions', ['kode_division' => 'DIV-OPS']);
 });
 
 it('rejects duplicate department code within the same cabang', function () {
@@ -131,6 +125,9 @@ it('rejects duplicate department code within the same cabang', function () {
 });
 
 it('seeds the baseline roles and permissions', function () {
+    // The role catalogue is retained even though no gate reads it: RBAC returns
+    // at the end of the project and the seed data should already be correct.
+    // Only super-admin access is live today, via the is_super_admin flag.
     $seeder = new class extends Seeder
     {
         public function run(): void
@@ -155,8 +152,18 @@ it('seeds the baseline roles and permissions', function () {
     expect(Role::query()->where('name', 'viewer')->first()->hasPermissionTo('division.create'))->toBeFalse();
 });
 
-it('lets the super admin bypass permission checks', function () {
+it('lets a super admin operate any branch without a home branch', function () {
     $admin = makeSuperAdmin(createUser());
 
-    expect($admin->can('division.create'))->toBeTrue();
+    expect($admin->tenant_id)->toBeNull();
+
+    $this
+        ->actingAs($admin)
+        ->get('/hq/divisions')
+        ->assertOk();
+
+    $this
+        ->actingAs($admin)
+        ->get('/plant-1/divisions')
+        ->assertOk();
 });

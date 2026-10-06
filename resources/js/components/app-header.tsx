@@ -343,7 +343,9 @@ function UserMenu() {
 
 /** Logo orb plus the active cabang chip — cabang context stays operational truth. */
 function HeaderBrand() {
-    const { activeTenant } = usePage().props;
+    const { activeTenant, tenants } = usePage().props;
+    const tenantLabel =
+        tenants?.find((item) => item.id === activeTenant)?.name ?? activeTenant;
 
     return (
         <div className="flex min-w-0 items-center gap-2.5">
@@ -361,7 +363,7 @@ function HeaderBrand() {
                         aria-hidden="true"
                         className="size-3.5 text-brand"
                     />
-                    <span className="max-w-40 truncate">{activeTenant}</span>
+                    <span className="max-w-40 truncate">{tenantLabel}</span>
                 </span>
             )}
         </div>

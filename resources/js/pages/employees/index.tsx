@@ -29,14 +29,9 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function EmployeeActions() {
-    const { can, activeTenant } = usePage<
+    const { activeTenant } = usePage<
         InertiaConfig['sharedPageProps']
     >().props;
-
-    if (!can?.create) {
-        return null;
-    }
-
     return (
         <Button asChild size="lg">
             <Link href={create({ tenant: activeTenant ?? '' })}>
@@ -56,7 +51,7 @@ Employees.layout = {
 
 export default function Employees(props: PageProps) {
     const { employees } = props;
-    const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
     const tenant = activeTenant ?? '';
 
     return (
@@ -112,8 +107,7 @@ export default function Employees(props: PageProps) {
                                             {employee.email ?? '—'}
                                         </TableCell>
                                         <TableCell>
-                                            {can.update && (
-                                                <Button
+                                            <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     asChild
@@ -122,9 +116,7 @@ export default function Employees(props: PageProps) {
                                                         href={edit({ tenant, employee: employee.id })}
                                                     >
                                                         Edit
-                                                    </Link>
-                                                </Button>
-                                            )}
+                                                    </Link></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

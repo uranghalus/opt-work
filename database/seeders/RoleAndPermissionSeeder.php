@@ -63,16 +63,17 @@ class RoleAndPermissionSeeder extends Seeder
         // Super Admin
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $superAdmin->syncPermissions($allPermissions);
-        User::where('email', 'admin@example.com')->first()?->assignRole('super_admin');
+        User::where('email', 'admin@example.com')->first()?->forceFill(['is_super_admin' => true])->save();
 
-        // Akun superadmin operasional. Akses penuh datang dari role ini
-        // (Gate::before di AppServiceProvider), bukan dari hardcode email.
+        // Akun superadmin operasional. Akses lintas cabang datang dari flag
+        // is_super_admin (TenantAccess), bukan dari hardcode email. Saat RBAC
+        // dikembalikan, role super_admin di bawah akan menjadi sumbernya lagi.
         $superadmin = User::where('email', 'superadmin@appdutamall.com')->first()
             ?? User::factory()->create([
                 'name' => 'Super Admin',
                 'email' => 'superadmin@appdutamall.com',
             ]);
-        $superadmin->assignRole($superAdmin);
+        $superadmin->forceFill(['is_super_admin' => true])->save();
 
         // Admin Tenant / Cabang
         $adminTenant = Role::firstOrCreate(['name' => 'admin_tenant', 'guard_name' => 'web']);

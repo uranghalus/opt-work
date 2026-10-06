@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('positions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('tenant_id')->constrained('tenants');
+            $table->string('tenant_id')->constrained('tenants');
             $table->string('nama_position');
             $table->foreignUuid('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignUuid('division_id')->nullable()->constrained('divisions')->nullOnDelete();

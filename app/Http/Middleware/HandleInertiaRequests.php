@@ -2,9 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
+use App\Services\TenantAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use Stancl\Tenancy\Database\Models\Tenant;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -45,7 +46,6 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $user,
-                'role' => $user?->getRoleNames()->first(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
@@ -53,26 +53,15 @@ class HandleInertiaRequests extends Middleware
             ],
             'unreadNotificationsCount' => fn (): int => $user?->unreadNotifications()->count() ?? 0,
             'activeTenant' => $activeTenant,
-            'tenants' => Tenant::all(['id', 'data'])->map(function ($t) {
-                return [
-                    'id' => $t->id,
-                    'name' => $t->data['nama_cabang'] ?? $t->id,
-                    'code' => $t->data['kode_cabang'] ?? null,
-                ];
-            })->toArray(),
-            'can' => [
-                'division.read' => $user?->can('division.read') ?? false,
-                'department.read' => $user?->can('department.read') ?? false,
-                'employee.read' => $user?->can('employee.read') ?? false,
-            ],
-            'permissions' => [
-                'division.read' => $user?->can('division.read') ?? false,
-                'department.read' => $user?->can('department.read') ?? false,
-                'employee.read' => $user?->can('employee.read') ?? false,
-                'work-order.read' => $user?->can('work-order.read') ?? false,
-                'work-order.create' => $user?->can('work-order.create') ?? false,
-                'rbac.manage' => $user?->can('rbac.manage') ?? false,
-            ],
+            // Branches this user may actually switch into — the same set
+            // TenantAccess::canOperate() enforces, never a display shortcut.
+            'tenants' => $user === null
+                ? []
+                : app(TenantAccess::class)->operableTenants($user)->map(fn (Tenant $t) => [
+                    'id' => $t->getTenantKey(),
+                    'name' => $t->label(),
+                    'code' => $t->code,
+                ])->values()->all(),
         ];
     }
 }

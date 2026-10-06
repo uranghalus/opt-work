@@ -2,21 +2,18 @@
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Tenant;
 use App\Models\WorkOrder;
 use App\Notifications\WorkOrderCreated;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Role;
-use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
     Tenant::query()->firstOrCreate(['id' => 'hq']);
     Tenant::query()->firstOrCreate(['id' => 'plant-1']);
-    Role::firstOrCreate(['name' => 'hod', 'guard_name' => 'web']);
-    Role::firstOrCreate(['name' => 'admin_tenant', 'guard_name' => 'web']);
 });
 
 afterEach(function () {
@@ -32,7 +29,6 @@ it('creates a work order, generates its number, and notifies the department hod'
         'hod_user_id' => $hod->getKey(),
     ]);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $response = $this
@@ -58,7 +54,6 @@ it('stores image attachments for the work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Storage::fake('public');
 
     $this
@@ -80,7 +75,6 @@ it('rejects a requested schedule date for urgent by accident', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $response = $this
@@ -101,7 +95,6 @@ it('accepts a requested schedule date for a normal work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $this
@@ -127,7 +120,6 @@ it('falls back to the department manager when no hod is set', function () {
         'manager_user_id' => $manager->getKey(),
     ]);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $this
@@ -146,12 +138,11 @@ it('falls back to hod-role users assigned to the department when no direct hod o
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-EL', 'nama_department' => 'Electrical']);
     $hodUser = createUser(['tenant_id' => 'hq']);
-    $hodUser->assignRole('hod');
+    makeHod($hodUser);
     $employee = Employee::create(['nik_employee' => 'NIK-HOD-1', 'nama_employee' => 'HOD Dept']);
     $employee->update(['department_id' => $department->getKey()]);
     $hodUser->update(['employee_id' => $employee->getKey()]);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $this
@@ -169,10 +160,9 @@ it('falls back to hod-role users assigned to the department when no direct hod o
 it('falls back to admin tenant users and logs critical when no hod recipient exists', function () {
     initTenant('hq');
     $adminTenant = createUser(['tenant_id' => 'hq']);
-    $adminTenant->assignRole('admin_tenant');
+    makeSuperAdmin($adminTenant);
     $department = Department::create(['kode_department' => 'DEP-X', 'nama_department' => 'Tanpa HOD']);
     $requester = createUser(['tenant_id' => 'hq']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
     Log::spy();
 
@@ -195,7 +185,6 @@ it('rejects a work order targeting a foreign cabang department', function () {
     Tenancy::end();
 
     $requester = createUser(['tenant_id' => 'plant-1']);
-    givePermission($requester, 'work-order.create');
     Notification::fake();
 
     $response = $this
@@ -210,13 +199,14 @@ it('rejects a work order targeting a foreign cabang department', function () {
     $response->assertSessionHasErrors('target_department_id');
 });
 
-it('denies creating a work order without the create permission', function () {
-    $user = createUser(['tenant_id' => 'hq']);
+it('denies creating a work order for a user of another branch', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => 'plant-1']);
 
     $this
         ->actingAs($user)
         ->post('/hq/work-orders', [
-            'title' => 'Tanpa izin',
+            'title' => 'Dari cabang lain',
             'description' => 'Harusnya ditolak',
             'category' => 'normal',
         ])
@@ -233,8 +223,6 @@ it('lists work orders for the requester and for reviewable departments', functio
     ]);
     $requester = createUser(['tenant_id' => 'hq']);
     $other = createUser(['tenant_id' => 'hq']);
-    givePermission($hod, 'work-order.read');
-    givePermission($requester, 'work-order.read');
 
     $reviewable = WorkOrder::factory()->create([
         'target_department_id' => $department->getKey(),
@@ -262,4 +250,93 @@ it('lists work orders for the requester and for reviewable departments', functio
                 ->has('workOrders.data', 0)
                 ->etc(),
         );
+});
+
+it('shows a work order to any user in the owning branch', function () {
+    initTenant('hq');
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $requester = createUser(['tenant_id' => 'hq']);
+    $colleague = createUser(['tenant_id' => 'hq']);
+
+    $workOrder = WorkOrder::factory()->create([
+        'target_department_id' => $department->getKey(),
+        'requester_user_id' => $requester->getKey(),
+    ]);
+
+    // Tenant-level isolation is the rule: within a branch, any authenticated
+    // user may read the work order — it is not restricted to the requester.
+    $this
+        ->actingAs($colleague)
+        ->get("/hq/work-orders/{$workOrder->getKey()}")
+        ->assertOk()
+        ->assertInertia(
+            fn ($page) => $page
+                ->where('workOrder.id', $workOrder->getKey())
+                ->where('workOrder.nomor_wo', $workOrder->nomor_wo)
+                ->where('workOrder.title', $workOrder->title)
+                ->where('workOrder.target_department.nama_department', 'IT')
+                ->etc(),
+        );
+});
+
+it('hides a work order from users of another branch', function () {
+    initTenant('hq');
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $workOrder = WorkOrder::factory()->create([
+        'target_department_id' => $department->getKey(),
+    ]);
+
+    $outsider = createUser(['tenant_id' => 'plant-1']);
+
+    $this
+        ->actingAs($outsider)
+        ->get("/hq/work-orders/{$workOrder->getKey()}")
+        ->assertForbidden();
+});
+
+it('serves an attachment only to users of the owning branch', function () {
+    initTenant('hq');
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $requester = createUser(['tenant_id' => 'hq']);
+    Storage::fake('public');
+
+    $this
+        ->actingAs($requester)
+        ->post('/hq/work-orders', [
+            'title' => 'Perbaikan AC',
+            'description' => 'AC ruang rapat mati',
+            'category' => 'normal',
+            'target_department_id' => $department->getKey(),
+            'attachments' => [UploadedFile::fake()->image('foto.png')],
+        ]);
+
+    $workOrder = WorkOrder::query()->sole();
+    $path = $workOrder->attachments[0];
+
+    $this
+        ->actingAs(createUser(['tenant_id' => 'hq']))
+        ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
+        ->assertOk()
+        ->assertHeader('content-type', 'image/png');
+
+    // Attachments are tenant-scoped, so a plain /storage/... URL must not work.
+    expect(Storage::disk('public')->path($path))->not->toBe(public_path('storage/'.$path));
+
+    $this
+        ->actingAs(createUser(['tenant_id' => 'plant-1']))
+        ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
+        ->assertForbidden();
+});
+
+it('returns 404 for an attachment index that does not exist', function () {
+    initTenant('hq');
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $workOrder = WorkOrder::factory()->create([
+        'target_department_id' => $department->getKey(),
+    ]);
+
+    $this
+        ->actingAs(createUser(['tenant_id' => 'hq']))
+        ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/5")
+        ->assertNotFound();
 });

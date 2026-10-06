@@ -11,9 +11,9 @@ class HodNotificationResolver
 {
     /**
      * Rantai fallback penerima notifikasi untuk department tujuan:
-     * hod_user_id → manager_user_id (deputy) → semua user ber-role hod di
-     * department tsb. Jika tetap kosong → semua Admin Tenant cabang + log
-     * kritikal.
+     * hod_user_id → manager_user_id (deputy) → semua user ber-flag is_hod di
+     * department tsb. Jika tetap kosong → Admin Tenant cabang (is_super_admin
+     * dengan tenant_id tsb) + log kritikal.
      *
      * @return Collection<int, User>
      */
@@ -24,13 +24,15 @@ class HodNotificationResolver
             ->merge($this->usersById($department->manager_user_id));
 
         if ($recipients->isEmpty()) {
-            $recipients = User::role('hod')
+            $recipients = User::query()
+                ->where('is_hod', true)
                 ->whereHas('employee', fn ($query) => $query->where('department_id', $department->getKey()))
                 ->get();
         }
 
         if ($recipients->isEmpty()) {
-            $recipients = User::role('admin_tenant')
+            $recipients = User::query()
+                ->where('is_super_admin', true)
                 ->where('tenant_id', $department->tenant_id)
                 ->get();
 

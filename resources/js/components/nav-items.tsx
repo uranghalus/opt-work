@@ -20,7 +20,6 @@ import divisions from '@/routes/divisions';
 import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
 import positions from '@/routes/positions';
-import roles from '@/routes/roles';
 import { index as workOrdersIndex } from '@/routes/work-orders';
 import type { NavItem } from '@/types';
 
@@ -28,17 +27,13 @@ import type { NavItem } from '@/types';
  * OptiWorks navigation (DESIGN_BRIEF §6 S01, PRD §5 MVP scope).
  *
  * One source of truth for the sidebar, the mobile sheet, and the bottom nav.
- * Permission-driven: tenant-scoped and role-scoped items disappear (not
- * disabled) when the user cannot reach them; modules without a route yet are
- * rendered disabled with a "Segera" hint instead of pointing at a fake URL.
+ * Tenant-scoped items need an active cabang to build a URL; modules without a
+ * route yet are rendered disabled with a "Segera" hint instead of pointing at a
+ * fake URL.
  */
 export type NavTone = 'ops' | 'master' | 'system';
 
 export type OptiNavItem = NavItem & {
-    /** Spatie role names allowed to see this item (forward hook for RBAC). */
-    roles?: string[];
-    /** Shared `can` key that must be true for this item to render. */
-    permission?: string;
     /** Group identity hue used for the icon tint. */
     tone?: NavTone;
     /** Compact label used by the mobile bottom navigation. */
@@ -60,7 +55,6 @@ export type OptiNavGroup = {
 
 type NavContext = {
     activeTenant?: string | null;
-    permissions?: Record<string, boolean>;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -107,7 +101,6 @@ function modulePending(name: string): Pick<OptiNavItem, 'disabled' | 'hint'> {
 
 export function navGroups({
     activeTenant = null,
-    permissions = {},
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
 
@@ -177,7 +170,6 @@ export function navGroups({
                     title: 'Karyawan',
                     icon: Users,
                     tone: 'master',
-                    permission: 'employee.read',
                     ...tenantItem(tenant, (t) =>
                         employees.index({ tenant: t }),
                     ),
@@ -186,7 +178,6 @@ export function navGroups({
                     title: 'Departemen',
                     icon: Building2,
                     tone: 'master',
-                    permission: 'department.read',
                     ...tenantItem(tenant, (t) =>
                         departments.index({ tenant: t }),
                     ),
@@ -195,7 +186,6 @@ export function navGroups({
                     title: 'Divisi',
                     icon: Network,
                     tone: 'master',
-                    permission: 'division.read',
                     ...tenantItem(tenant, (t) =>
                         divisions.index({ tenant: t }),
                     ),
@@ -204,7 +194,6 @@ export function navGroups({
                     title: 'Posisi',
                     icon: BriefcaseBusiness,
                     tone: 'master',
-                    permission: 'employee.read',
                     ...tenantItem(tenant, (t) =>
                         positions.index({ tenant: t }),
                     ),
@@ -217,13 +206,6 @@ export function navGroups({
             tone: 'system',
             items: [
                 {
-                    title: 'Hak Akses',
-                    href: roles.index(),
-                    icon: ShieldCheck,
-                    tone: 'system',
-                    permission: 'rbac.manage',
-                },
-                {
                     title: 'Pengaturan',
                     shortTitle: 'Atur',
                     href: '/settings/profile',
@@ -234,15 +216,7 @@ export function navGroups({
         },
     ];
 
-    return groups
-        .map((group) => ({
-            ...group,
-            items: group.items.filter(
-                (item) =>
-                    !item.permission || permissions[item.permission] === true,
-            ),
-        }))
-        .filter((group) => group.items.length > 0);
+    return groups.filter((group) => group.items.length > 0);
 }
 
 /**
@@ -256,7 +230,7 @@ export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
 
     return [
         ...(ops?.items ?? []),
-        ...(system?.items ?? []).filter((item) => item.roles !== undefined),
+        ...(system?.items ?? []),
     ];
 }
 
@@ -274,9 +248,8 @@ export const utilityNavItems: OptiNavItem[] = [
 /** Mobile bottom bar entries (≤4 destinations; "Lainnya" holds the rest). */
 export function mobileNavItems({
     activeTenant,
-    permissions,
 }: NavContext): OptiNavItem[] {
-    const ops = navGroups({ activeTenant, permissions }).find(
+    const ops = navGroups({ activeTenant }).find(
         (group) => group.id === 'ops',
     );
 

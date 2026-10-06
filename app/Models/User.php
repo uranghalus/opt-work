@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\TenantAccess;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -10,7 +11,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
-use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -21,6 +21,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $phone
  * @property string|null $employee_id
  * @property string|null $tenant_id
+ * @property bool $is_super_admin
+ * @property bool $is_hod
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -30,13 +32,17 @@ use Spatie\Permission\Traits\HasRoles;
  *
  * Global model — not scoped to a tenant: authentication must survive cabang
  * switching. tenant_id records the user's home cabang.
+ *
+ * Authorization is tenant-level, not permission-level. Branch access is
+ * answered by {@see TenantAccess}; the flags here are the only
+ * identity distinctions that survive (spatie/laravel-permission is deferred).
  */
-#[Fillable(['name', 'email', 'password', 'phone', 'employee_id', 'tenant_id'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'employee_id', 'tenant_id', 'is_super_admin', 'is_hod'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -48,6 +54,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_super_admin' => 'boolean',
+            'is_hod' => 'boolean',
         ];
     }
 

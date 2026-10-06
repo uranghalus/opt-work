@@ -1,10 +1,8 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
-use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
 use Tests\TestCase;
 
@@ -46,16 +44,23 @@ function createUser(array $attributes = []): User
     return User::factory()->create($attributes);
 }
 
-function givePermission(User $user, string $permission): void
-{
-    Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-    $user->givePermissionTo($permission);
-}
-
+/**
+ * Platform-level user: may operate any branch.
+ *
+ * Replaces the `super_admin` Spatie role, which is deferred along with the rest
+ * of RBAC. See `.scratch/tenancy-reconfig/issues/02`.
+ */
 function makeSuperAdmin(User $user): User
 {
-    Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
-    $user->assignRole('super_admin');
+    $user->forceFill(['is_super_admin' => true])->save();
+
+    return $user;
+}
+
+/** Department head, for the notification fallback chain. */
+function makeHod(User $user): User
+{
+    $user->forceFill(['is_hod' => true])->save();
 
     return $user;
 }

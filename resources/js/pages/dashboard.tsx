@@ -528,10 +528,9 @@ function AvatarStack({ people }: { people: string }) {
 }
 
 function DashboardActions() {
-    const { permissions, activeTenant } =
-        usePage<InertiaConfig['sharedPageProps']>().props;
+    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
 
-    if (!permissions['work-order.create'] || !activeTenant) {
+    if (!activeTenant) {
         return null;
     }
 

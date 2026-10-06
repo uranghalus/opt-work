@@ -32,13 +32,11 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function WorkOrderActions() {
-    const { permissions, activeTenant } = usePage<
-        InertiaConfig['sharedPageProps']
-    >().props;
+    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
 
     // Tenant-scoped route: without an active cabang there is no URL to
     // build, so the action is withheld rather than pointed at a dead link.
-    if (!permissions['work-order.create'] || !activeTenant) {
+    if (!activeTenant) {
         return null;
     }
 

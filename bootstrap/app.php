@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePlatformTenantAccess;
 use App\Http\Middleware\EnsureTenantAccess;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'ensure.tenant.access' => EnsureTenantAccess::class,
+            'ensure.platform.tenant.access' => EnsurePlatformTenantAccess::class,
         ]);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);

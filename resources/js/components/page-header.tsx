@@ -29,7 +29,6 @@ export function PageHeader({
 
     const current = navGroups({
         activeTenant: tenant,
-        permissions: page.props.permissions,
     })
         .flatMap((group) => group.items)
         .find((item) => !item.disabled && isCurrentOrParentUrl(item.href));

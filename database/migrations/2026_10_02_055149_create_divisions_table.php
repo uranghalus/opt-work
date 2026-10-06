@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('divisions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('tenant_id')->constrained('tenants');
+            $table->string('tenant_id')->constrained('tenants');
             $table->string('kode_division')->nullable();
             $table->string('nama_division');
             $table->timestamps();

@@ -1,7 +1,7 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
 
 test('guests are redirected to the sso portal', function () {
     $response = $this->get(route('dashboard'));
@@ -16,17 +16,29 @@ test('authenticated users can visit the dashboard', function () {
     $response->assertOk();
 });
 
-test('shares the primary role for the navigation identity block', function () {
-    Role::firstOrCreate(['name' => 'hod', 'guard_name' => 'web']);
-    $user = User::factory()->create();
-    $user->assignRole('hod');
-    $this->actingAs($user);
+test('shares only the branches a user may operate', function () {
+    Tenant::query()->firstOrCreate(['id' => 'hq']);
+    Tenant::query()->firstOrCreate(['id' => 'plant-1']);
 
-    $this->get(route('dashboard'))
+    $branchUser = User::factory()->create(['tenant_id' => 'hq']);
+    $platformUser = User::factory()->create(['is_super_admin' => true]);
+
+    $this->actingAs($branchUser)
+        ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
-                ->where('auth.role', 'hod')
+                ->where('tenants', [['id' => 'hq', 'name' => 'hq', 'code' => null]])
+                ->missing('auth.role')
+                ->etc(),
+        );
+
+    $this->actingAs($platformUser)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(
+            fn ($page) => $page
+                ->has('tenants', 2)
                 ->etc(),
         );
 });

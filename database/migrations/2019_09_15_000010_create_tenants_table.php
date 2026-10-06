@@ -14,9 +14,12 @@ class CreateTenantsTable extends Migration
     public function up(): void
     {
         Schema::create('tenants', function (Blueprint $table) {
+            // A varchar slug, not a uuid: path-based tenancy puts this value in
+            // the URL (/{tenant}/work-orders). Every `tenant_id` foreign key must
+            // therefore be declared `string`, never `foreignUuid` — MySQL/InnoDB
+            // rejects a char(36) column referencing this varchar primary key.
+            // See ADR 0002.
             $table->string('id')->primary();
-
-            // your custom columns may go here
 
             $table->timestamps();
             $table->json('data')->nullable();

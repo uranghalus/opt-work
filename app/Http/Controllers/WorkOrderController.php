@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderController extends Controller
 {
@@ -97,5 +98,24 @@ class WorkOrderController extends Controller
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrder->load(['requester', 'targetDepartment']),
         ]);
+    }
+
+    /**
+     * Stream one attachment of a work order.
+     *
+     * Attachments live on the tenant-suffixed public disk
+     * (`storage/tenant{id}/app/public/` — see the FilesystemTenancyBootstrapper),
+     * which the `public/storage` symlink does not cover, so they cannot be served
+     * from a plain `/storage/...` URL. Serving them from here also keeps them
+     * behind the tenant middleware stack: a raw storage URL would let any
+     * authenticated user read another branch's uploads by guessing the path.
+     */
+    public function attachment(WorkOrder $workOrder, int $index): StreamedResponse
+    {
+        $path = $workOrder->attachments[$index] ?? null;
+
+        abort_if($path === null || ! Storage::disk('public')->exists($path), 404);
+
+        return Storage::disk('public')->response($path);
     }
 }

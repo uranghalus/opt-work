@@ -14,7 +14,7 @@ use Inertia\Response;
 
 class DepartmentController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
         $departments = Department::query()
             ->with(['division', 'hod'])
@@ -25,11 +25,6 @@ class DepartmentController extends Controller
 
         return Inertia::render('departments/index', [
             'departments' => $departments,
-            'can' => [
-                'create' => $request->user()?->can('department.create') ?? false,
-                'update' => $request->user()?->can('department.update') ?? false,
-                'delete' => $request->user()?->can('department.delete') ?? false,
-            ],
         ]);
     }
 

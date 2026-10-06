@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\TenantAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureTenantAccess
 {
+    public function __construct(private TenantAccess $tenantAccess) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -18,7 +21,7 @@ class EnsureTenantAccess
             return $next($request);
         }
 
-        if ($user->hasRole('super_admin') || (string) $user->tenant_id === (string) $tenant->getTenantKey()) {
+        if ($this->tenantAccess->canOperate($user, $tenant->getTenantKey())) {
             return $next($request);
         }
 

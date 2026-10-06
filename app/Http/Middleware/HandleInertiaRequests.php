@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Stancl\Tenancy\Database\Models\Tenant;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -35,31 +36,42 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
+        $activeTenant = tenant()?->getTenantKey() ?? $user?->tenant_id;
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'role' => $user?->getRoleNames()->first(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
             ],
-            'unreadNotificationsCount' => fn (): int => $request->user()?->unreadNotifications()->count() ?? 0,
-            'activeTenant' => tenant()?->getTenantKey() ?? $request->user()?->tenant_id,
+            'unreadNotificationsCount' => fn (): int => $user?->unreadNotifications()->count() ?? 0,
+            'activeTenant' => $activeTenant,
+            'tenants' => Tenant::all(['id', 'data'])->map(function ($t) {
+                return [
+                    'id' => $t->id,
+                    'name' => $t->data['nama_cabang'] ?? $t->id,
+                    'code' => $t->data['kode_cabang'] ?? null,
+                ];
+            })->toArray(),
             'can' => [
-                'division.read' => $request->user()?->can('division.read') ?? false,
-                'department.read' => $request->user()?->can('department.read') ?? false,
-                'employee.read' => $request->user()?->can('employee.read') ?? false,
+                'division.read' => $user?->can('division.read') ?? false,
+                'department.read' => $user?->can('department.read') ?? false,
+                'employee.read' => $user?->can('employee.read') ?? false,
             ],
-            // Navigation gating. Kept apart from `can` because pages pass
-            // their own `can` map (create/update) and would override it.
             'permissions' => [
-                'division.read' => $request->user()?->can('division.read') ?? false,
-                'department.read' => $request->user()?->can('department.read') ?? false,
-                'employee.read' => $request->user()?->can('employee.read') ?? false,
-                'work-order.read' => $request->user()?->can('work-order.read') ?? false,
-                'work-order.create' => $request->user()?->can('work-order.create') ?? false,
+                'division.read' => $user?->can('division.read') ?? false,
+                'department.read' => $user?->can('department.read') ?? false,
+                'employee.read' => $user?->can('employee.read') ?? false,
+                'work-order.read' => $user?->can('work-order.read') ?? false,
+                'work-order.create' => $user?->can('work-order.create') ?? false,
+                'rbac.manage' => $user?->can('rbac.manage') ?? false,
             ],
         ];
     }

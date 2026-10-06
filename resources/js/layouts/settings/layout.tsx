@@ -1,12 +1,14 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
+import roles from '@/routes/roles';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
+import type { InertiaConfig } from '@inertiajs/core';
 
 const sidebarNavItems: NavItem[] = [
     {
@@ -25,6 +27,11 @@ const sidebarNavItems: NavItem[] = [
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { permissions } = usePage<InertiaConfig['sharedPageProps']>().props;
+
+    const navItems = permissions['rbac.manage']
+        ? [...sidebarNavItems, { title: 'Hak Akses', href: roles.index() }]
+        : sidebarNavItems;
 
     return (
         <div>
@@ -39,7 +46,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
                         aria-label="Pengaturan"
                     >
-                        {sidebarNavItems.map((item, index) => (
+                        {navItems.map((item, index) => (
                             <Link
                                 key={`${toUrl(item.href)}-${index}`}
                                 href={item.href}

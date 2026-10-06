@@ -11,4 +11,6 @@ export type User = {
 
 export type Auth = {
     user: User;
+    /** Primary Spatie role name, shown under the user's name in the shell. */
+    role: string | null;
 };

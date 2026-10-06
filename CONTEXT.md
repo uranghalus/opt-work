@@ -47,8 +47,20 @@ Deputy General Manager / General Manager; final escalation recipients and mandat
 _Avoid_: manajemen
 
 **Super Admin**:
-System-level configuration owner (RBAC, master data). Not Direksi.
+System-level configuration owner (RBAC, master data); a Super Admin holds unrestricted access to every feature. Not Direksi.
 _Avoid_: admin
+
+**Role**:
+A named bundle of permissions deciding what a user may do; roles apply across all cabang, not per cabang.
+_Avoid_: level, jabatan (itu Position)
+
+**Permission**:
+A single named capability (read/create/update/delete/…) that routes and features gate access on.
+_Avoid_: hak (terlalu umum)
+
+**Hak Akses**:
+The settings surface where roles are created, edited, deleted, and assigned permissions. Same concept as "RBAC management".
+_Avoid_: manajemen user (itu assign karyawan)
 
 ## Places
 

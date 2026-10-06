@@ -28,12 +28,18 @@ type Props = {
     variant?: 'panel' | 'surface';
     /** Icon-only mark, used by the collapsed navigation rail. */
     compact?: boolean;
+    /** Short tier chip rendered beside the wordmark (e.g. "PRO"). */
+    badge?: string;
+    /** Supporting line under the wordmark (e.g. "Enterprise Operations"). */
+    subtitle?: string;
     className?: string;
 };
 
 export default function AppLogo({
     variant = 'surface',
     compact = false,
+    badge,
+    subtitle,
     className,
 }: Props) {
     const { name } = usePage().props;
@@ -57,21 +63,51 @@ export default function AppLogo({
                 <AppLogoIcon className="size-4 fill-current" />
             </span>
             {!compact && (
-                <span
-                    data-slot="app-logo-wordmark"
-                    className={cn(
-                        'truncate text-base leading-tight font-semibold tracking-[-0.01em]',
-                        onPanel ? 'text-panel-ink' : 'text-ink',
-                    )}
-                >
-                    {head}
-                    {tail && (
+                <span className="flex min-w-0 flex-col leading-tight">
+                    <span className="flex min-w-0 items-center gap-1.5">
                         <span
-                            className={
-                                onPanel ? 'text-brand-strong' : 'text-brand'
-                            }
+                            data-slot="app-logo-wordmark"
+                            className={cn(
+                                'truncate text-base font-semibold tracking-[-0.01em]',
+                                onPanel ? 'text-panel-ink' : 'text-ink',
+                            )}
                         >
-                            {tail}
+                            {head}
+                            {tail && (
+                                <span
+                                    className={
+                                        onPanel
+                                            ? 'text-brand-strong'
+                                            : 'text-brand'
+                                    }
+                                >
+                                    {tail}
+                                </span>
+                            )}
+                        </span>
+                        {badge && (
+                            <span
+                                className={cn(
+                                    'shrink-0 rounded border px-1.5 py-0.5 text-[0.5625rem] leading-none font-bold tracking-wide',
+                                    onPanel
+                                        ? 'border-brand-strong/30 bg-brand-strong/20 text-brand-strong'
+                                        : 'border-brand/30 bg-brand-soft text-brand',
+                                )}
+                            >
+                                {badge}
+                            </span>
+                        )}
+                    </span>
+                    {subtitle && (
+                        <span
+                            className={cn(
+                                'truncate text-xs font-medium',
+                                onPanel
+                                    ? 'text-panel-ink-muted'
+                                    : 'text-ink-muted',
+                            )}
+                        >
+                            {subtitle}
                         </span>
                     )}
                 </span>

@@ -125,76 +125,84 @@
 :root {
     color-scheme: light;
 
-    --background: #eef1f4; /* Concrete Canvas */
-    --foreground: #14212b; /* Operational Ink */
-    --card: #ffffff; /* Clean Surface */
-    --card-foreground: #14212b;
+    --background: #f7f9ff; /* Stitch: background */
+    --foreground: #111d27; /* Stitch: on-background */
+    --card: #ffffff; /* Stitch: surface */
+    --card-foreground: #111d27;
     --popover: #ffffff;
-    --popover-foreground: #14212b;
-    --primary: #0c6b58; /* Execution Teal */
+    --popover-foreground: #111d27;
+    --primary: #005142; /* Stitch: primary */
     --primary-foreground: #ffffff;
-    --secondary: #f7f9fb; /* Raised Well */
-    --secondary-foreground: #14212b;
+    --secondary: #f7f9fb; /* Stitch: surface-raised */
+    --secondary-foreground: #111d27;
     --muted: #f7f9fb;
-    --muted-foreground: #566675; /* Muted Ink */
-    --accent: #eef3f7; /* cool hover tint, one step from canvas */
-    --accent-foreground: #14212b;
-    --destructive: #c0392b; /* Accident Red */
+    --muted-foreground: #5b6b7c; /* Stitch: ink-muted */
+    --accent: #eef1f4; /* Stitch: canvas */
+    --accent-foreground: #111d27;
+    --destructive: #c0392b; /* Stitch: danger */
     --destructive-foreground: #ffffff;
-    --border: #d9e1e8; /* Rule Gray */
-    --input: #d9e1e8;
-    --ring: #0c6b58; /* focus ring = Execution Teal */
+    --border: #d5dce5; /* Stitch: border */
+    --input: #d5dce5;
+    --ring: #0c6b58; /* Stitch: focus-ring */
     --chart-1: #2a5f8f;
     --chart-2: #0c6b58;
     --chart-3: #b86e00;
     --chart-4: #c0392b;
     --chart-5: #1f7a4c;
 
-    --canvas: #eef1f4;
-    --surface: #ffffff;
-    --surface-raised: #f7f9fb;
-    --surface-sunken: #e8ecf1;
-    --ink: #14212b;
-    --ink-muted: #566675;
-    --ink-subtle: #8395a5;
-    --border-strong: #a9b7c4;
+    --canvas: #eef1f4; /* Stitch: canvas */
+    --surface: #ffffff; /* Stitch: surface */
+    --surface-raised: #f7f9fb; /* Stitch: surface-raised */
+    --surface-sunken: #e8ecf1; /* Stitch: surface-sunken */
+    --ink: #15202b; /* Stitch: ink */
+    --ink-muted: #5b6b7c; /* Stitch: ink-muted */
+    --ink-subtle: #8494a7; /* Stitch: ink-subtle */
+    --border-strong: #a8b4c4; /* Stitch: border-strong */
 
-    --brand: #0c6b58;
-    --brand-hover: #0a5748;
-    --brand-strong: #12a383; /* luminous teal for indicators and icons */
+    --brand: #0c6b58; /* Stitch: brand (primary-container) */
+    --brand-hover: #095445; /* Stitch: brand-hover */
+    --brand-strong: #12a383; /* Stitch: mod-ops / brand-strong */
     --brand-deep: #084c3e;
     --brand-soft: #dcefe9;
-    --on-brand: #ffffff;
-    --info: #2a5f8f; /* Planned Blue */
-    --warning: #b86e00; /* Deadline Amber */
-    --danger: #c0392b; /* Accident Red */
-    --escalation: #7a1f3d; /* Escalation Wine */
-    --success: #1f7a4c; /* Verified Green */
-    --owner-urgent: #8a4b12; /* Owner Amber-Brown */
-    --focus-ring: #0c6b58;
-    --overlay: rgba(20, 33, 43, 0.45);
+    --on-brand: #ffffff; /* Stitch: on-brand */
+    --info: #2a5f8f; /* Stitch: info */
+    --warning: #b86e00; /* Stitch: warning */
+    --danger: #c0392b; /* Stitch: danger */
+    --escalation: #7a1f3d; /* Stitch: escalation */
+    --success: #1f7a4c; /* Stitch: success */
+    --owner-urgent: #8a4b12; /* Stitch: owner-urgent */
+    --focus-ring: #0c6b58; /* Stitch: focus-ring */
+    --overlay: rgba(21, 32, 43, 0.45); /* Stitch: overlay */
 
-    --info-subtle: #e4edf6;
-    --warning-subtle: #f7ecda;
-    --danger-subtle: #f7e2df;
-    --escalation-subtle: #f2e2e8;
-    --success-subtle: #dfefe6;
-    --owner-urgent-subtle: #f3e5d6;
+    --info-subtle: #e4edf6; /* Stitch: info-subtle */
+    --warning-subtle: #f7ecda; /* Stitch: warning-subtle */
+    --danger-subtle: #f7e2df; /* Stitch: danger-subtle */
+    --escalation-subtle: #f2e2e8; /* Stitch: escalation-subtle */
+    --success-subtle: #dfeefe6; /* Stitch: success-subtle */
+    --owner-urgent-subtle: #f3e5d6; /* Stitch: owner-urgent-subtle */
 
-    /* Contrast panel (navigation stratum) — dark in both themes. */
-    --panel: #0d1b22;
-    --panel-raised: #12262f;
-    --panel-hover: rgba(255, 255, 255, 0.06);
-    --panel-active: rgba(18, 163, 131, 0.18);
-    --panel-border: rgba(255, 255, 255, 0.09);
-    --panel-ink: #e7eff4;
-    --panel-ink-muted: #9db0bc;
-    --panel-ink-subtle: #6e8391;
+    /* Contrast panel (navigation stratum) — dark in both themes. The
+       gradient is decorative depth on top of the flat `panel` value so the
+       token stays a colour and dark mode keeps a single authored floor. */
+    --panel: #0d1b22; /* Stitch: panel */
+    --panel-raised: #12262f; /* Stitch: panel-raised */
+    --panel-hover: rgba(255, 255, 255, 0.06); /* Stitch: panel-hover */
+    --panel-active: rgba(18, 163, 131, 0.18); /* Stitch: panel-active */
+    --panel-border: rgba(255, 255, 255, 0.09); /* Stitch: panel-border */
+    --panel-ink: #e7eff4; /* Stitch: panel-ink */
+    --panel-ink-muted: #9db0bc; /* Stitch: panel-ink-muted */
+    --panel-ink-subtle: #6e8391; /* Stitch: panel-ink-subtle */
+    --panel-gradient: linear-gradient(
+        180deg,
+        #0d1b22 0%,
+        #0d1b22 55%,
+        #12262f 100%
+    );
 
     /* Group identity hues (nav icon tints) */
-    --mod-ops: #12a383;
-    --mod-master: #2f6fb5;
-    --mod-system: #8ba6b8;
+    --mod-ops: #12a383; /* Stitch: mod-ops */
+    --mod-master: #2f6fb5; /* Stitch: mod-master */
+    --mod-system: #8ba6b8; /* Stitch: mod-system */
 
     --sidebar: var(--panel);
     --sidebar-foreground: var(--panel-ink);
@@ -247,9 +255,9 @@
     --ink-subtle: #74899a;
     --border-strong: #3a4c5a;
 
-    --brand: #12836b; /* filled actions: white text stays ≥4.5:1 */
+    --brand: #12836b;
     --brand-hover: #0f6f5b;
-    --brand-strong: #3ecfa6; /* indicators, icon tints, active label */
+    --brand-strong: #3ecfa6;
     --brand-deep: #0b5a4a;
     --brand-soft: rgba(62, 207, 166, 0.14);
     --on-brand: #ffffff;
@@ -274,14 +282,20 @@
     --shadow-popover: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
     --shadow-modal: 0 24px 56px -12px rgba(0, 0, 0, 0.7);
 
-    --panel: #070d12;
-    --panel-raised: #0c161d;
+    --panel: #070d12; /* Stitch dark: panel */
+    --panel-raised: #0a141c; /* Stitch dark: panel-raised */
     --panel-hover: rgba(255, 255, 255, 0.05);
     --panel-active: rgba(62, 207, 166, 0.18);
     --panel-border: rgba(255, 255, 255, 0.07);
     --panel-ink: #e7eff4;
     --panel-ink-muted: #9db0bc;
     --panel-ink-subtle: #6e8391;
+    --panel-gradient: linear-gradient(
+        180deg,
+        #070d12 0%,
+        #070d12 55%,
+        #0a141c 100%
+    );
 
     --mod-ops: #3ecfa6;
     --mod-master: #74acd8;
@@ -304,9 +318,39 @@
         text-rendering: optimizeLegibility;
     }
 
+    /* Stitch-style sidebar collapse transition */
+    #sidebar,
+    [data-sidebar="sidebar"] {
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #main-content {
+        transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .sidebar-collapsed #sidebar {
+        width: 5rem !important;
+    }
+    .sidebar-collapsed #main-content {
+        padding-left: 5rem !important;
+    }
+    .sidebar-collapsed .sidebar-text-hide {
+        display: none !important;
+    }
+    .sidebar-collapsed .sidebar-center-item {
+        justify-content: center !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    .sidebar-collapsed .sidebar-divider-tag {
+        display: none;
+    }
+
     /* Browser surfaces ship with the palette. */
     ::selection {
-        background-color: color-mix(in srgb, var(--brand-strong) 28%, transparent);
+        background-color: color-mix(
+            in srgb,
+            var(--brand-strong) 28%,
+            transparent
+        );
         color: var(--foreground);
     }
 
@@ -333,7 +377,11 @@
         border: 2px solid transparent;
         border-radius: 999px;
         background-clip: content-box;
-        background-color: color-mix(in srgb, var(--border-strong) 70%, transparent);
+        background-color: color-mix(
+            in srgb,
+            var(--border-strong) 70%,
+            transparent
+        );
     }
 
     ::-webkit-scrollbar-thumb:hover {

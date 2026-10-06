@@ -1,32 +1,37 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowUpRight,
+    Bolt,
     CalendarClock,
+    CheckCircle,
     ChevronDown,
-    Ellipsis,
+    ClipboardList,
+    Clock,
+    Construction,
+    Cpu,
     Eye,
-    Inbox,
+    Fan,
+    HardHat,
+    HeartPulse,
+    History,
     ListFilter,
+    MapPin,
+    MonitorCog,
     Plus,
-    RotateCcw,
     Search,
-    ShieldAlert,
+    ShieldCheck,
+    Sparkles,
+    Timer,
+    TrendingUp,
     TriangleAlert,
-    UserCheck,
     Upload,
+    Wrench,
     Zap,
     type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { CategoryBadge, type WoCategory } from '@/components/category-badge';
-import { DeadlineRail, type DeadlineState } from '@/components/deadline-rail';
 import { InfoBanner } from '@/components/info-banner';
-import { ModuleCard } from '@/components/module-card';
-import { StatusBadge, type WoStatus } from '@/components/status-badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -34,251 +39,498 @@ import { create, index as workOrdersIndex } from '@/routes/work-orders';
 import type { InertiaConfig } from '@inertiajs/core';
 
 /*
- * Demo fixture data. The Work Order module (routes + controller) does not
- * exist yet, so this page renders the PRD's status pipeline with authored
- * sample data at production fidelity. Swap for Inertia props when the
- * DashboardController ships.
+ * Executive overview home (Stitch reference, DESIGN.md §13 executive
+ * scorecard). Authored fixture data: the Work Order module has no dashboard
+ * controller yet, so the KPI scorecard, weekly throughput, departmental
+ * health, priority queue and audit trail render sample values at production
+ * fidelity. Swap for Inertia props when DashboardController ships.
  */
 
-/* Queue cards as module cards (DESIGN.md §Module Grid): tinted icon square
-   per status token, primary count, muted label. Board column tokens:
-   waiting_hod → warning, assigned/scheduled/pending_verify → info. */
-type QueueCard = {
-    status: WoStatus;
+type KpiCard = {
+    id: string;
     label: string;
     hint: string;
-    count: number;
     icon: LucideIcon;
+    iconWrap: string;
+    value: string;
+    unit?: string;
+    chip: {
+        text: string;
+        className: string;
+        icon?: LucideIcon;
+        trend?: boolean;
+    };
+    progress?: { pct: number; caption: string };
+    note?: ReactNode;
+    footer: ReactNode;
+};
+
+function FootCount({
+    tone,
+    count,
+    label,
+}: {
     tone: string;
-    bg: string;
-};
-
-const queueCards: QueueCard[] = [
-    {
-        status: 'waiting_hod',
-        label: 'Menunggu Keputusan HOD',
-        hint: 'perlu eksekusi atau jadwal',
-        count: 7,
-        icon: Inbox,
-        tone: 'text-warning',
-        bg: 'bg-warning-subtle',
-    },
-    {
-        status: 'assigned',
-        label: 'Ditugaskan',
-        hint: 'sudah punya penanggung jawab',
-        count: 12,
-        icon: UserCheck,
-        tone: 'text-info',
-        bg: 'bg-info-subtle',
-    },
-    {
-        status: 'scheduled',
-        label: 'Terjadwal',
-        hint: 'masuk rencana kerja',
-        count: 5,
-        icon: CalendarClock,
-        tone: 'text-info',
-        bg: 'bg-info-subtle',
-    },
-    {
-        status: 'pending_verify',
-        label: 'Menunggu Verifikasi',
-        hint: 'hasil menunggu persetujuan',
-        count: 3,
-        icon: Eye,
-        tone: 'text-info',
-        bg: 'bg-info-subtle',
-    },
-];
-
-type DemoWo = {
-    id: string;
-    jenisShort: string;
-    jenis: string;
-    category: WoCategory;
-    status: WoStatus;
-    requester: string;
-    dept: string;
-    created: string;
-    deadline: string;
-    deadlineState: DeadlineState;
-    deadlineLabel: string;
-    assignee: string;
-};
-
-const demoWorkOrders: DemoWo[] = [
-    {
-        id: 'WO-2026-00418',
-        jenisShort: 'Perbaikan',
-        jenis: 'Perbaikan panel listrik lantai 2',
-        category: 'accident',
-        status: 'in_progress',
-        requester: 'Gunawan W.',
-        dept: 'GA',
-        created: '20-09-26',
-        deadline: '23-09-26',
-        deadlineState: 'on_track',
-        deadlineLabel: 'On track',
-        assignee: 'Sari R.',
-    },
-    {
-        id: 'WO-2026-00417',
-        jenisShort: 'Pemeliharaan',
-        jenis: 'Ganti pompa air chiller',
-        category: 'normal',
-        status: 'overdue',
-        requester: 'Maya S.',
-        dept: 'Produksi',
-        created: '12-09-26',
-        deadline: '19-09-26',
-        deadlineState: 'escalated',
-        deadlineLabel: 'Telat H+3 · Team Leader',
-        assignee: 'Budi S.',
-    },
-    {
-        id: 'WO-2026-00416',
-        jenisShort: 'Pemeliharaan',
-        jenis: 'Servis AC ruang server',
-        category: 'normal',
-        status: 'scheduled',
-        requester: 'Andi P.',
-        dept: 'IT',
-        created: '22-09-26',
-        deadline: '26-09-26',
-        deadlineState: 'due_soon',
-        deadlineLabel: 'Deadline besok',
-        assignee: 'Tim Teknik',
-    },
-    {
-        id: 'WO-2026-00415',
-        jenisShort: 'Instalasi',
-        jenis: 'Perbaikan lift gedung B',
-        category: 'owner',
-        status: 'waiting_hod',
-        requester: 'Ibu Direksi',
-        dept: 'GA',
-        created: '23-09-26',
-        deadline: '—',
-        deadlineState: 'on_track',
-        deadlineLabel: 'Menunggu keputusan',
-        assignee: '—',
-    },
-    {
-        id: 'WO-2026-00414',
-        jenisShort: 'Perawatan',
-        jenis: 'Cat ulang garasi parkir',
-        category: 'normal',
-        status: 'pending_verify',
-        requester: 'Rina T.',
-        dept: 'GA',
-        created: '15-09-26',
-        deadline: '22-09-26',
-        deadlineState: 'on_track',
-        deadlineLabel: 'On track',
-        assignee: 'Sari R.',
-    },
-    {
-        id: 'WO-2026-00413',
-        jenisShort: 'Perbaikan',
-        jenis: 'Perbaikan mesin injeksi #4',
-        category: 'normal',
-        status: 'revision',
-        requester: 'Produksi',
-        dept: 'Produksi',
-        created: '10-09-26',
-        deadline: '25-09-26',
-        deadlineState: 'overdue',
-        deadlineLabel: 'Telat',
-        assignee: 'Joko W.',
-    },
-];
-
-/* Compliance proportions: on track / telat / eskalasi (DESIGN.md signals) */
-const slaSegments = [
-    { label: 'On track', pct: 80, align: 'text-left' },
-    { label: 'Telat', pct: 15, align: 'text-center' },
-    { label: 'Eskalasi', pct: 5, align: 'text-right' },
-];
-
-/* Attention tiles with signal-colored icons (mockup: Expired/Incomplete/Invalid) */
-const attentionTiles: {
     count: number;
     label: string;
-    icon: LucideIcon;
-    tone: string;
-}[] = [
-    { count: 6, label: 'Telat', icon: TriangleAlert, tone: 'text-danger' },
-    { count: 2, label: 'Eskalasi', icon: ShieldAlert, tone: 'text-escalation' },
-    { count: 1, label: 'Revisi', icon: RotateCcw, tone: 'text-warning' },
-];
-
-const pulseTiles = [
-    { trend: '↑ 15%', value: '12 WO', label: 'Deadline ≤ 1 hari' },
-    { trend: '↑ 8%', value: '6 WO', label: 'Telat, perlu perpanjangan' },
-    { trend: '↑ 3%', value: '5 WO', label: 'Masuk jadwal minggu ini' },
-];
-
-const deadlineTone: Record<DeadlineState, string> = {
-    on_track: 'text-ink-muted',
-    due_soon: 'text-warning',
-    overdue: 'text-danger',
-    escalated: 'text-escalation',
-};
-
-function PersonCell({ name }: { name: string }) {
-    const getInitials = useInitials();
-
-    if (name === '—') {
-        return <span className="text-ink-subtle">—</span>;
-    }
-
+}) {
     return (
-        <span className="flex items-center gap-2">
-            <Avatar className="size-6 rounded-full">
-                <AvatarFallback className="rounded-full bg-secondary text-[0.625rem] font-semibold text-foreground">
-                    {getInitials(name)}
-                </AvatarFallback>
-            </Avatar>
-            <span className="whitespace-nowrap">{name}</span>
+        <span className="flex items-center gap-1.5">
+            <span
+                aria-hidden="true"
+                className={cn('size-2 shrink-0 rounded-full', tone)}
+            >
+            </span>
+            <span className="font-semibold text-ink tabular-nums">{count}</span>
+            <span className="text-ink-subtle">{label}</span>
         </span>
     );
 }
 
-function SortableTh({
+const kpiCards: KpiCard[] = [
+    {
+        id: 'total-wo',
+        label: 'Total Work Order',
+        hint: 'Bulan Ini',
+        icon: ClipboardList,
+        iconWrap: 'bg-brand-strong/15 text-brand-strong',
+        value: '142',
+        chip: {
+            text: '+8% MoM',
+            className: 'bg-success-subtle text-success ring-success/25',
+            icon: TrendingUp,
+            trend: true,
+        },
+        progress: { pct: 88.8, caption: 'Target 160 WO' },
+        footer: (
+            <div className="flex flex-wrap items-center gap-3">
+                <FootCount tone="bg-success" count={118} label="Selesai" />
+                <FootCount tone="bg-warning" count={18} label="Berjalan" />
+                <FootCount tone="bg-info" count={6} label="Approval" />
+            </div>
+        ),
+    },
+    {
+        id: 'sla-rate',
+        label: 'Kepatuhan SLA',
+        hint: 'Resolusi tepat waktu',
+        icon: ShieldCheck,
+        iconWrap: 'bg-info-subtle text-info ring-info/25',
+        value: '96.2%',
+        chip: {
+            text: 'Target ≥95%',
+            className: 'bg-brand-soft text-brand ring-brand/25',
+        },
+        note: (
+            <p className="text-xs text-ink-muted">
+                Di atas targetinternal{' '}
+                <span className="font-semibold text-success">+1.2%</span>
+            </p>
+        ),
+        footer: (
+            <div className="grid grid-cols-2 gap-2">
+                <span className="rounded-md bg-surface-raised px-2 py-1 text-ink-subtle ring-1 ring-border ring-inset">
+                    Eskalasi GM{' '}
+                    <span className="font-semibold text-success">0</span>
+                </span>
+                <span className="rounded-md bg-warning-subtle px-2 py-1 text-ink-muted ring-1 ring-warning/25 ring-inset">
+                    Eskalasi HOD{' '}
+                    <span className="font-semibold text-warning">2</span>
+                </span>
+            </div>
+        ),
+    },
+    {
+        id: 'mttr',
+        label: 'Rata-rata Penyelesaian',
+        hint: 'Mean time to resolve',
+        icon: Timer,
+        iconWrap: 'bg-warning-subtle text-warning ring-warning/20',
+        value: '4.2',
+        unit: 'jam',
+        chip: {
+            text: '1.8 jam lebih cepat',
+            className: 'bg-success-subtle text-success ring-success/25',
+            icon: TrendingUp,
+            trend: true,
+        },
+        note: (
+            <div className="flex items-center gap-2 text-xs text-ink-muted">
+                <span className="rounded-md bg-surface-raised px-2 py-1 ring-1 ring-border ring-inset">
+                    Normal{' '}
+                    <span className="font-semibold text-ink">1.8 hari</span>
+                </span>
+            </div>
+        ),
+        footer: (
+            <span className="text-ink-subtle">
+                Benchmark internal{' '}
+                <span className="font-semibold text-ink">6.0 jam</span>
+            </span>
+        ),
+    },
+    {
+        id: 'utilization',
+        label: 'Utilisasi Tim',
+        hint: 'Teknisi aktif hari ini',
+        icon: HardHat,
+        iconWrap: 'bg-warning-subtle text-warning ring-warning/20',
+        value: '84%',
+        chip: {
+            text: 'Sehat',
+            className: 'bg-success-subtle text-success ring-success/25',
+        },
+        progress: { pct: 84, caption: '32 dari 38 teknisi' },
+        footer: (
+            <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-ink-subtle">
+                    MEP · BMS · Sipil · IT
+                </span>
+                <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[0.6875rem] font-semibold text-brand">
+                    6 standby
+                </span>
+            </div>
+        ),
+    },
+];
+
+const weeklyThroughput = [
+    { day: 'Sen', date: '17 Feb', masuk: 18, selesai: 22, sla: 97 },
+    { day: 'Sel', date: '18 Feb', masuk: 20, selesai: 24, sla: 98 },
+    { day: 'Rab', date: '19 Feb', masuk: 25, selesai: 23, sla: 95 },
+    { day: 'Kam', date: '20 Feb', masuk: 16, selesai: 20, sla: 96 },
+    { day: 'Jum', date: '21 Feb', masuk: 28, selesai: 30, sla: 99 },
+    { day: 'Sab', date: '22 Feb', masuk: 10, selesai: 12, sla: 93 },
+    { day: 'Min', date: '23 Feb', masuk: 8, selesai: 11, sla: 96 },
+];
+
+const throughputScale = Math.max(
+    ...weeklyThroughput.flatMap((d) => [d.masuk, d.selesai]),
+);
+
+type DepartmentRow = {
+    name: string;
+    scope: string;
+    icon: LucideIcon;
+    iconWrap: string;
+    hod: string;
+    hodRole: string;
+    activeWo: number;
+    urgent: boolean;
+    doneRatio: number;
+    ratioNote: string;
+    barClass: string;
+    sla: string;
+    slaClass: string;
+    healthy: boolean;
+};
+
+const departmentRows: DepartmentRow[] = [
+    {
+        name: 'MEP',
+        scope: 'Gedung utama & annex',
+        icon: Bolt,
+        iconWrap: 'bg-linear-to-tr from-info to-brand',
+        hod: 'Bambang S.',
+        hodRole: 'HOD MEP',
+        activeWo: 7,
+        urgent: false,
+        doneRatio: 87,
+        ratioNote: '48 dari 55 WO',
+        barClass: 'from-info to-brand',
+        sla: '98.1%',
+        slaClass: 'text-ink',
+        healthy: true,
+    },
+    {
+        name: 'HVAC & BMS',
+        scope: 'Central plant & AHU',
+        icon: Fan,
+        iconWrap: 'bg-linear-to-tr from-brand to-brand-strong',
+        hod: 'Ir. Firman H.',
+        hodRole: 'HOD Thermal',
+        activeWo: 5,
+        urgent: false,
+        doneRatio: 86,
+        ratioNote: '31 dari 36 WO',
+        barClass: 'from-brand to-brand-strong',
+        sla: '95.4%',
+        slaClass: 'text-ink',
+        healthy: true,
+    },
+    {
+        name: 'IT & Security',
+        scope: 'CCTV, akses, network',
+        icon: Cpu,
+        iconWrap: 'bg-linear-to-tr from-info to-brand-deep',
+        hod: 'Raditya P.',
+        hodRole: 'Lead IT',
+        activeWo: 3,
+        urgent: false,
+        doneRatio: 88,
+        ratioNote: '22 dari 25 WO',
+        barClass: 'from-info to-brand-deep',
+        sla: '96.8%',
+        slaClass: 'text-ink',
+        healthy: true,
+    },
+    {
+        name: 'Sipil & Interior',
+        scope: 'Struktural & penyewa',
+        icon: Construction,
+        iconWrap: 'bg-linear-to-tr from-warning to-owner-urgent',
+        hod: 'Agus T.',
+        hodRole: 'HOD Civil',
+        activeWo: 2,
+        urgent: true,
+        doneRatio: 67,
+        ratioNote: '12 dari 18 WO',
+        barClass: 'from-warning to-owner-urgent',
+        sla: '91.4%',
+        slaClass: 'text-warning',
+        healthy: false,
+    },
+    {
+        name: 'Housekeeping',
+        scope: 'Area publik & sanitasi',
+        icon: Sparkles,
+        iconWrap: 'bg-linear-to-tr from-success to-brand-strong',
+        hod: 'Siti N.',
+        hodRole: 'Supervisor',
+        activeWo: 1,
+        urgent: false,
+        doneRatio: 95,
+        ratioNote: '19 dari 20 WO',
+        barClass: 'from-success to-brand-strong',
+        sla: '99.2%',
+        slaClass: 'text-ink',
+        healthy: true,
+    },
+];
+
+type PriorityTicket = {
+    id: string;
+    priority: 'P1' | 'P2' | 'P3';
+    title: string;
+    location: string;
+    requester: string;
+    technician: string;
+    slaLeft: string;
+    slaClass: string;
+    cardClass: string;
+    accentClass: string;
+};
+
+const priorityTickets: PriorityTicket[] = [
+    {
+        id: 'WO-2026-00411',
+        priority: 'P1',
+        title: 'Kebocoran pipa header chiller unit 02, tekanan turun drastis',
+        location: 'MEP · Ruang Chiller B2',
+        requester: 'Tenant Management',
+        technician: 'Hadi P. & tim MEP',
+        slaLeft: '01:24:10',
+        slaClass: 'bg-danger-subtle text-danger ring-danger/30',
+        cardClass:
+            'bg-danger-subtle/40 border-danger/30 hover:bg-danger-subtle/60',
+        accentClass: 'border-l-danger',
+    },
+    {
+        id: 'WO-2026-00408',
+        priority: 'P2',
+        title: 'Keretakan plafon gypsum dekat pintu lift passenger 03',
+        location: 'Sipil · Koridor Lift Barat Lt. 14',
+        requester: 'Security Patrol',
+        technician: 'Joko Anwar',
+        slaLeft: '04:12:45',
+        slaClass: 'bg-warning-subtle text-warning ring-warning/30',
+        cardClass:
+            'bg-warning-subtle/40 border-warning/30 hover:bg-warning-subtle/60',
+        accentClass: 'border-l-warning',
+    },
+    {
+        id: 'WO-2026-00405',
+        priority: 'P3',
+        title: 'Magnetic lock pintu data center tidak responsif ke kartu RFID',
+        location: 'IT Security · Data Center Lt. 3',
+        requester: 'NOC Officer',
+        technician: 'Doni Kurniawan',
+        slaLeft: '05:40:00',
+        slaClass: 'bg-surface-raised text-ink-muted ring-border',
+        cardClass: 'bg-surface border-border hover:bg-surface-raised',
+        accentClass: 'border-l-info',
+    },
+];
+
+const priorityStyles: Record<
+    PriorityTicket['priority'],
+    { label: string; badge: string; icon: LucideIcon }
+> = {
+    P1: {
+        label: 'P1 · KRITIS',
+        badge: 'bg-danger text-on-brand',
+        icon: Zap,
+    },
+    P2: {
+        label: 'P2 · TINGGI',
+        badge: 'bg-warning text-on-brand',
+        icon: TriangleAlert,
+    },
+    P3: { label: 'P3 · NORMAL', badge: 'bg-info text-on-brand', icon: Clock },
+};
+
+type AuditEntry = {
+    time: string;
+    tone: string;
+    wrapClass: string;
+    tag: string;
+    tagClass: string;
+    Icon: LucideIcon;
+    body: ReactNode;
+};
+
+const auditEntries: AuditEntry[] = [
+    {
+        time: '10:32',
+        tone: 'bg-success',
+        wrapClass: 'bg-success-subtle/50 border-success/25',
+        tag: 'WO ditutup',
+        tagClass: 'bg-success text-on-brand',
+        Icon: CheckCircle,
+        body: (
+            <>
+                <span className="font-medium text-ink">
+                    WO-2026-00398 · Ballast lampu koridor Lt. 8
+                </span>
+                <span className="block text-ink-subtle">
+                    HOD MEP memvalidasi 2 fotoevidence.
+                </span>
+            </>
+        ),
+    },
+    {
+        time: '09:50',
+        tone: 'bg-warning',
+        wrapClass: 'bg-warning-subtle/50 border-warning/30',
+        tag: 'Ajukan perpanjangan',
+        tagClass: 'bg-warning text-on-brand',
+        Icon: Clock,
+        body: (
+            <>
+                <span className="font-medium text-ink">
+                    WO-2026-00402 · Overhaul motor pompa transfer B3
+                </span>
+                <span className="block text-ink-subtle">
+                    Menunggu approval DGM/GM · +2 jam (sparepart vendor).
+                </span>
+                <span className="mt-1.5 flex gap-1.5">
+                    <button
+                        type="button"
+                        className="h-7 cursor-pointer rounded-md bg-brand px-2.5 text-xs font-semibold text-on-brand hover:bg-brand-hover"
+                    >
+                        Setujui +2 jam
+                    </button>
+                    <button
+                        type="button"
+                        className="h-7 cursor-pointer rounded-md border border-border bg-surface px-2.5 text-xs font-semibold text-ink hover:bg-surface-raised"
+                    >
+                        Tolak
+                    </button>
+                </span>
+            </>
+        ),
+    },
+    {
+        time: '08:00',
+        tone: 'bg-info',
+        wrapClass: 'bg-surface-raised border-border',
+        tag: 'Otomatis',
+        tagClass: 'bg-info text-on-brand',
+        Icon: CalendarClock,
+        body: (
+            <span className="text-ink-muted">
+                12 preventive maintenance terjadwal untuk shift pagi.
+            </span>
+        ),
+    },
+];
+
+const rangeOptions = ['Hari ini', '7 hari', '30 hari'] as const;
+
+function SectionHeading({
+    icon: Icon,
+    iconWrap,
+    title,
+    description,
+    trailing,
+}: {
+    icon: LucideIcon;
+    iconWrap: string;
+    title: string;
+    description: string;
+    trailing?: ReactNode;
+}) {
+    return (
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+            <div className="flex min-w-0 items-start gap-2.5">
+                <span
+                    aria-hidden="true"
+                    className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-lg',
+                        iconWrap,
+                    )}
+                >
+                    <Icon className="size-4" />
+                </span>
+                <div className="min-w-0">
+                    <h2 className="truncate text-sm font-semibold text-ink">
+                        {title}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                        {description}
+                    </p>
+                </div>
+            </div>
+            {trailing}
+        </header>
+    );
+}
+
+function Th({
     children,
-    className,
+    align = 'left',
 }: {
     children: ReactNode;
-    className?: string;
+    align?: 'left' | 'center' | 'right';
 }) {
     return (
         <th
             scope="col"
             className={cn(
-                'px-2.5 py-2.5 font-semibold whitespace-nowrap',
-                className,
+                'px-3 py-2.5 text-[0.6875rem] font-semibold tracking-wider whitespace-nowrap text-ink-subtle uppercase',
+                align === 'center' && 'text-center',
+                align === 'right' && 'text-right',
             )}
         >
-            <span className="inline-flex items-center gap-1">
-                {children}
-                <ChevronDown
-                    aria-hidden="true"
-                    className="size-3 text-ink-subtle"
-                />
-            </span>
+            {children}
         </th>
     );
 }
 
-/** Primary action of this page, rendered in the shell's heading band. */
-function DashboardActions() {
-    const { permissions, activeTenant } = usePage<
-        InertiaConfig['sharedPageProps']
-    >().props;
+function AvatarStack({ people }: { people: string }) {
+    const getInitials = useInitials();
 
-    // Tenant-scoped route: without an active cabang there is no URL to
-    // build, so the action is withheld rather than pointed at a dead link.
+    return (
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand ring-1 ring-border">
+            {getInitials(people)}
+        </span>
+    );
+}
+
+function DashboardActions() {
+    const { permissions, activeTenant } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
+
     if (!permissions['work-order.create'] || !activeTenant) {
         return null;
     }
@@ -294,519 +546,581 @@ function DashboardActions() {
 }
 
 export default function Dashboard() {
-    const { activeTenant } = usePage().props;
-    const [statusFilter, setStatusFilter] = useState<'semua' | WoStatus>(
-        'semua',
-    );
-    const [selected, setSelected] = useState<Set<string>>(new Set());
-    const [showSlaWarning, setShowSlaWarning] = useState(true);
+    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
     const tenant = (activeTenant as string | null) ?? '';
-
-    const visibleWorkOrders =
-        statusFilter === 'semua'
-            ? demoWorkOrders
-            : demoWorkOrders.filter((wo) => wo.status === statusFilter);
-
-    const allVisibleSelected =
-        visibleWorkOrders.length > 0 &&
-        visibleWorkOrders.every((wo) => selected.has(wo.id));
-
-    const toggleAll = () => {
-        setSelected((prev) => {
-            const next = new Set(prev);
-            if (allVisibleSelected) {
-                visibleWorkOrders.forEach((wo) => next.delete(wo.id));
-            } else {
-                visibleWorkOrders.forEach((wo) => next.add(wo.id));
-            }
-            return next;
-        });
-    };
-
-    const toggleOne = (id: string) => {
-        setSelected((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
-    };
+    const [range, setRange] = useState<(typeof rangeOptions)[number]>('7 hari');
+    const [showNotice, setShowNotice] = useState(true);
 
     return (
         <>
             <Head title="Beranda" />
 
-            {/* Info banner — operational notice only (DESIGN.md §Info Banner) */}
-            {showSlaWarning && (
+            {showNotice && (
                 <InfoBanner
                     iconClassName="text-danger"
                     message="6 WO telat dan 2 eskalasi aktif — tinjau sekarang agar SLA tidak memburuk."
                     href={tenant ? workOrdersIndex({ tenant }) : undefined}
-                    onDismiss={() => setShowSlaWarning(false)}
+                    onDismiss={() => setShowNotice(false)}
                 />
             )}
 
-            {/* Module grid: status queue cards */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {queueCards.map((card) => (
-                    <ModuleCard
-                        key={card.status}
-                        icon={card.icon}
-                        iconClassName={card.tone}
-                        iconBgClassName={card.bg}
-                        count={`${card.count} WO`}
-                        label={card.label}
-                        description={card.hint}
-                        pressed={statusFilter === card.status}
-                        onClick={() =>
-                            setStatusFilter(
-                                statusFilter === card.status
-                                    ? 'semua'
-                                    : card.status,
-                            )
-                        }
-                    />
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                {/* Work Order queue */}
-                <section
-                    aria-labelledby="wo-queue-heading"
-                    className="rounded-md border border-border bg-card xl:col-span-2"
-                >
-                    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-                        <h2
-                            id="wo-queue-heading"
-                            className="text-base font-semibold"
-                        >
-                            Antrean Work Order
-                        </h2>
-                        <Link
-                            href={dashboard()}
-                            className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-accent hover:text-foreground"
-                            aria-label="Buka daftar Work Order lengkap"
-                        >
-                            <ArrowUpRight className="size-4" />
-                        </Link>
-                    </header>
-
-                    {/* Toolbar */}
-                    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            <Button size="sm" className="h-8 gap-1.5 rounded-md">
-                                <Upload aria-hidden="true" className="size-3.5" />
-                                Impor
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 rounded-md border-border bg-card"
-                            >
-                                Perbarui
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                aria-pressed={statusFilter === 'semua'}
-                                onClick={() => setStatusFilter('semua')}
+            <div className="flex flex-col gap-6">
+                <div className="-mt-2 flex flex-wrap items-center gap-2 self-end">
+                    <div
+                        role="group"
+                        aria-label="Rentang laporan"
+                        className="flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
+                    >
+                        {rangeOptions.map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                aria-pressed={range === option}
+                                onClick={() => setRange(option)}
                                 className={cn(
-                                    'h-8 rounded-md border-border bg-card',
-                                    statusFilter === 'semua' &&
-                                        'border-border-strong ring-1 ring-ring/40',
+                                    'h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none',
+                                    range === option
+                                        ? 'bg-surface text-ink shadow-card'
+                                        : 'text-ink-muted hover:text-ink',
                                 )}
                             >
-                                Semua
-                            </Button>
-                        </div>
-                        <div className="ml-auto flex flex-wrap items-center gap-2">
-                            <label className="relative">
-                                <span className="sr-only">Cari Work Order</span>
-                                <Search
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                        <Upload aria-hidden="true" className="size-3.5" />
+                        Ekspor
+                    </Button>
+                </div>
+
+                <section
+                    aria-label="Ringkasan eksekutif"
+                    className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                >
+                    {kpiCards.map((card) => (
+                        <article
+                            key={card.id}
+                            className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-card transition-[box-shadow,border-color] duration-200 ease-standard hover:border-border-strong hover:shadow-raised motion-reduce:transition-none"
+                        >
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="text-[0.6875rem] font-semibold tracking-wider text-ink-subtle uppercase">
+                                        {card.label}
+                                    </p>
+                                    <p className="mt-0.5 truncate text-xs text-ink-subtle">
+                                        {card.hint}
+                                    </p>
+                                </div>
+                                <span
                                     aria-hidden="true"
-                                    className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-subtle"
-                                />
-                                <Input
-                                    type="search"
-                                    placeholder="Cari…"
-                                    className="h-8 w-40 rounded-md border-border bg-card pl-8 text-sm"
-                                />
-                            </label>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1.5 rounded-md border-border bg-card"
+                                    className={cn(
+                                        'flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset',
+                                        card.iconWrap,
+                                    )}
+                                >
+                                    <card.icon className="size-4" />
+                                </span>
+                            </div>
+
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-2xl font-semibold tracking-tight text-ink tabular-nums">
+                                    {card.value}
+                                </span>
+                                {card.unit && (
+                                    <span className="text-sm text-ink-muted">
+                                        {card.unit}
+                                    </span>
+                                )}
+                            </div>
+
+                            <span
+                                className={cn(
+                                    'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ring-1 ring-inset',
+                                    card.chip.className,
+                                )}
                             >
-                                <ListFilter
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                />
-                                Urutkan
-                                <ChevronDown
-                                    aria-hidden="true"
-                                    className="size-3 text-ink-subtle"
-                                />
-                            </Button>
-                        </div>
+                                {card.chip.icon && (
+                                    <card.chip.icon
+                                        aria-hidden="true"
+                                        className="size-3"
+                                    />
+                                )}
+                                {card.chip.text}
+                            </span>
+
+                            {card.note}
+
+                            {card.progress && (
+                                <div className="space-y-1.5">
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                                        <div
+                                            className="h-full rounded-full bg-brand"
+                                            style={{
+                                                width: `${card.progress.pct}%`,
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-[0.6875rem] text-ink-subtle">
+                                        {card.progress.caption}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="mt-auto border-t border-border pt-3 text-xs">
+                                {card.footer}
+                            </div>
+                        </article>
+                    ))}
+                </section>
+
+                <section
+                    aria-labelledby="throughput-heading"
+                    className="rounded-2xl border border-border bg-card p-5 shadow-card"
+                >
+                    <SectionHeading
+                        icon={MonitorCog}
+                        iconWrap="bg-info-subtle text-info"
+                        title="Throughput mingguan & tren SLA"
+                        description="Tiket WO masuk dibanding WO selesai, 7 hari terakhir."
+                        trailing={
+                            <div className="flex items-center gap-3 text-xs text-ink-muted">
+                                <span className="flex items-center gap-1.5">
+                                    <span
+                                        aria-hidden="true"
+                                        className="size-2.5 rounded-sm bg-brand"
+                                    />
+                                    WO selesai
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <span
+                                        aria-hidden="true"
+                                        className="size-2.5 rounded-sm bg-info"
+                                    />
+                                    WO masuk
+                                </span>
+                            </div>
+                        }
+                    />
+
+                    <div className="grid grid-cols-7 gap-3 pt-5 pb-2">
+                        {weeklyThroughput.map((day) => (
+                            <div
+                                key={day.day}
+                                className="flex flex-col items-center gap-2"
+                            >
+                                <span
+                                    className={cn(
+                                        'text-[0.6875rem] font-semibold tabular-nums',
+                                        day.sla >= 95
+                                            ? 'text-success'
+                                            : 'text-warning',
+                                    )}
+                                >
+                                    {day.sla}%
+                                </span>
+                                <div className="flex h-24 w-full items-end justify-center gap-1.5 rounded-xl bg-surface-sunken p-1.5 ring-1 ring-border">
+                                    <div
+                                        className="w-2.5 rounded-t-sm bg-info"
+                                        style={{
+                                            height: `${(day.masuk / throughputScale) * 100}%`,
+                                        }}
+                                        title={`WO masuk: ${day.masuk}`}
+                                    />
+                                    <div
+                                        className="w-2.5 rounded-t-sm bg-brand"
+                                        style={{
+                                            height: `${(day.selesai / throughputScale) * 100}%`,
+                                        }}
+                                        title={`WO selesai: ${day.selesai}`}
+                                    />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-xs font-medium text-ink">
+                                        {day.day}
+                                    </p>
+                                    <p className="text-[0.625rem] text-ink-subtle">
+                                        {day.date}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <section
+                    aria-labelledby="department-heading"
+                    className="rounded-2xl border border-border bg-card shadow-card"
+                >
+                    <div className="p-5">
+                        <SectionHeading
+                            icon={HeartPulse}
+                            iconWrap="bg-info-subtle text-info"
+                            title="Kesehatan operasional lintas departemen"
+                            description="Throughput, rasio penyelesaian, dan kepatuhan SLA per departemen."
+                            trailing={
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5"
+                                >
+                                    <ListFilter
+                                        aria-hidden="true"
+                                        className="size-3.5"
+                                    />
+                                    Filter
+                                </Button>
+                            }
+                        />
                     </div>
 
-                    {/* Table (desktop) */}
-                    <div className="hidden overflow-x-auto md:block">
+                    <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border text-left text-xs font-semibold text-ink-muted">
-                                    <th scope="col" className="w-10 px-3 py-2.5">
-                                        <Checkbox
-                                            checked={
-                                                allVisibleSelected
-                                                    ? true
-                                                    : selected.size > 0
-                                                      ? 'indeterminate'
-                                                      : false
-                                            }
-                                            onCheckedChange={toggleAll}
-                                            aria-label="Pilih semua Work Order"
-                                        />
-                                    </th>
-                                    <SortableTh>Jenis</SortableTh>
-                                    <SortableTh>No. WO</SortableTh>
-                                    <SortableTh className="hidden 2xl:table-cell">
-                                        Peminta
-                                    </SortableTh>
-                                    <SortableTh className="hidden 2xl:table-cell">
-                                        Dibuat
-                                    </SortableTh>
-                                    <SortableTh>Deadline</SortableTh>
-                                    <SortableTh className="hidden md:table-cell">
-                                        PIC
-                                    </SortableTh>
-                                    <SortableTh>Status</SortableTh>
-                                    <th scope="col" className="px-3 py-2.5">
-                                        <span className="sr-only">Aksi</span>
-                                    </th>
+                            <thead className="border-y border-border bg-surface-raised">
+                                <tr>
+                                    <Th>Departemen</Th>
+                                    <Th>HOD</Th>
+                                    <Th align="center">WO aktif</Th>
+                                    <Th>Rasio selesai</Th>
+                                    <Th align="center">SLA</Th>
+                                    <Th align="right">Status</Th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {visibleWorkOrders.map((wo) => (
+                            <tbody className="divide-y divide-border">
+                                {departmentRows.map((row) => (
                                     <tr
-                                        key={wo.id}
-                                        className={cn(
-                                            'border-b border-border last:border-b-0 hover:bg-surface-raised',
-                                            selected.has(wo.id) &&
-                                                'bg-surface-raised',
-                                        )}
+                                        key={row.name}
+                                        className="transition-colors duration-150 hover:bg-surface-raised motion-reduce:transition-none"
                                     >
-                                        <td className="px-3 py-3 align-middle">
-                                            <Checkbox
-                                                checked={selected.has(wo.id)}
-                                                onCheckedChange={() =>
-                                                    toggleOne(wo.id)
-                                                }
-                                                aria-label={`Pilih ${wo.id}`}
-                                            />
-                                        </td>
-                                        <td className="px-2.5 py-3 align-middle">
-                                            <div className="flex items-stretch gap-2.5">
-                                                <DeadlineRail
-                                                    state={wo.deadlineState}
-                                                    label={wo.deadlineLabel}
-                                                    className="min-h-9"
-                                                />
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <span
+                                                    aria-hidden="true"
+                                                    className={cn(
+                                                        'flex size-8 shrink-0 items-center justify-center rounded-lg text-on-brand',
+                                                        row.iconWrap,
+                                                    )}
+                                                >
+                                                    <row.icon className="size-4" />
+                                                </span>
                                                 <div className="min-w-0">
-                                                    <p
-                                                        className="max-w-[150px] truncate font-medium"
-                                                        title={wo.jenis}
-                                                    >                                                        {wo.jenisShort}
+                                                    <p className="truncate font-medium text-ink">
+                                                        {row.name}
                                                     </p>
-                                                    <CategoryBadge
-                                                        category={wo.category}
-                                                        className="mt-1"
-                                                    />
+                                                    <p className="truncate text-xs text-ink-subtle">
+                                                        {row.scope}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-2.5 py-3 align-middle font-mono text-xs whitespace-nowrap text-ink-muted">
-                                            {wo.id}
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <AvatarStack people={row.hod} />
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-medium text-ink">
+                                                        {row.hod}
+                                                    </p>
+                                                    <p className="truncate text-xs text-ink-subtle">
+                                                        {row.hodRole}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td className="hidden px-3 py-3 align-middle 2xl:table-cell">
-                                            <PersonCell name={wo.requester} />
-                                        </td>
-                                        <td className="hidden px-3 py-3 align-middle font-mono text-xs whitespace-nowrap text-ink-muted 2xl:table-cell">
-                                            {wo.created}
-                                        </td>
-                                        <td className="px-2.5 py-3 align-middle whitespace-nowrap">
-                                            <span className="font-mono text-xs text-ink-muted">
-                                                {wo.deadline}
-                                            </span>
+                                        <td className="px-3 py-3 text-center">
                                             <span
                                                 className={cn(
-                                                    'mt-0.5 block max-w-[140px] text-xs font-medium',
-                                                    deadlineTone[
-                                                        wo.deadlineState
-                                                    ],
+                                                    'inline-flex items-center rounded-md px-2 py-1 font-mono text-xs font-semibold',
+                                                    row.urgent
+                                                        ? 'bg-danger-subtle text-danger ring-danger/25'
+                                                        : 'bg-warning-subtle text-warning ring-warning/25',
                                                 )}
                                             >
-                                                {wo.deadlineLabel}
+                                                {row.activeWo} WO
+                                                {row.urgent && (
+                                                    <span className="sr-only">
+                                                        , termasuk 1 prioritas
+                                                        P1
+                                                    </span>
+                                                )}
                                             </span>
                                         </td>
-                                        <td className="hidden px-3 py-3 align-middle md:table-cell">
-                                            <PersonCell name={wo.assignee} />
+                                        <td className="px-3 py-3">
+                                            <div className="flex items-baseline justify-between gap-2 text-xs">
+                                                <span className="text-ink-muted">
+                                                    {row.ratioNote}
+                                                </span>
+                                                <span className="font-medium text-ink tabular-nums">
+                                                    {row.doneRatio}%
+                                                </span>
+                                            </div>
+                                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                                                <div
+                                                    className={cn(
+                                                        'h-full rounded-full bg-linear-to-r',
+                                                        row.barClass,
+                                                    )}
+                                                    style={{
+                                                        width: `${row.doneRatio}%`,
+                                                    }}
+                                                />
+                                            </div>
                                         </td>
-                                        <td className="px-2.5 py-3 align-middle">
-                                            <StatusBadge
-                                                status={wo.status}
-                                                compact
-                                                className="whitespace-nowrap"
-                                            />
+                                        <td
+                                            className={cn(
+                                                'px-3 py-3 text-center font-mono text-xs font-semibold tabular-nums',
+                                                row.slaClass,
+                                            )}
+                                        >
+                                            {row.sla}
                                         </td>
-                                        <td className="px-3 py-3 text-right align-middle whitespace-nowrap">
-                                            <Link
-                                                href={dashboard()}
-                                                className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-accent hover:text-foreground"
-                                                aria-label={`Buka ${wo.id}`}
+                                        <td className="px-3 py-3 text-right">
+                                            <span
+                                                className={cn(
+                                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+                                                    row.healthy
+                                                        ? 'bg-success-subtle text-success ring-success/25'
+                                                        : 'bg-warning-subtle text-warning ring-warning/30',
+                                                )}
                                             >
-                                                <Ellipsis className="size-4" />
-                                            </Link>
+                                                {row.healthy ? (
+                                                    <CheckCircle
+                                                        aria-hidden="true"
+                                                        className="size-3"
+                                                    />
+                                                ) : (
+                                                    <TriangleAlert
+                                                        aria-hidden="true"
+                                                        className="size-3"
+                                                    />
+                                                )}
+                                                {row.healthy
+                                                    ? 'Sehat'
+                                                    : 'Perlu perhatian'}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-
-                    {/* Card list (mobile) */}
-                    <div className="divide-y divide-border md:hidden">
-                        {visibleWorkOrders.map((wo) => (
-                            <Link
-                                key={wo.id}
-                                href={dashboard()}
-                                className="relative flex gap-3 p-4 hover:bg-surface-raised"
-                            >
-                                <DeadlineRail
-                                    state={wo.deadlineState}
-                                    label={wo.deadlineLabel}
-                                    className="-ml-4 self-stretch"
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold">
-                                        {wo.jenisShort}
-                                    </p>
-                                    <p className="mt-0.5 font-mono text-xs text-ink-muted">
-                                        {wo.id}
-                                    </p>
-                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                        <CategoryBadge category={wo.category} />
-                                        <StatusBadge status={wo.status} />
-                                    </div>
-                                    <p className="mt-2 text-xs text-ink-muted">
-                                        Deadline {wo.deadline} · {wo.assignee}
-                                    </p>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
                 </section>
 
-                {/* Right rail */}
-                <div className="flex flex-col gap-4">
-                    {/* SLA compliance */}
+                <div className="grid gap-4 lg:grid-cols-3">
                     <section
-                        aria-labelledby="sla-heading"
-                        className="rounded-md border border-border bg-card p-4"
+                        aria-labelledby="priority-heading"
+                        className="rounded-2xl border border-border bg-card p-5 lg:col-span-2"
                     >
-                        <div className="flex items-start justify-between">
-                            <h2
-                                id="sla-heading"
-                                className="text-sm font-semibold"
-                            >
-                                Kepatuhan SLA
-                            </h2>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 rounded-md"
-                                aria-label="Opsi SLA"
-                            >
-                                <Ellipsis className="size-4" />
-                            </Button>
-                        </div>
-
-                        {/* Percent labels above each segment (mockup anatomy) */}
-                        <div className="mt-2 flex text-xs font-medium text-ink-muted">
-                            {slaSegments.map((s) => (
-                                <span
-                                    key={s.label}
-                                    style={{ width: `${s.pct}%` }}
-                                    className={s.align}
+                        <SectionHeading
+                            icon={Zap}
+                            iconWrap="bg-danger-subtle text-danger"
+                            title="Pekerjaan prioritas & insiden aktif"
+                            description="Tiket P1–P3 yang butuh tindakan sebelum SLA terlampaui."
+                            trailing={
+                                <Link
+                                    href={
+                                        tenant
+                                            ? workOrdersIndex({ tenant })
+                                            : dashboard()
+                                    }
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover"
                                 >
-                                    {String(s.pct).padStart(2, '0')}%
-                                </span>
-                            ))}
-                        </div>
-
-                        <div className="mt-1 flex h-2 w-full overflow-hidden rounded-full bg-border">
-                            <span
-                                className="h-full bg-success"
-                                style={{ width: '80%' }}
-                            />
-                            <span
-                                className="h-full bg-danger"
-                                style={{ width: '15%' }}
-                            />
-                            <span
-                                className="h-full bg-escalation"
-                                style={{ width: '5%' }}
-                            />
-                            <span className="sr-only">
-                                32 on track, 6 telat, 2 eskalasi
-                            </span>
-                        </div>
-
-                        {/* Signal tiles with colored icons */}
-                        <div className="mt-3 grid grid-cols-3 gap-2">
-                            {attentionTiles.map((tile) => (
-                                <div
-                                    key={tile.label}
-                                    className="rounded-md border border-border bg-card px-2 py-1.5 text-center"
-                                >
-                                    <p className="flex items-center justify-center gap-1 text-xs font-semibold">
-                                        <tile.icon
-                                            aria-hidden="true"
-                                            className={cn(
-                                                'size-3.5',
-                                                tile.tone,
-                                            )}
-                                        />
-                                        {tile.count}
-                                    </p>
-                                    <p className="text-xs text-ink-muted">
-                                        {tile.label}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Headline numbers */}
-                        <div className="mt-4 flex items-baseline gap-6">
-                            <p className="flex items-baseline gap-2">
-                                <span className="text-3xl font-semibold tracking-tight">
-                                    32
-                                </span>
-                                <span className="text-xs text-ink-muted">
-                                    On track
-                                    <span className="sr-only"> Work Order</span>
-                                </span>
-                            </p>
-                            <p className="flex items-baseline gap-2">
-                                <span className="text-3xl font-semibold text-danger">
-                                    6
-                                </span>
-                                <span className="text-xs text-ink-muted">
-                                    Telat
-                                    <span className="sr-only"> Work Order</span>
-                                </span>
-                            </p>
-                        </div>
-                    </section>
-
-                    {/* Deadline pulse (mockup: Storage Usage) */}
-                    <section
-                        aria-labelledby="pulse-heading"
-                        className="relative overflow-hidden rounded-md bg-brand p-4 text-on-brand"
-                    >
-                        <span
-                            aria-hidden="true"
-                            className="absolute -top-10 -right-10 size-32 rounded-full border-8 border-white/15"
+                                    Lihat semua
+                                    <ArrowUpRight
+                                        aria-hidden="true"
+                                        className="size-3.5"
+                                    />
+                                </Link>
+                            }
                         />
-                        <div className="flex items-start justify-between">
-                            <h2
-                                id="pulse-heading"
-                                className="text-base font-semibold"
-                            >
-                                Deadline Pulse
-                            </h2>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 rounded-md text-white/80 hover:bg-white/10 hover:text-white"
-                                aria-label="Opsi Deadline Pulse"
-                            >
-                                <Ellipsis className="size-4" />
-                            </Button>
-                        </div>
-                        <div className="mt-4 flex items-center gap-4">
-                            <div
-                                className="relative size-24 shrink-0"
-                                role="img"
-                                aria-label="40 persen WO mendekati deadline"
-                            >
-                                <svg
-                                    viewBox="0 0 36 36"
-                                    className="size-full -rotate-90"
-                                >
-                                    {/* decorative sunburst outer ring (mockup) */}
-                                    <circle
-                                        cx="18"
-                                        cy="18"
-                                        r="17.4"
-                                        fill="none"
-                                        stroke="rgba(255,255,255,0.35)"
-                                        strokeWidth="0.8"
-                                        strokeDasharray="0.7 2.2"
-                                    />
-                                    <circle
-                                        cx="18"
-                                        cy="18"
-                                        r="14.4"
-                                        fill="none"
-                                        stroke="rgba(255,255,255,0.25)"
-                                        strokeWidth="3"
-                                    />
-                                    <circle
-                                        cx="18"
-                                        cy="18"
-                                        r="14.4"
-                                        fill="none"
-                                        stroke="#ffffff"
-                                        strokeWidth="3"
-                                        strokeLinecap="round"
-                                        strokeDasharray="40 60"
-                                        pathLength={100}
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-xl font-semibold">
-                                        40%
-                                    </span>
-                                    <span className="text-xs whitespace-nowrap text-white/85">
-                                        32 dari 80 WO
-                                    </span>
-                                </div>
-                            </div>
-                            <ul className="flex-1 space-y-1.5">
-                                {pulseTiles.map((tile) => (
-                                    <li
-                                        key={tile.label}
-                                        className="rounded-md border border-white/20 bg-white/10 px-2.5 py-1.5 text-xs"
+
+                        <div className="mt-4 space-y-3">
+                            {priorityTickets.map((ticket) => {
+                                const style = priorityStyles[ticket.priority];
+
+                                return (
+                                    <article
+                                        key={ticket.id}
+                                        className={cn(
+                                            'rounded-lg border border-l-4 p-3.5 shadow-card transition-colors duration-150 motion-reduce:transition-none',
+                                            ticket.cardClass,
+                                            ticket.accentClass,
+                                        )}
                                     >
-                                        <p className="font-semibold">
-                                            <Zap
-                                                aria-hidden="true"
-                                                className="mr-1 inline size-3 text-white/90"
-                                            />
-                                            {tile.trend} · {tile.value}
-                                        </p>
-                                        <p className="text-white/80">
-                                            {tile.label}
-                                        </p>
-                                    </li>
-                                ))}
-                            </ul>
+                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-mono text-xs font-medium text-ink-muted">
+                                                        {ticket.id}
+                                                    </span>
+                                                    <span
+                                                        className={cn(
+                                                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+                                                            style.badge,
+                                                        )}
+                                                    >
+                                                        <style.icon
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                        {style.label}
+                                                    </span>
+                                                </div>
+                                                <h3 className="mt-1.5 text-sm font-semibold text-balance text-ink">
+                                                    {ticket.title}
+                                                </h3>
+                                                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <MapPin
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                        {ticket.location}
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1">
+                                                        Pelapor:{' '}
+                                                        <span className="font-medium text-ink">
+                                                            {ticket.requester}
+                                                        </span>
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Wrench
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                        <span className="font-medium text-ink">
+                                                            {ticket.technician}
+                                                        </span>
+                                                    </span>
+                                                </p>
+                                            </div>
+
+                                            <div className="flex shrink-0 flex-col items-end gap-2">
+                                                <span
+                                                    className={cn(
+                                                        'inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-xs font-semibold tabular-nums ring-1 ring-inset',
+                                                        ticket.slaClass,
+                                                    )}
+                                                >
+                                                    <Clock
+                                                        aria-hidden="true"
+                                                        className="size-3"
+                                                    />
+                                                    {ticket.slaLeft}
+                                                </span>
+                                                <div className="flex gap-1.5">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 gap-1 text-xs"
+                                                    >
+                                                        <Eye
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                        Audit
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-7 text-xs"
+                                                    >
+                                                        Tangani
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                );
+                            })}
                         </div>
                     </section>
+
+                    <section
+                        aria-labelledby="audit-heading"
+                        className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-card"
+                    >
+                        <SectionHeading
+                            icon={History}
+                            iconWrap="bg-surface-sunken text-ink-muted"
+                            title="Ringkasan eksekusi"
+                            description="Jejak audit terbaru hari ini."
+                        />
+
+                        <ol className="mt-4 space-y-3">
+                            {auditEntries.map((entry) => (
+                                <li
+                                    key={entry.time}
+                                    className={cn(
+                                        'rounded-lg border p-3',
+                                        entry.wrapClass,
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span
+                                            className={cn(
+                                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+                                                entry.tagClass,
+                                            )}
+                                        >
+                                            <entry.Icon
+                                                aria-hidden="true"
+                                                className="size-3"
+                                            />
+                                            {entry.tag}
+                                        </span>
+                                        <span className="font-mono text-[0.6875rem] text-ink-subtle tabular-nums">
+                                            {entry.time}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1.5 text-xs">
+                                        {entry.body}
+                                    </p>
+                                </li>
+                            ))}
+                        </ol>
+
+                        <div className="mt-auto pt-4 text-xs text-ink-subtle">
+                            <Link
+                                href={
+                                    tenant
+                                        ? workOrdersIndex({ tenant })
+                                        : dashboard()
+                                }
+                                className="inline-flex items-center gap-1 font-medium text-brand hover:text-brand-hover"
+                            >
+                                Buka audit log lengkap
+                                <ArrowUpRight
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                />
+                            </Link>
+                        </div>
+                    </section>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                        <Upload aria-hidden="true" className="size-3.5" />
+                        Impor
+                    </Button>
+                    <label className="relative">
+                        <span className="sr-only">Cari Work Order</span>
+                        <Search
+                            aria-hidden="true"
+                            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-subtle"
+                        />
+                        <input
+                            type="search"
+                            placeholder="Cari…"
+                            className="h-8 w-40 rounded-md border border-border bg-card pl-8 text-sm text-ink placeholder:text-ink-subtle focus:ring-2 focus:ring-brand/40 focus:outline-none"
+                        />
+                    </label>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                        Urutkan
+                        <ChevronDown
+                            aria-hidden="true"
+                            className="size-3 text-ink-subtle"
+                        />
+                    </Button>
                 </div>
             </div>
         </>

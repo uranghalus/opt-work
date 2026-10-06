@@ -20,6 +20,7 @@ import divisions from '@/routes/divisions';
 import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
 import positions from '@/routes/positions';
+import roles from '@/routes/roles';
 import { index as workOrdersIndex } from '@/routes/work-orders';
 import type { NavItem } from '@/types';
 
@@ -117,7 +118,7 @@ export function navGroups({
             tone: 'ops',
             items: [
                 {
-                    title: 'Beranda',
+                    title: 'Dashboard Utama',
                     shortTitle: 'Beranda',
                     href: dashboard(),
                     icon: House,
@@ -133,10 +134,19 @@ export function navGroups({
                     ),
                 },
                 {
+                    title: 'Terjadwal',
+                    shortTitle: 'Jadwal',
+                    icon: CalendarClock,
+                    tone: 'ops',
+                    ...tenantItem(tenant, (t) =>
+                        workOrdersIndex({ tenant: t }),
+                    ),
+                },
+                {
                     title: 'Daily Work',
                     shortTitle: 'Harian',
                     href: dashboard(),
-                    icon: CalendarClock,
+                    icon: LayoutGrid,
                     tone: 'ops',
                     ...modulePending('Daily Work'),
                 },
@@ -164,7 +174,16 @@ export function navGroups({
             tone: 'master',
             items: [
                 {
-                    title: 'Department',
+                    title: 'Karyawan',
+                    icon: Users,
+                    tone: 'master',
+                    permission: 'employee.read',
+                    ...tenantItem(tenant, (t) =>
+                        employees.index({ tenant: t }),
+                    ),
+                },
+                {
+                    title: 'Departemen',
                     icon: Building2,
                     tone: 'master',
                     permission: 'department.read',
@@ -190,15 +209,6 @@ export function navGroups({
                         positions.index({ tenant: t }),
                     ),
                 },
-                {
-                    title: 'Karyawan',
-                    icon: Users,
-                    tone: 'master',
-                    permission: 'employee.read',
-                    ...tenantItem(tenant, (t) =>
-                        employees.index({ tenant: t }),
-                    ),
-                },
             ],
         },
         {
@@ -207,12 +217,11 @@ export function navGroups({
             tone: 'system',
             items: [
                 {
-                    title: 'Admin',
-                    href: dashboard(),
+                    title: 'Hak Akses',
+                    href: roles.index(),
                     icon: ShieldCheck,
                     tone: 'system',
-                    roles: ['Super Admin'],
-                    ...modulePending('Manajemen pengguna & role'),
+                    permission: 'rbac.manage',
                 },
                 {
                     title: 'Pengaturan',

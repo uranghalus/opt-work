@@ -6,12 +6,13 @@ import { BottomNav } from '@/components/bottom-nav';
 import { PageHeader } from '@/components/page-header';
 import type { AppLayoutProps } from '@/types';
 
-/*
- * The OptiWorks shell. A deep ink-teal navigation panel owns wayfinding; the
- * content stratum carries the sticky top bar, the shell-owned section
- * heading band (module chip · title · description · actions) and the page
- * itself on one padding owner. Phone (<768px) swaps the panel for a floating
- * bottom bar with a full navigation sheet.
+/**
+ * OptiWorks shell (sidebar variant).
+ * Navigation stratum (AppSidebar) owns wayfinding.
+ * Content stratum owns: sticky top bar (AppSidebarHeader), section heading band
+ * (PageHeader — module chip, title, description, actions), and page content
+ * on a single padding owner with Stitch surface tokens.
+ * Phone (<768px) swaps the panel for a floating bottom bar with a full nav sheet.
  */
 export default function AppSidebarLayout({
     children,
@@ -26,7 +27,7 @@ export default function AppSidebarLayout({
             <AppSidebar />
             <AppContent variant="sidebar" className="min-w-0 overflow-x-clip">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-6 px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pt-8 lg:pb-14">
+                <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 pt-5 pb-20 sm:gap-5 sm:px-6 sm:pt-6 lg:px-8 lg:pt-7 lg:pb-12">
                     <PageHeader
                         title={title}
                         description={description}

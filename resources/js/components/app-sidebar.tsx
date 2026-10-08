@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, ChevronDown, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
+import { BranchSwitcher } from '@/components/branch-switcher';
 import {
     navGroups,
     navIcon,
@@ -189,46 +190,6 @@ function PanelNavGroup({
     );
 }
 
-/** Cabang context: the active branch this session operates in. */
-function TenantChip({ tenant }: { tenant: string | null }) {
-    const { tenants } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const active = tenants.find((item) => item.id === tenant);
-    const label = active?.name ?? tenant;
-
-    return (
-        <span
-            title={label ? `Cabang: ${label}` : 'Belum ada cabang aktif'}
-            className={cn(
-                'flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-700/60 bg-panel-raised/80 p-2.5 text-left',
-                'transition-colors duration-150 hover:border-slate-600 motion-reduce:transition-none',
-                'overflow-hidden',
-                'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0',
-            )}
-        >
-            <span className="flex min-w-0 items-center gap-2.5">
-                <span
-                    aria-hidden="true"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400"
-                >
-                    <Building2 className="size-4" />
-                </span>
-                <span className="min-w-0 group-data-[collapsible=icon]:hidden">
-                    <span className="block text-[0.625rem] leading-none font-bold tracking-wider text-slate-400 uppercase">
-                        Cabang Aktif
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs font-semibold text-slate-200">
-                        {label ?? 'Pilih cabang'}
-                    </span>
-                </span>
-            </span>
-            <ChevronDown
-                aria-hidden="true"
-                className="size-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden"
-            />
-        </span>
-    );
-}
-
 /** Primary action: raise a new Work Order from anywhere in the shell. */
 function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
     if (!tenant) {
@@ -292,8 +253,8 @@ export function AppSidebar() {
                         subtitle="Enterprise Operations"
                     />
                 </Link>
-                <TenantChip tenant={activeTenant} />
-                <CreateWorkOrderButton tenant={activeTenant} />
+            <BranchSwitcher variant="sidebar" />
+            <CreateWorkOrderButton tenant={activeTenant} />
             </SidebarHeader>
 
             <SidebarContent className="gap-1 overflow-x-hidden overflow-y-auto">

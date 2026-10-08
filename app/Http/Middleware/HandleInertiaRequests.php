@@ -39,29 +39,52 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        $activeTenant = tenant()?->getTenantKey() ?? $user?->tenant_id;
+        $currentTenant = null;
+        $availableTenants = [];
+
+        try {
+            $activeTenant = \App\Models\Tenant::current();
+
+            if ($activeTenant) {
+                $currentTenant = $activeTenant->only(['id', 'name']);
+                $query = $user
+                    ? ($user->hasRole('super-admin')
+                        ? \App\Models\Tenant::latest()->get()
+                        : $user->tenants()->get())
+                    : collect();
+                $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
+            } elseif ($user) {
+                $query = $user->hasRole('super-admin') ? \App\Models\Tenant::latest()->get() : collect();
+                $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('HandleInertiaRequests: '.$e->getMessage());
+        }
 
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $user,
+                'user' => $user
+                    ? array_merge($user->toArray(), [
+                        'roles' => $user->getRoleNames()->toArray(),
+                        'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+                    ])
+                    : null,
+                'isSuperAdmin' => $user !== null && $user->hasRole('super-admin'),
             ],
+            'tenant' => $currentTenant,
+            'availableTenants' => $availableTenants,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
             ],
             'unreadNotificationsCount' => fn (): int => $user?->unreadNotifications()->count() ?? 0,
-            'activeTenant' => $activeTenant,
-            // Branches this user may actually switch into — the same set
-            // TenantAccess::canOperate() enforces, never a display shortcut.
-            'tenants' => $user === null
-                ? []
-                : app(TenantAccess::class)->operableTenants($user)->map(fn (Tenant $t) => [
-                    'id' => $t->getTenantKey(),
-                    'name' => $t->label(),
-                    'code' => $t->code,
-                ])->values()->all(),
         ];
+    }
+
+    private function mapTenant(\App\Models\Tenant $tenant): array
+    {
+        return ['id' => $tenant->id, 'name' => $tenant->name];
     }
 }

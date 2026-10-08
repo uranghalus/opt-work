@@ -1,7 +1,8 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Bell, Building2, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AppLogo from '@/components/app-logo';
+import { BranchSwitcher } from '@/components/branch-switcher';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import {
     mainNavItems,
@@ -343,9 +344,7 @@ function UserMenu() {
 
 /** Logo orb plus the active cabang chip — cabang context stays operational truth. */
 function HeaderBrand() {
-    const { activeTenant, tenants } = usePage().props;
-    const tenantLabel =
-        tenants?.find((item) => item.id === activeTenant)?.name ?? activeTenant;
+    const { activeTenant } = usePage().props;
 
     return (
         <div className="flex min-w-0 items-center gap-2.5">
@@ -358,12 +357,8 @@ function HeaderBrand() {
                 <AppLogo />
             </Link>
             {activeTenant && (
-                <span className="hidden items-center gap-1.5 rounded-full border border-white/70 bg-card/60 px-2.5 py-1 text-xs font-medium text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-md md:inline-flex">
-                    <Building2
-                        aria-hidden="true"
-                        className="size-3.5 text-brand"
-                    />
-                    <span className="max-w-40 truncate">{tenantLabel}</span>
+                <span className="hidden md:inline-flex">
+                    <BranchSwitcher variant="header" />
                 </span>
             )}
         </div>

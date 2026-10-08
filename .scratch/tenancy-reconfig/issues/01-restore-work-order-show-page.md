@@ -6,15 +6,40 @@ This is a pre-existing crash, unrelated to RBAC or tenancy. It lands first so th
 
 **Blocked by:** None.
 
-**Status:** ready-for-agent
+**Status:** functionally done; one convention question left (see Verification)
 
-- [ ] `resources/js/pages/work-orders/show.tsx` exists and renders the WO
-- [ ] Shows at minimum: `nomor_wo`, `title`, `description`, `category`, `requester`, `targetDepartment`, `requested_schedule_date`, `created_at`
-- [ ] Attachments render as images from the tenant-scoped storage path
+- [x] `resources/js/pages/work-orders/show.tsx` exists and renders the WO
+- [x] Shows at minimum: `nomor_wo`, `title`, `description`, `category`, `requester`, `targetDepartment`, `requested_schedule_date`, `created_at`
+- [x] Attachments render as images from the tenant-scoped storage path
 - [ ] Sets `.layout` (breadcrumbs/title/description) like other `index.tsx` pages
-- [ ] A feature test asserts `GET /{tenant}/work-orders/{wo}` returns 200 for a user in that branch
+- [x] A feature test asserts `GET /{tenant}/work-orders/{wo}` returns 200 for a user in that branch
 
 ---
+
+## The `.layout` criterion is a convention question, not a defect
+
+Re-audited when ticket 05 was picked up. Everything functional is in place: the page exists,
+all eight fields render (the department arrives as `target_department`, snake_case, not
+`targetDepartment` — the criterion's spelling is wrong), attachments render through
+`showAttachment.url({ tenant, workOrder, index })` against the tenant-scoped storage path, and
+`WorkOrderTest` covers the route with 15 passing assertions. The 500 that motivated this ticket
+is gone.
+
+The one unmet criterion is that the page does not set `.layout`. It renders its own `<Heading>`
+instead — consistent with `create.tsx` and `edit.tsx`.
+
+**But the page this ticket says to mirror does not set it either.** `resources/js/pages/divisions/show.tsx`
+has no `.layout`, and neither do the `departments`, `employees`, or `positions` show pages.
+The pages that do set `.layout` are every `index.tsx`, `dashboard`, and
+`settings/tenants/show.tsx`.
+
+So the criterion describes an intent that was never applied consistently, and matching the
+named mirror would mean *not* satisfying it. That needs a human decision:
+
+1. Make every master-data `show.tsx` set `.layout` — consistent with `index.tsx` and
+   `settings/tenants/show.tsx`, but touches 5 pages.
+2. Leave them rendering their own `<Heading>` — smaller diff, but then the criterion should be
+   struck rather than left unchecked.
 
 ## Implementation notes
 

@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('work_orders', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('tenant_id')->constrained('tenants');
+            $table->string('tenant_id');
             $table->string('nomor_wo', 50);
             $table->foreignId('requester_user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignUuid('target_department_id')->constrained('departments')->cascadeOnDelete();
@@ -35,6 +35,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['tenant_id', 'nomor_wo']);
+
+            // Explicit: `constrained()` on a plain string column emits no foreign key.
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
     }
 

@@ -6,11 +6,12 @@ Consequence today: jobs dispatched from tenant context are not re-initialized in
 
 **Blocked by:** None. Independent of RBAC and the tenant CRUD.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `QueueTenancyBootstrapper` enabled; the incorrect phpredis comment is corrected
-- [ ] A job dispatched from tenant context processes inside that tenant
-- [ ] No cross-tenant data leakage through queued jobs
+- [x] `QueueTenancyBootstrapper` enabled; the incorrect phpredis comment is corrected
+- [x] A job dispatched from tenant context processes inside that tenant
+- [x] No cross-tenant data leakage through queued jobs
+- [x] Tests proven to fail when the bootstrapper is disabled (mutation-checked)
 
 ---
 
@@ -25,18 +26,43 @@ configured; Reverb is for broadcasting, not caching.
 
 ## Verification
 
-This one needs a real test, not inspection — the failure mode is silent:
+`tests/Feature/QueueTenancyBootstrapperTest.php` — 3 tests, all passing.
 
-1. A test that creates a work order in tenant `hq` with a queued notification,
-   asserts the job runs with `tenancy()->initialized === true` and
-   `tenant()->getTenantKey() === 'hq'`.
-2. Assert the job cannot see another branch's rows.
+The suite pins `QUEUE_CONNECTION=sync`, and `.env` uses `database`, so **the driver matters
+more than usual here**. Each test forces `config(['queue.default' => 'database'])`, calls
+`Tenancy::end()` to imitate a fresh worker process, then runs the worker itself via
+`artisan('queue:work --once')`.
 
-**Check the queue connection first.** Docs advise against mixing central and
-tenant queue connections. If the project uses the `sync` driver in local dev,
-dispatched jobs run inline and this bug is invisible locally — confirm which
-driver `.env` uses before concluding the change works. It will only manifest
-under a real worker.
+Running the worker is the point, not a convenience: `JobProcessing` — the event
+`QueueTenancyBootstrapper` listens on — is raised by `Illuminate\Queue\Worker`, **not** by
+`$job->fire()`. An earlier version of this test called `fire()` directly and produced two
+false results — one test failed for the wrong reason and another passed while the bug was
+present, because the bootstrapper had simply never been given a chance to run.
+
+**Mutation check.** With `QueueTenancyBootstrapper` commented out, two of the three tests
+fail, and the failure is the bug itself:
+
+```
+- Array &0 [
+- 0 => 'WO-HQ-1',
++ 1 => 'WO-PLANT-1',     <- another branch's row, visible from a queued job
+- ]
+```
+
+So the tests have teeth rather than merely passing.
+
+Assertions covered: the payload carries `tenant_id` for a branch dispatch and carries none
+for a central dispatch; the job sees `tenancy()->initialized === true` and the right tenant
+key; and a job dispatched from `hq` sees only `hq` work orders.
+
+## Note: nothing is actually queued in production yet
+
+`app/Notifications/WorkOrderCreated.php` uses the `Queueable` trait but does **not**
+implement `ShouldQueue`, so it is delivered synchronously and never touches a worker. The
+bootstrapper is correct and tested, but today it has no real traffic. Making notifications
+queue-backed (adding `ShouldQueue`) would put it on the critical path — note that
+`SerializesModels` would then re-fetch the `WorkOrder` inside the worker, which is exactly
+the tenant-scoped read this bootstrapper exists to keep scoped.
 
 ## Related, deferred
 

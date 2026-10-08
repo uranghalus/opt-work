@@ -4,12 +4,15 @@
 
 **Blocked by:** None.
 
-**Status:** code complete, **live verification pending — no MySQL server on this machine**
+**Status:** done — verified live against **MariaDB 10.4.32** (XAMPP). MySQL 8 not yet exercised.
 
 - [x] Every `tenant_id` column type-matches `tenants.id`
-- [x] `migrate` / `migrate:rollback` / `migrate:fresh` round-trip on the current driver
+- [x] Every `tenant_id` foreign key **actually exists** (see "The real blocker" below)
+- [x] `migrate` / `migrate:rollback` / `migrate:fresh` round-trip on MariaDB
 - [x] `.env.example` targets MySQL with charset and collation
-- [ ] Verified against a live MySQL 8 server (`php artisan migrate:fresh`)
+- [x] `.env` flipped to MySQL; app boots and reads seeded data
+- [x] Full suite green on MariaDB (104 tests) and SQLite
+- [ ] Verified against a live **MySQL 8** server
 
 ---
 
@@ -28,6 +31,40 @@ in foreign key constraint are incompatible.
 
 The key must reference a `varchar`, not a `char(36)`.
 
+## The real blocker — `constrained()` silently creates nothing
+
+Found on the first live MySQL run. Changing the column types was necessary but **not
+sufficient**: `constrained()` is only defined on `ForeignIdColumnDefinition`. On a plain
+`ColumnDefinition` (what `string('tenant_id')` returns) it is a no-op that sets an unused
+attribute, so **no foreign key command was ever emitted**.
+
+Proof — Laravel's MySQL DDL for `create_divisions_table` before the fix:
+
+```sql
+create table `divisions` (`id` char(36) not null, `tenant_id` varchar(255) not null, ..., primary key (`id`))
+```
+
+No key. Every `foreignUuid` key in the same schema emitted its `alter table ... add constraint`
+correctly, which is what made this look fine on inspection.
+
+This hid behind SQLite twice over: `SQLiteGrammar::compileDropForeign` is an intentional
+no-op ("Handled on table alteration"), so the align migration's `dropForeign` neither failed
+nor did anything, and the SQLite file picked up its keys only from the align migration's
+explicit `foreign()` call. The earlier "clean SQLite round-trip" proved nothing about keys.
+
+Fix — declare the key explicitly in all six create/alter migrations, matching the pattern
+already used in `2019_09_15_000020_create_domains_table.php:22`:
+
+```php
+$table->string('tenant_id');
+$table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+```
+
+`users.tenant_id` is nullable and keeps `nullOnDelete()`. The align migration's `dropForeign`
+is now guarded by an `information_schema` lookup, because every database that ran ticket 07
+as originally written has the column but **no** key — exactly the state that made
+`dropForeign` fail with error 1091.
+
 ## Fix
 
 Six create/alter migrations changed `foreignUuid('tenant_id')` → `string('tenant_id')`:
@@ -45,23 +82,28 @@ nullable `users.tenant_id`.
 `2019_09_15_000010_create_tenants_table.php` carries a comment explaining why the
 primary key must stay varchar, so nobody "fixes" it back to a uuid later.
 
-## Verification — and its limit
+## Verification
 
-- `migrate:fresh --seed` → clean.
+- `migrate:fresh --seed` → clean on MariaDB 10.4.32 (XAMPP), database `opti_works`.
 - `migrate:rollback --step=1` → clean, then `migrate` → clean.
-- Full suite: 87 tests, 78 pass, 1 pre-existing `SamlTest` failure.
+- All seven keys present in `information_schema` with the intended delete rule
+  (`CASCADE` on the six tenant-scoped tables, `SET NULL` on `users`).
+- Full suite: **104 tests, 95 pass, 1 pre-existing `SamlTest` failure, 8 skipped** —
+  byte-identical results on MariaDB and SQLite.
 
-**What I could not verify:** there is no MySQL server, `docker`, or `mysql` client
-on this machine. `pdo_mysql` is loaded, so PHP *can* talk to MySQL — but nothing
-here proves the migrations run against one. `php artisan migrate --pretend` does not
-help: it still opens a PDO connection, and it failed with
-`No connection could be made because the target machine actively refused it`.
+**Environment caveat:** the server on this machine reports
+`select version()` = **10.4.32-MariaDB**, not MySQL 8. MariaDB enforces foreign key type
+matching, so the slug/key pairing is genuinely proven. Index-length limits and the
+`utf8mb4_unicode_ci` handling are close but not identical to MySQL 8; run the suite once
+against real MySQL 8 before deploying there.
 
-I started a `MysqlDdl` test helper that compiles the blueprints through
-`MySqlGrammar` without a server, then **removed it** — `Blueprint` needs a booted
-connection to resolve its grammar, and building a fake one was more machinery than
-the check was worth. The type-pairing fix is verified by reading the migrations and
-by the SQLite round-trip; **it still needs one live run against MySQL 8.**
+`php artisan migrate --pretend` is the tool that made this findable: it prints the DDL
+Laravel would send without needing a clean database, so the missing `add constraint` lines
+were visible by reading the output.
+
+Database `opti_works` already existed on the XAMPP server but was **empty** (zero tables),
+so `migrate:fresh` was safe. The throwaway `opti_works_test` database is kept for future
+manual MySQL suite runs.
 
 ## To finish
 

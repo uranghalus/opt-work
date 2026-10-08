@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('employees', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('tenant_id')->constrained('tenants');
+            $table->string('tenant_id');
             $table->string('nik_employee')->nullable();
             $table->string('nama_employee');
             $table->string('email')->nullable();
@@ -27,6 +27,9 @@ return new class extends Migration
 
             $table->index('department_id');
             $table->index(['tenant_id', 'nik_employee']);
+
+            // Explicit: `constrained()` on a plain string column emits no foreign key.
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
     }
 

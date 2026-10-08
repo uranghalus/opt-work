@@ -4,14 +4,15 @@
 
 **Blocked by:** 02 (`TenantAccess` seam), 03 (real branch names), 04 (branch records exist to switch between).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Switcher lists only branches the user may operate, and only active ones
-- [ ] Switching navigates without re-login and without stale tenant context
-- [ ] Collection routes preserve the user's place; record routes land on the branch index
-- [ ] Single-branch users never see the switcher
-- [ ] Collapsed-sidebar behaviour is unchanged
-- [ ] A user cannot switch into a branch they may not operate — enforced server-side
+- [x] Switcher lists only branches the user may operate, and only active ones
+- [x] Switching navigates without re-login and without stale tenant context
+- [x] Collection routes preserve the user's place; record routes land on the branch index
+- [x] Single-branch users never see the switcher
+- [x] Collapsed-sidebar behaviour is unchanged
+- [x] A user cannot switch into a branch they may not operate — enforced server-side
+- [x] `npm run types:check` clean and `npm run build` succeeds
 
 ---
 
@@ -69,6 +70,13 @@ Four components render branch context and must stay in sync or you get two truth
 Ticket 03 gives them real names. All four should display the name, keep the slug
 for URLs.
 
+**Verified at implementation time:** this list was already stale. Ticket 03 had resolved
+the names everywhere, so by the time this ticket was picked up `app-header.tsx` and
+`bottom-nav.tsx` were already reading `tenants.find(...)?.name ?? activeTenant`. The only
+real work here was `TenantChip`, which was a dead `<span>` with a `ChevronDown` that did
+nothing — it is now gone, replaced by `BranchSwitcher`, and `app-header.tsx` reuses the
+same component for its dashboard placement rather than growing a second implementation.
+
 ## Collapsed sidebar
 
 `TenantChip` already has a collapsed variant that hides the label and
@@ -77,9 +85,40 @@ current branch as a tooltip** (`title` attribute) rather than a dropdown trigger
 
 ## Verification
 
-- A user with 2+ operable branches sees the switcher; a user with 1 does not.
-- Switching `/hq/work-orders` → `/plant-1/work-orders` preserves the page.
-- Switching from `/hq/divisions/{id}` lands on `/plant-1/divisions`.
-- Hand-typing a forbidden `/{tenant}/…` URL returns 403 (server-side test).
-- Collapsed rail: no layout shift, tooltip present, dropdown not triggerable.
-- `npm run types:check` clean.
+Backend — `tests/Feature/BranchSwitcherTest.php`, 8 tests:
+
+- a branch user is offered exactly their own branch;
+- a super admin is offered every branch, with `id`/`name`/`code`/`is_active`;
+- `is_active` is reported correctly so the UI can hide archived branches;
+- an archived branch is still reachable by direct URL (archiving is not deletion);
+- **a branch user hand-typing `/plant-1/departments` gets 403**, and the same for a
+  write — with an assertion that the row did not land in the other branch either;
+- a user with no home branch is refused everywhere;
+- a super admin moves between branches freely.
+
+Frontend — `npm run types:check` clean, `npm run build` succeeds, and
+`branch-switcher.tsx` passes the repo linter.
+
+### Deviation: path depth, not the route name
+
+The ticket says to decide the destination from the route name. The implementation
+decides from the **path shape** instead, in `branchDestination()`. The route list is
+fully regular — `/{tenant}/{collection}`, `/create`, `/{id}`, `/{id}/edit`,
+`work-orders/{workOrder}/attachments/{index}` — so the depth after the collection segment
+is exactly equivalent, needs no route-name registry on the client, and keeps working for
+the nested `attachments` route that a name-suffix rule would miss.
+
+### What is NOT verified
+
+- **No browser QA.** The repo has no Playwright or any JS test runner, so the collapsed
+  rail, the menu, and the actual navigation were not exercised in a real browser. The
+  collapsed behaviour is implemented (`useSidebar().state === 'collapsed'` suppresses the
+  trigger and leaves the `title` tooltip) but is unproven visually. Adding a test runner
+  is a dependency change and needs approval.
+- `branchDestination()` has no unit test for the same reason. It is small and pure, so it
+  is the first thing worth covering once a runner exists.
+
+### Existing-test update
+
+`tests/Feature/DashboardTest.php` pinned the exact shape of the `tenants` prop; it gained
+`is_active` and was updated. That is the one place the prop contract is asserted twice.

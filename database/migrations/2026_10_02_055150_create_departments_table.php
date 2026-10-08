@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('departments', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('tenant_id')->constrained('tenants');
+            $table->string('tenant_id');
             $table->string('kode_department', 50);
             $table->string('nama_department')->nullable();
             $table->foreignId('hod_user_id')->nullable()->constrained('users')->nullOnDelete();
@@ -22,6 +22,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['tenant_id', 'kode_department']);
+
+            // Explicit: `constrained()` on a plain string column emits no foreign key.
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
     }
 

@@ -14,7 +14,11 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->string('phone')->nullable()->after('password');
             $table->foreignUuid('employee_id')->after('phone')->nullable()->constrained('employees')->nullOnDelete();
-            $table->string('tenant_id')->after('employee_id')->nullable()->constrained('tenants')->nullOnDelete();
+            $table->string('tenant_id')->after('employee_id')->nullable();
+
+            // Explicit: `constrained()` on a plain string column emits no foreign key,
+            // so this nullable branch link would otherwise be unconstrained.
+            $table->foreign('tenant_id')->references('id')->on('tenants')->nullOnDelete();
         });
     }
 

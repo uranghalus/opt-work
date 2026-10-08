@@ -21,6 +21,7 @@ import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
 import positions from '@/routes/positions';
 import { index as workOrdersIndex } from '@/routes/work-orders';
+import tenants from '@/routes/tenants';
 import type { NavItem } from '@/types';
 
 /**
@@ -198,6 +199,12 @@ export function navGroups({
                         positions.index({ tenant: t }),
                     ),
                 },
+                {
+                    title: 'Unit Bisnis',
+                    icon: Building2,
+                    tone: 'master',
+                    href: tenants.index(),
+                },
             ],
         },
         {
@@ -208,7 +215,7 @@ export function navGroups({
                 {
                     title: 'Pengaturan',
                     shortTitle: 'Atur',
-                    href: '/settings/profile',
+                    href: tenants.index(),
                     icon: Settings,
                     tone: 'system',
                 },

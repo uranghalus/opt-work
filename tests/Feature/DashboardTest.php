@@ -28,7 +28,7 @@ test('shares only the branches a user may operate', function () {
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
-                ->where('tenants', [['id' => 'hq', 'name' => 'hq', 'code' => null]])
+                ->where('tenants', [['id' => 'hq', 'name' => 'hq', 'code' => null, 'is_active' => true]])
                 ->missing('auth.role')
                 ->etc(),
         );

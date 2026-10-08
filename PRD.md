@@ -277,3 +277,16 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 9. ~~Relasi Extend Request ke ERD — apakah butuh tabel baru terpisah, atau cukup field status tambahan di tb_work_order/tb_work_planning? (§7)~~ **SETTLED (Round 1):** Extend Request jadi tabel terpisah (`extend_requests`) — sudah terbukti di implementasi referensi opti-work2.
 10. ~~Field-field ERD yang ditandai (?) di §7 perlu diverifikasi langsung ke sumber ERD (bukan hasil baca dari foto) sebelum development dimulai, karena beberapa nama kolom tidak terbaca jelas dari gambar yang dilampirkan.~~ **SETTLED (Round 2):** diverifikasi langsung ke foto ERD per 06 Jan 2026 (lihat §7); koreksi: call_sign (bukan tanda tangan digital), business_plan (bukan business_meeting), tb_karyawan tanpa FK department. Sisa ambiguitas: FK tb_work_daily (terbaca `fld_id_work_daily`) dan `fld_logo` tb_tenant — konfirmasi akhir saat development.
 11. ~~Hak akses **Super Admin** vs **Direksi** belum dijelaskan — apakah Super Admin setara pengelola konfigurasi RBAC/master data (department, divisi, karyawan) sementara Direksi hanya punya akses read-only untuk monitoring lintas department? Ini menentukan permission set di FR-6.2.~~ **SETTLED (Round 1):** Super Admin setara pengelola konfigurasi RBAC/master data; Direksi ditunda sampai ada kebutuhan nyata.
+
+---
+
+## Lampiran B — Referensi Migrasi opti-work2
+
+**File referensi lengkap:** `docs/opti-work2-feature-map.md` (atau vault `Patterns/opti-work2-migration-map.md`)
+
+Berisi:
+- Scope diff MVP vs full (Tenant CRUD, Inventory, WAHA = **skip**)
+- Model/controller/service mapping 18/19/4 item
+- Routes, migrasi, frontend pages subset MVP
+- 11 implementation gaps (G1–G11) dari audit opti-work2 vs PRD
+- Quick-start checklist untuk development opti-works

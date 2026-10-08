@@ -1,7 +1,6 @@
 import { Head, usePage } from '@inertiajs/react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
 import { CategoryBadge } from '@/components/category-badge';
-import Heading from '@/components/heading';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
 import { Separator } from '@/components/ui/separator';
 import type { InertiaConfig } from '@inertiajs/core';
@@ -44,10 +43,9 @@ export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
             <Head title={workOrder.nomor_wo} />
 
             <div className="mx-auto w-full max-w-3xl space-y-6">
-                <Heading
-                    title={workOrder.title}
-                    description={`Dimohon oleh ${workOrder.requester?.name ?? '—'}`}
-                />
+                <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Dimohon oleh {workOrder.requester?.name ?? '—'}</p>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                     <CategoryBadge category={workOrder.category} />
@@ -68,8 +66,7 @@ export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
                             Department Tujuan
                         </dt>
                         <dd className="text-sm font-semibold">
-                            {workOrder.target_department?.nama_department ??
-                                '—'}
+                            {workOrder.target_department?.nama_department ?? '—'}
                         </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
@@ -85,9 +82,7 @@ export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
                             Dibuat
                         </dt>
                         <dd className="text-sm tabular-nums">
-                            {new Date(
-                                workOrder.created_at,
-                            ).toLocaleDateString('id-ID', {
+                            {new Date(workOrder.created_at).toLocaleDateString('id-ID', {
                                 day: '2-digit',
                                 month: 'long',
                                 year: 'numeric',
@@ -134,3 +129,9 @@ export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
         </>
     );
 }
+
+ShowWorkOrder.layout = {
+    breadcrumbs: [{ title: 'Work Order' }, { title: '' }],
+    title: (workOrder: WorkOrder) => workOrder.title,
+    description: (workOrder: WorkOrder) => `Dimohon oleh ${workOrder.requester?.name ?? '—'}`,
+};

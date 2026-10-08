@@ -75,6 +75,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'tenant' => $currentTenant,
             'availableTenants' => $availableTenants,
+            'tenants' => $availableTenants,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
@@ -85,6 +86,11 @@ class HandleInertiaRequests extends Middleware
 
     private function mapTenant(\App\Models\Tenant $tenant): array
     {
-        return ['id' => $tenant->id, 'name' => $tenant->name];
+        return [
+            'id' => $tenant->id,
+            'name' => $tenant->name,
+            'code' => $tenant->code,
+            'is_active' => (bool) $tenant->is_active,
+        ];
     }
 }

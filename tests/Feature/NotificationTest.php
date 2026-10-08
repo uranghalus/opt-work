@@ -5,14 +5,13 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
-use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
     Tenant::query()->firstOrCreate(['id' => 'hq']);
 });
 
 afterEach(function () {
-    Tenancy::end();
+    Tenant::forgetCurrent();
 });
 
 function createNotificationFor(User $user): string

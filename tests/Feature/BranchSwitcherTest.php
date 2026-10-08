@@ -4,7 +4,6 @@ use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Testing\TestResponse;
-use Stancl\Tenancy\Facades\Tenancy;
 
 /**
  * Ticket 05 — the branch switcher.
@@ -83,7 +82,7 @@ test('a branch user is refused another branch write even by hand', function () {
     initTenant('plant-1');
     expect(Department::query()->where('kode_department', 'X1')->exists())->toBeFalse();
 
-    Tenancy::end();
+    Tenant::forgetCurrent();
 });
 
 test('a user with no home branch is refused everywhere', function () {

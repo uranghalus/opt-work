@@ -6,7 +6,6 @@ use App\Models\Tenant;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
     Tenant::query()->firstOrCreate(['id' => 'hq']);
@@ -14,7 +13,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    Tenancy::end();
+    Tenant::forgetCurrent();
 });
 
 it('creates a division scoped to the active cabang', function () {
@@ -42,7 +41,7 @@ it('isolates master data per cabang', function () {
 
     expect(Division::query()->count())->toBe(1);
 
-    Tenancy::end();
+    Tenant::forgetCurrent();
     initTenant('plant-1');
 
     expect(Division::query()->count())->toBe(0);
@@ -51,7 +50,7 @@ it('isolates master data per cabang', function () {
 it('returns 404 for a foreign cabang department via route binding', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
-    Tenancy::end();
+    Tenant::forgetCurrent();
 
     $admin = makeSuperAdmin(createUser());
 

@@ -9,7 +9,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
-use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
     Tenant::query()->firstOrCreate(['id' => 'hq']);
@@ -17,7 +16,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    Tenancy::end();
+    Tenant::forgetCurrent();
 });
 
 it('creates a work order, generates its number, and notifies the department hod', function () {
@@ -182,7 +181,7 @@ it('falls back to admin tenant users and logs critical when no hod recipient exi
 it('rejects a work order targeting a foreign cabang department', function () {
     initTenant('hq');
     $foreignDepartment = Department::create(['kode_department' => 'DEP-HQ', 'nama_department' => 'HQ Dept']);
-    Tenancy::end();
+    Tenant::forgetCurrent();
 
     $requester = createUser(['tenant_id' => 'plant-1']);
     Notification::fake();

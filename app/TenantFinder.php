@@ -11,6 +11,21 @@ class TenantFinder extends BaseFinder
 {
     public function findForRequest(Request $request): ?IsTenant
     {
+        // Prefer tenant from URL segment per Spatie v4 URL-based resolution
+        $routeTenant = $request->route('tenant');
+
+        if ($routeTenant) {
+            $tenant = Tenant::find((string) $routeTenant);
+            if ($tenant) {
+                if ($request->hasSession()) {
+                    $request->session()->put('current_tenant_id', $tenant->id);
+                }
+                return $tenant;
+            }
+            // If route tenant is present but not found, do not fall back to session
+            return null;
+        }
+
         if (! $request->hasSession()) {
             return null;
         }

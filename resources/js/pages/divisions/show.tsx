@@ -1,5 +1,4 @@
 import { Head } from '@inertiajs/react';
-import Heading from '@/components/heading';
 
 type Division = {
     id: string;
@@ -18,11 +17,6 @@ export default function ShowDivision({ division }: PageProps) {
             <Head title={division.nama_division} />
 
             <div className="mx-auto w-full max-w-xl space-y-6">
-                <Heading
-                    title={division.nama_division}
-                    description="Detail divisi"
-                />
-
                 <dl className="overflow-hidden rounded-lg border bg-card">
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
@@ -53,3 +47,9 @@ export default function ShowDivision({ division }: PageProps) {
         </>
     );
 }
+
+ShowDivision.layout = {
+    breadcrumbs: [{ title: 'Data Master' }, { title: 'Divisi' }],
+    title: (division: Division) => division.nama_division,
+    description: 'Detail divisi',
+};

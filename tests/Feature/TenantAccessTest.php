@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantAccess;
-use Stancl\Tenancy\Facades\Tenancy;
 
 beforeEach(function () {
     // users.tenant_id is a real FK, so the branches must exist first.
@@ -14,7 +13,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    Tenancy::end();
+    Tenant::forgetCurrent();
 });
 
 test('a branch user may operate only their own branch', function () {

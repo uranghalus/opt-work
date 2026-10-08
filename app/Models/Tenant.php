@@ -23,6 +23,11 @@ class Tenant extends SpatieTenant
         'id' => 'string',
     ];
 
+    public function getTenantKey(): string
+    {
+        return (string) $this->getKey();
+    }
+
     /** @return BelongsToMany<User, $this, Pivot, 'pivot'> */
     public function users(): BelongsToMany
     {

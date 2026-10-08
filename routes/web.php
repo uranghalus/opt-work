@@ -1,7 +1,12 @@
 <?php
 
+use App\Http\Controllers\MasterData\DepartmentController;
+use App\Http\Controllers\MasterData\DivisionController;
+use App\Http\Controllers\MasterData\EmployeeController;
+use App\Http\Controllers\MasterData\PositionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
+use App\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check()
@@ -41,6 +46,16 @@ Route::prefix('saml')->group(function () {
 
     // Publishes this app's SAML metadata for identity provider configuration.
     Route::get('metadata', [SamlController::class, 'metadata'])->name('saml.metadata');
+});
+
+Route::middleware(['auth'])->prefix('{tenant}')->group(function () {
+    Route::resource('work-orders', WorkOrderController::class)->names('work-orders');
+    Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+
+    Route::resource('divisions', DivisionController::class)->names('divisions');
+    Route::resource('employees', EmployeeController::class)->names('employees');
+    Route::resource('departments', DepartmentController::class)->names('departments');
+    Route::resource('positions', PositionController::class)->names('positions');
 });
 
 require __DIR__.'/settings.php';

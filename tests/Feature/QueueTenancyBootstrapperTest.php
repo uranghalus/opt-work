@@ -2,7 +2,6 @@
 
 use App\Models\WorkOrder;
 use Illuminate\Support\Facades\DB;
-use Stancl\Tenancy\Facades\Tenancy;
 use Tests\Support\ProbeTenantContext;
 
 /**
@@ -48,7 +47,7 @@ test('a job dispatched from a branch runs inside that branch', function () {
     expect($payload)->toHaveKey('tenant_id', $hq->getTenantKey());
 
     // Imitate a worker: a brand new process has no tenancy initialized.
-    Tenancy::end();
+    Tenant::forgetCurrent();
     expect(tenancy()->initialized)->toBeFalse();
 
     runStoredJob($this);
@@ -56,7 +55,7 @@ test('a job dispatched from a branch runs inside that branch', function () {
     expect(ProbeTenantContext::$sawInitializedTenancy)->toBeTrue()
         ->and(ProbeTenantContext::$seenTenantKey)->toBe('hq');
 
-    Tenancy::end();
+    Tenant::forgetCurrent();
 })->group('queue-tenancy');
 
 test('a queued job cannot see another branch rows', function () {
@@ -70,18 +69,18 @@ test('a queued job cannot see another branch rows', function () {
     initTenant('hq');
     dispatch(new ProbeTenantContext);
 
-    Tenancy::end();
+    Tenant::forgetCurrent();
     runStoredJob($this);
 
     expect(ProbeTenantContext::$visibleWorkOrders)->toBe(['WO-HQ-1']);
 
-    Tenancy::end();
+    Tenant::forgetCurrent();
 })->group('queue-tenancy');
 
 test('a job dispatched from central context is not stamped with a branch', function () {
     // Central dispatch is not tenant work, so the payload carries no branch and the
     // job must run without tenancy rather than inheriting whatever is current.
-    Tenancy::end();
+    Tenant::forgetCurrent();
 
     dispatch(new ProbeTenantContext);
 

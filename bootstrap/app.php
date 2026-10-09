@@ -3,6 +3,8 @@
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
+use App\Http\Middleware\EnsureTenantAccess;
+use App\Http\Middleware\EnsurePlatformTenantAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -24,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'tenant.access' => EnsureTenantAccess::class,
+            'ensure.platform.tenant.access' => EnsurePlatformTenantAccess::class,
         ]);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);

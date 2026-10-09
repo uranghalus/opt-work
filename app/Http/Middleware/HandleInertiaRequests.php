@@ -45,21 +45,29 @@ class HandleInertiaRequests extends Middleware
         try {
             $activeTenant = \App\Models\Tenant::current();
 
+            $isSuperAdmin = $user && ($user->hasRole('super-admin') || $user->is_super_admin);
+
             if ($activeTenant) {
                 $currentTenant = $activeTenant->only(['id', 'name']);
                 $query = $user
-                    ? ($user->hasRole('super-admin')
+                    ? ($isSuperAdmin
                         ? \App\Models\Tenant::latest()->get()
                         : $user->tenants()->get())
                     : collect();
                 $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
             } elseif ($user) {
-                $query = $user->hasRole('super-admin') ? \App\Models\Tenant::latest()->get() : collect();
+                $query = $isSuperAdmin ? \App\Models\Tenant::latest()->get() : collect();
                 $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('HandleInertiaRequests: '.$e->getMessage());
         }
+
+        $isSuperAdmin = $user !== null && ($user->hasRole('super-admin') || $user->is_super_admin);
+
+        $isImpersonating = $isSuperAdmin
+            && $request->session()->get('is_impersonating', false)
+            && $request->session()->get('impersonated_at');
 
         return [
             ...parent::share($request),
@@ -71,11 +79,16 @@ class HandleInertiaRequests extends Middleware
                         'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
                     ])
                     : null,
-                'isSuperAdmin' => $user !== null && $user->hasRole('super-admin'),
+                'isSuperAdmin' => $isSuperAdmin,
             ],
             'tenant' => $currentTenant,
             'availableTenants' => $availableTenants,
             'tenants' => $availableTenants,
+            'impersonation' => [
+                'active' => $isImpersonating,
+                'home_tenant_id' => $user?->tenant_id,
+                'impersonated_at' => $request->session()->get('impersonated_at'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),

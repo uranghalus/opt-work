@@ -8,8 +8,8 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
-    Tenant::query()->firstOrCreate(['id' => 'hq']);
-    Tenant::query()->firstOrCreate(['id' => 'plant-1']);
+    Tenant::query()->firstOrCreate(['id' => 'hq'], ['name' => 'Head Office']);
+    Tenant::query()->firstOrCreate(['id' => 'plant-1'], ['name' => 'Plant 1']);
 });
 
 afterEach(function () {

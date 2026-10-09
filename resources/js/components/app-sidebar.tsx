@@ -241,7 +241,7 @@ export function AppSidebar() {
         >
             <SidebarHeader className="gap-4 px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2 overflow-hidden">
                 <Link
-                    href={dashboard()}
+                    href={dashboard({ tenant: activeTenant })}
                     prefetch
                     aria-label="Beranda OptiWorks"
                     className="-m-1 flex items-center gap-3 rounded-md px-2 py-1 transition-colors duration-150 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none group-data-[collapsible=icon]:justify-center"
@@ -249,12 +249,11 @@ export function AppSidebar() {
                     <AppLogo
                         variant="panel"
                         compact={state === 'collapsed'}
-                        badge="PRO"
                         subtitle="Enterprise Operations"
                     />
                 </Link>
-            <BranchSwitcher variant="sidebar" />
-            <CreateWorkOrderButton tenant={activeTenant} />
+                <BranchSwitcher variant="sidebar" />
+                <CreateWorkOrderButton tenant={activeTenant} />
             </SidebarHeader>
 
             <SidebarContent className="gap-1 overflow-x-hidden overflow-y-auto">

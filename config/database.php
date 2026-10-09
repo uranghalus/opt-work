@@ -3,6 +3,13 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+// Force SQLite in-memory for testing environment
+// Check $_SERVER directly because .env is loaded before phpunit.xml env vars
+$isTesting = (isset($_SERVER['APP_ENV']) && $_SERVER['APP_ENV'] === 'testing')
+    || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')
+    || env('APP_ENV') === 'testing'
+    || env('PHPUNIT_TEST') === 'true';
+
 return [
 
     /*
@@ -17,7 +24,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => $isTesting ? 'sqlite' : env('DB_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
@@ -35,7 +42,7 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => $isTesting ? ':memory:' : env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,

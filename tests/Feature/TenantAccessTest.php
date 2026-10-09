@@ -8,8 +8,8 @@ use App\Services\TenantAccess;
 
 beforeEach(function () {
     // users.tenant_id is a real FK, so the branches must exist first.
-    Tenant::query()->firstOrCreate(['id' => 'hq']);
-    Tenant::query()->firstOrCreate(['id' => 'plant-1']);
+    Tenant::query()->firstOrCreate(['id' => 'hq'], ['name' => 'Head Office']);
+    Tenant::query()->firstOrCreate(['id' => 'plant-1'], ['name' => 'Plant 1']);
 });
 
 afterEach(function () {

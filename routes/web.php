@@ -6,23 +6,58 @@ use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
+use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => auth()->check()
-    ? redirect()->route('dashboard')
-    : redirect()->route('saml.redirect')
-)->name('home');
+Route::get('/', function () {
+    if (! auth()->check()) {
+        return redirect()->route('saml.redirect');
+    }
+
+    $user = auth()->user();
+
+    if ($user->is_super_admin) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    if ($user->tenant_id) {
+        return redirect()->route('dashboard', ['tenant' => $user->tenant_id]);
+    }
+
+    // Superadmin without home tenant
+    return redirect()->route('admin.dashboard');
+})->name('home');
 
 Route::middleware(['auth'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
-
     Route::prefix('notifications')->name('notifications.')->group(function (): void {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
         Route::post('{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
         Route::post('read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
     });
+
+    // Tenant switching routes (signed URLs for security)
+    Route::get('tenant/switch/{tenant}', [TenantSwitchController::class, 'switch'])
+        ->name('tenant.switch')
+        ->middleware('signed');
+
+    Route::get('tenant/switch-url/{tenant}', [TenantSwitchController::class, 'signedSwitchUrl'])
+        ->name('tenant.switch-url');
+
+    Route::post('tenant/stop-impersonating', [TenantSwitchController::class, 'stopImpersonating'])
+        ->name('tenant.stop-impersonating');
+
+    Route::get('tenant/impersonation-status', [TenantSwitchController::class, 'impersonationStatus'])
+        ->name('tenant.impersonation-status');
 });
+
+// Central Admin Panel — outside {tenant} prefix, for superadmins/executives only
+Route::middleware(['auth', 'ensure.platform.tenant.access'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
+    Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('tenants', App\Http\Controllers\Admin\TenantController::class)->names('tenants');
+});
+
 Route::prefix('saml')->group(function () {
     // SP-initiated SSO: send the user to the identity provider.
     Route::get('redirect', [SamlController::class, 'redirect'])->name('saml.redirect');
@@ -48,7 +83,9 @@ Route::prefix('saml')->group(function () {
     Route::get('metadata', [SamlController::class, 'metadata'])->name('saml.metadata');
 });
 
-Route::middleware(['auth'])->prefix('{tenant}')->group(function () {
+Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function () {
+    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
     Route::resource('work-orders', WorkOrderController::class)->names('work-orders');
     Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 

@@ -87,7 +87,6 @@ function tenantItem(
 ): Pick<OptiNavItem, 'href' | 'disabled' | 'hint'> {
     if (!activeTenant) {
         return {
-            href: dashboard(),
             disabled: true,
             hint: 'Pilih cabang untuk membuka modul ini',
         };
@@ -114,7 +113,7 @@ export function navGroups({
                 {
                     title: 'Dashboard Utama',
                     shortTitle: 'Beranda',
-                    href: dashboard(),
+                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
                     icon: House,
                     tone: 'ops',
                 },
@@ -139,26 +138,26 @@ export function navGroups({
                 {
                     title: 'Daily Work',
                     shortTitle: 'Harian',
-                    href: dashboard(),
                     icon: LayoutGrid,
                     tone: 'ops',
+                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
                     ...modulePending('Daily Work'),
                 },
                 {
                     title: 'Work Data',
                     shortTitle: 'Data',
-                    href: dashboard(),
                     icon: Database,
                     tone: 'ops',
+                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
                     ...modulePending('Work Data'),
                 },
                 {
                     title: 'Notifikasi',
                     shortTitle: 'Notif',
-                    href: notificationsIndex(),
                     icon: Bell,
                     tone: 'ops',
                     badge: 'notifications',
+                    ...tenantItem(tenant, (t) => notificationsIndex({ tenant: t })),
                 },
             ],
         },
@@ -245,7 +244,6 @@ export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
 export const utilityNavItems: OptiNavItem[] = [
     {
         title: 'Bantuan',
-        href: dashboard(),
         icon: LifeBuoy,
         disabled: true,
         hint: 'Pusat bantuan segera hadir',

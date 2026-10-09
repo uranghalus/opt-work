@@ -5,6 +5,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+putenv('DB_CONNECTION=sqlite');
+putenv('DB_DATABASE=:memory:');
+
 /*
 |--------------------------------------------------------------------------
 | Test Case

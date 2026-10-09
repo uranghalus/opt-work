@@ -1,5 +1,12 @@
 <?php
 
+// Force SQLite in-memory for testing environment
+// Check $_SERVER directly because .env is loaded before phpunit.xml env vars
+$isTesting = (isset($_SERVER['APP_ENV']) && $_SERVER['APP_ENV'] === 'testing')
+    || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')
+    || env('APP_ENV') === 'testing'
+    || env('PHPUNIT_TEST') === 'true';
+
 return [
     'tenant_finder' => App\TenantFinder::class,
 
@@ -8,18 +15,19 @@ return [
     ],
 
     'switch_tenant_tasks' => [
-        // \Spatie\Multitenancy\Tasks\PrefixCacheTask::class,
-        // \Spatie\Multitenancy\Tasks\SwitchTenantDatabaseTask::class,
-        // \Spatie\Multitenancy\Tasks\SwitchRouteCacheTask::class,
+        \Spatie\Multitenancy\Tasks\PrefixCacheTask::class,
+        // \Spatie\Multitenancy\Tasks\SwitchTenantDatabaseTask::class, // Disabled: single-database mode
+        \Spatie\Multitenancy\Tasks\SwitchRouteCacheTask::class,
+        \App\Tasks\SwitchQueueConnectionTask::class,
     ],
 
     'tenant_model' => App\Models\Tenant::class,
 
     'queues_are_tenant_aware_by_default' => true,
 
-    'tenant_database_connection_name' => env('TENANT_DB_CONNECTION', 'mysql'),
+    'tenant_database_connection_name' => $isTesting ? 'sqlite' : env('TENANT_DB_CONNECTION', 'mysql'),
 
-    'landlord_database_connection_name' => env('LANDLORD_DB_CONNECTION', 'mysql'),
+    'landlord_database_connection_name' => $isTesting ? 'sqlite' : env('LANDLORD_DB_CONNECTION', 'mysql'),
 
     'current_tenant_context_key' => 'tenantId',
 

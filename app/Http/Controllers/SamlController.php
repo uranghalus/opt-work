@@ -58,13 +58,23 @@ class SamlController extends Controller
             return $this->loginFailure();
         }
 
-        $user = $this->loginUser($samlUser);
+$user = $this->loginUser($samlUser);
 
         // A stale relay state from an abandoned SP-initiated flow must not
         // make a later IdP-initiated response look state-forged.
         request()->session()->forget('state');
 
-        return redirect()->intended(route('dashboard'));
+        // Redirect based on user role
+        if ($user->is_super_admin) {
+            return redirect()->intended(route('admin.dashboard'));
+        }
+
+        if ($user->tenant_id) {
+            return redirect()->intended(route('dashboard', ['tenant' => $user->tenant_id]));
+        }
+
+        // Superadmin without home tenant - go to admin dashboard to pick tenant
+        return redirect()->route('admin.dashboard');
     }
 
     /**

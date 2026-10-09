@@ -86,8 +86,9 @@ export function BottomNav() {
     const { activeTenant, auth, name, tenants } =
         usePage<InertiaConfig['sharedPageProps']>().props;
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const tenantsArray = Array.isArray(tenants) ? tenants : [];
     const tenantLabel =
-        tenants?.find((item) => item.id === activeTenant)?.name ?? activeTenant;
+        tenantsArray.find((item) => item.id === activeTenant)?.name ?? activeTenant;
     const items = mobileNavItems({ activeTenant });
     const groups = navGroups({ activeTenant });
 

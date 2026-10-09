@@ -52,11 +52,11 @@ class HandleInertiaRequests extends Middleware
                 $query = $user
                     ? ($isSuperAdmin
                         ? \App\Models\Tenant::latest()->get()
-                        : $user->tenants()->get())
+                        : $this->getUserTenants($user))
                     : collect();
                 $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
             } elseif ($user) {
-                $query = $isSuperAdmin ? \App\Models\Tenant::latest()->get() : collect();
+                $query = $isSuperAdmin ? \App\Models\Tenant::latest()->get() : $this->getUserTenants($user);
                 $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
             }
         } catch (\Throwable $e) {
@@ -95,6 +95,19 @@ class HandleInertiaRequests extends Middleware
             ],
             'unreadNotificationsCount' => fn (): int => $user?->unreadNotifications()->count() ?? 0,
         ];
+    }
+
+    /**
+     * Get tenants accessible to the user, using either the pivot table or the tenant_id column.
+     */
+    private function getUserTenants($user)
+    {
+        if ($user->tenant_id) {
+            // Use the tenant_id column as fallback for users without pivot records
+            return \App\Models\Tenant::where('id', $user->tenant_id)->get();
+        }
+
+        return $user->tenants()->get();
     }
 
     private function mapTenant(\App\Models\Tenant $tenant): array

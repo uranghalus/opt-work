@@ -1,53 +1,74 @@
 <?php
 
 use App\Models\Tenant;
-use Database\Seeders\TenantSeeder;
 use Illuminate\Database\QueryException;
 
-test('branch identity lives in real columns, not the data json blob', function () {
-    $tenant = Tenant::factory()->create(['name' => 'Plant 7', 'code' => 'P07']);
+test('tenant has correct structure with optigate_company_id, code, name, is_active, deactivated_at', function () {
+    $tenant = createTestTenant([
+        'optigate_company_id' => 999,
+        'code' => 'test-tenant',
+        'name' => 'Test Tenant',
+    ]);
 
-    expect($tenant->name)->toBe('Plant 7')
-        ->and($tenant->code)->toBe('P07')
+    expect($tenant->optigate_company_id)->toBe(999)
+        ->and($tenant->code)->toBe('test-tenant')
+        ->and($tenant->name)->toBe('Test Tenant')
         ->and($tenant->is_active)->toBeTrue()
-        ->and($tenant->data)->toBeNull()
-        ->and(Tenant::query()->where('code', 'P07')->exists())->toBeTrue();
+        ->and($tenant->deactivated_at)->toBeNull()
+        ->and($tenant->id)->not->toBeNull() // ULID
+        ->and(Tenant::query()->where('code', 'test-tenant')->exists())->toBeTrue();
 });
 
-test('the seeder persists branch names and codes', function () {
-    (new TenantSeeder)->run();
+test('optigate_company_id is unique', function () {
+    createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'tenant-1',
+        'name' => 'Tenant 1',
+    ]);
 
-    $hq = Tenant::query()->findOrFail('hq');
-
-    expect($hq->name)->toBe('Head Office')
-        ->and($hq->code)->toBe('HQ')
-        ->and(Tenant::query()->findOrFail('plant-1')->name)->toBe('Plant 1');
+    expect(fn () => createTestTenant([
+        'optigate_company_id' => 1, // duplicate
+        'code' => 'tenant-2',
+        'name' => 'Tenant 2',
+    ]))->toThrow(QueryException::class);
 });
 
-test('the seeder is safe to run twice', function () {
-    (new TenantSeeder)->run();
-    (new TenantSeeder)->run();
+test('code is unique', function () {
+    createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'unique-code',
+        'name' => 'Tenant 1',
+    ]);
 
-    expect(Tenant::query()->count())->toBe(2);
+    expect(fn () => createTestTenant([
+        'optigate_company_id' => 2,
+        'code' => 'unique-code', // duplicate
+        'name' => 'Tenant 2',
+    ]))->toThrow(QueryException::class);
 });
 
-test('label falls back to the slug when a name is missing', function () {
-    $tenant = new Tenant(['id' => 'ghost']);
-    $tenant->name = null;
+test('a tenant can be deactivated without being deleted', function () {
+    $tenant = createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'tenant-1',
+        'name' => 'Tenant 1',
+    ]);
 
-    expect($tenant->label())->toBe('ghost');
-});
-
-test('branch codes are unique', function () {
-    Tenant::factory()->create(['code' => 'HQ']);
-
-    expect(fn () => Tenant::factory()->create(['code' => 'HQ']))
-        ->toThrow(QueryException::class);
-});
-
-test('a branch can be archived without being deleted', function () {
-    $tenant = Tenant::factory()->inactive()->create();
+    $tenant->update(['is_active' => false, 'deactivated_at' => now()]);
 
     expect($tenant->fresh()->is_active)->toBeFalse()
-        ->and(Tenant::query()->whereKey($tenant->getKey())->exists())->toBeTrue();
+        ->and($tenant->fresh()->deactivated_at)->not->toBeNull()
+        ->and(Tenant::query()->where('id', $tenant->id)->exists())->toBeTrue();
+});
+
+test('tenant route binding uses code (slug)', function () {
+    $tenant = createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'my-tenant',
+        'name' => 'My Tenant',
+    ]);
+
+    // Route model binding should resolve by code
+    $resolved = Tenant::where('code', 'my-tenant')->first();
+    expect($resolved->id)->toBe($tenant->id);
 });

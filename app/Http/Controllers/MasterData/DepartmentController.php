@@ -54,7 +54,7 @@ class DepartmentController extends Controller
         Department::create($validated);
 
         return redirect()
-            ->route('departments.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('departments.index', ['tenant' => tenant()?->code])
             ->with('success', 'Department berhasil dibuat.');
     }
 
@@ -94,7 +94,7 @@ class DepartmentController extends Controller
         $department->update($validated);
 
         return redirect()
-            ->route('departments.show', ['tenant' => $department->tenant_id, 'department' => $department])
+            ->route('departments.show', ['tenant' => $department->tenant->code, 'department' => $department])
             ->with('success', 'Department berhasil diperbarui.');
     }
 
@@ -103,7 +103,7 @@ class DepartmentController extends Controller
         $department->delete();
 
         return redirect()
-            ->route('departments.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('departments.index', ['tenant' => tenant()?->code])
             ->with('success', 'Department berhasil dihapus.');
     }
 }

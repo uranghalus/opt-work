@@ -18,7 +18,17 @@ class TenantAccess
             return true;
         }
 
-        return $user->tenant_id === $tenantId;
+        // tenantId can be either the ULID (from session/user) or code (from route)
+        // Resolve to ULID for comparison
+        $tenant = Tenant::where('id', $tenantId)
+            ->orWhere('code', $tenantId)
+            ->first();
+
+        if (! $tenant) {
+            return false;
+        }
+
+        return $user->tenant_id === $tenant->id;
     }
 
     public function operableTenants(User $user): Collection

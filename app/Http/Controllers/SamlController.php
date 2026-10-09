@@ -15,6 +15,11 @@ use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
 use LightSaml\Credential\KeyHelper;
 use LightSaml\Error\LightSamlException;
+use LightSaml\Error\LightSamlSecurityException;
+use LightSaml\Error\LightSamlValidationException;
+use LightSaml\Model\Metadata\KeyDescriptor;
+use LightSaml\Model\Protocol\LogoutResponse;
+use SocialiteProviders\Saml2\InvalidSignatureException;
 use SocialiteProviders\Saml2\Provider;
 use SocialiteProviders\Saml2\User as Saml2User;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
@@ -50,6 +55,7 @@ class SamlController extends Controller
             $samlUser = $stateless
                 ? $this->statelessSamlUser()
                 : $this->samlUser();
+            dd($samlUser);
         } catch (Throwable $exception) {
             Log::warning('SAML login failed.', [
                 'exception' => $exception,
@@ -58,7 +64,7 @@ class SamlController extends Controller
             return $this->loginFailure();
         }
 
-$user = $this->loginUser($samlUser);
+        $user = $this->loginUser($samlUser);
 
         // A stale relay state from an abandoned SP-initiated flow must not
         // make a later IdP-initiated response look state-forged.

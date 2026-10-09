@@ -32,12 +32,33 @@ pest()->extend(TestCase::class)
 |
 */
 
-function initTenant(string $tenantId): Tenant
+/**
+ * Create a test tenant with the new structure (synced from Optigate API).
+ * optigate_company_id is required and unique.
+ * code is used as URL slug.
+ * id is ULID (auto-generated).
+ */
+function createTestTenant(array $attributes = []): Tenant
 {
-    $tenant = Tenant::query()->firstOrCreate(['id' => $tenantId]);
-
+    static $counter = 1;
+    
+    $defaults = [
+        'optigate_company_id' => $counter++,
+        'code' => 'test-'.str()->lower(class_basename($attributes['name'] ?? 'tenant')),
+        'name' => 'Test Tenant',
+        'is_active' => true,
+    ];
+    
+    $tenant = Tenant::create(array_merge($defaults, $attributes));
     $tenant->makeCurrent();
+    
+    return $tenant;
+}
 
+function initTenant(string $tenantCode): Tenant
+{
+    $tenant = Tenant::where('code', $tenantCode)->firstOrFail();
+    $tenant->makeCurrent();
     return $tenant;
 }
 

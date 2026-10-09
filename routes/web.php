@@ -55,7 +55,6 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'ensure.platform.tenant.access'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
     Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('tenants', App\Http\Controllers\Admin\TenantController::class)->names('tenants');
 });
 
 Route::prefix('saml')->group(function () {
@@ -86,7 +85,9 @@ Route::prefix('saml')->group(function () {
 Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
-    Route::resource('work-orders', WorkOrderController::class)->names('work-orders');
+    Route::resource('work-orders', WorkOrderController::class)
+        ->names('work-orders')
+        ->parameters(['work-orders' => 'workOrder']);
     Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
     Route::resource('divisions', DivisionController::class)->names('divisions');

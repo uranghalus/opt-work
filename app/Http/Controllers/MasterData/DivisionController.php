@@ -45,7 +45,7 @@ class DivisionController extends Controller
         Division::create($validated);
 
         return redirect()
-            ->route('divisions.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('divisions.index', ['tenant' => tenant()?->code])
             ->with('success', 'Divisi berhasil dibuat.');
     }
 
@@ -80,7 +80,7 @@ class DivisionController extends Controller
         $division->update($validated);
 
         return redirect()
-            ->route('divisions.show', ['tenant' => $division->tenant_id, 'division' => $division])
+            ->route('divisions.show', ['tenant' => $division->tenant->code, 'division' => $division])
             ->with('success', 'Divisi berhasil diperbarui.');
     }
 
@@ -89,7 +89,7 @@ class DivisionController extends Controller
         $division->delete();
 
         return redirect()
-            ->route('divisions.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('divisions.index', ['tenant' => tenant()?->code])
             ->with('success', 'Divisi berhasil dihapus.');
     }
 }

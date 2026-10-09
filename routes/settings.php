@@ -24,16 +24,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 
-    // Cabang (branch) administration — platform level, deliberately outside the
-    // {tenant} prefix. Gate is narrower than ensure.tenant.access: branch admins
-    // manage their own branch's data, not the branch record.
+    // Cabang (tenant) administration — platform level, deliberately outside the
+    // {tenant} prefix. Tenants are synced from Optigate API (Companies).
+    // Only index/show are available; create/update/delete disabled.
     Route::prefix('settings/tenants')->name('tenants.')->middleware('ensure.platform.tenant.access')->group(function (): void {
         Route::get('/', [TenantController::class, 'index'])->name('index');
-        Route::get('create', [TenantController::class, 'create'])->name('create');
-        Route::post('/', [TenantController::class, 'store'])->name('store');
         Route::get('{tenant}', [TenantController::class, 'show'])->name('show');
-        Route::get('{tenant}/edit', [TenantController::class, 'edit'])->name('edit');
-        Route::put('{tenant}', [TenantController::class, 'update'])->name('update');
-        Route::delete('{tenant}', [TenantController::class, 'destroy'])->name('destroy');
     });
 });

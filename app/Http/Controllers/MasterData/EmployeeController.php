@@ -63,7 +63,7 @@ class EmployeeController extends Controller
         Employee::create($validated);
 
         return redirect()
-            ->route('employees.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('employees.index', ['tenant' => tenant()?->code])
             ->with('success', 'Karyawan berhasil dibuat.');
     }
 
@@ -114,7 +114,7 @@ class EmployeeController extends Controller
         $employee->update($validated);
 
         return redirect()
-            ->route('employees.show', ['tenant' => $employee->tenant_id, 'employee' => $employee])
+            ->route('employees.show', ['tenant' => $employee->tenant->code, 'employee' => $employee])
             ->with('success', 'Karyawan berhasil diperbarui.');
     }
 
@@ -123,7 +123,7 @@ class EmployeeController extends Controller
         $employee->delete();
 
         return redirect()
-            ->route('employees.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('employees.index', ['tenant' => tenant()?->code])
             ->with('success', 'Karyawan berhasil dihapus.');
     }
 }

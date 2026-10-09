@@ -17,10 +17,18 @@ test('authenticated users can visit the dashboard', function () {
 });
 
 test('shares only the branches a user may operate', function () {
-    Tenant::query()->firstOrCreate(['id' => 'hq']);
-    Tenant::query()->firstOrCreate(['id' => 'plant-1']);
+    $hq = Tenant::factory()->create([
+        'code' => 'hq',
+        'optigate_company_id' => 1,
+        'name' => 'Headquarters',
+    ]);
+    $plant1 = Tenant::factory()->create([
+        'code' => 'plant-1',
+        'optigate_company_id' => 2,
+        'name' => 'Plant 1',
+    ]);
 
-    $branchUser = User::factory()->create(['tenant_id' => 'hq']);
+    $branchUser = User::factory()->create(['tenant_id' => $hq->id]);
     $platformUser = User::factory()->create(['is_super_admin' => true]);
 
     $this->actingAs($branchUser)
@@ -28,7 +36,7 @@ test('shares only the branches a user may operate', function () {
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
-                ->where('tenants', [['id' => 'hq', 'name' => 'hq', 'code' => null, 'is_active' => true]])
+                ->where('tenants', [['id' => $hq->id, 'name' => 'Headquarters', 'code' => 'hq', 'is_active' => true]])
                 ->missing('auth.role')
                 ->etc(),
         );

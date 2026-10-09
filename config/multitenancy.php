@@ -18,7 +18,6 @@ return [
         \Spatie\Multitenancy\Tasks\PrefixCacheTask::class,
         // \Spatie\Multitenancy\Tasks\SwitchTenantDatabaseTask::class, // Disabled: single-database mode
         \Spatie\Multitenancy\Tasks\SwitchRouteCacheTask::class,
-        \App\Tasks\SwitchQueueConnectionTask::class,
     ],
 
     'tenant_model' => App\Models\Tenant::class,
@@ -54,11 +53,11 @@ return [
 
     'not_tenant_aware_interface' => Spatie\Multitenancy\Jobs\NotTenantAware::class,
 
+    'scheduler_model' => null,
+
     'tenant_aware_jobs' => [
-        // ...
+        \Tests\Support\ProbeTenantContext::class,
     ],
 
-    'not_tenant_aware_jobs' => [
-        // ...
-    ],
+    'not_tenant_aware_jobs' => [],
 ];

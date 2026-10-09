@@ -39,7 +39,7 @@ class PositionController extends Controller
         Position::create($validated);
 
         return redirect()
-            ->route('positions.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('positions.index', ['tenant' => tenant()?->code])
             ->with('success', 'Position berhasil dibuat.');
     }
 
@@ -66,7 +66,7 @@ class PositionController extends Controller
         $position->update($validated);
 
         return redirect()
-            ->route('positions.show', ['tenant' => $position->tenant_id, 'position' => $position])
+            ->route('positions.show', ['tenant' => $position->tenant->code, 'position' => $position])
             ->with('success', 'Position berhasil diperbarui.');
     }
 
@@ -75,7 +75,7 @@ class PositionController extends Controller
         $position->delete();
 
         return redirect()
-            ->route('positions.index', ['tenant' => tenant()?->getTenantKey()])
+            ->route('positions.index', ['tenant' => tenant()?->code])
             ->with('success', 'Position berhasil dihapus.');
     }
 }

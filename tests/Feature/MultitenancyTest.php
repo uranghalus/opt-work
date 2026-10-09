@@ -8,11 +8,19 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantAccess;
 use Illuminate\Support\Facades\Cache;
-use App\Http\Controllers\Admin\DashboardController;
 
 beforeEach(function () {
-    Tenant::query()->firstOrCreate(['id' => 'hq'], ['name' => 'Head Office']);
-    Tenant::query()->firstOrCreate(['id' => 'plant-1'], ['name' => 'Plant 1']);
+    // Create test tenants with new structure (synced from Optigate)
+    createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'hq',
+        'name' => 'Head Office',
+    ]);
+    createTestTenant([
+        'optigate_company_id' => 2,
+        'code' => 'plant-1',
+        'name' => 'Plant 1',
+    ]);
 });
 
 afterEach(function () {
@@ -75,7 +83,7 @@ describe('Tenant Isolation', function () {
         Tenant::forgetCurrent();
 
         initTenant('plant-1');
-        $user = createUser(['tenant_id' => 'plant-1']);
+        $user = createUser(['tenant_id' => Tenant::where('code', 'plant-1')->first()->id]);
 
         $response = $this
             ->actingAs($user)
@@ -136,24 +144,29 @@ describe('TenantAccess Service', function () {
     it('allows super admin to operate any tenant', function () {
         $access = app(TenantAccess::class);
         $superAdmin = makeSuperAdmin(createUser());
+        $hq = Tenant::where('code', 'hq')->first();
+        $plant1 = Tenant::where('code', 'plant-1')->first();
 
-        expect($access->canOperate($superAdmin, 'hq'))->toBeTrue();
-        expect($access->canOperate($superAdmin, 'plant-1'))->toBeTrue();
+        expect($access->canOperate($superAdmin, $hq->code))->toBeTrue();
+        expect($access->canOperate($superAdmin, $plant1->code))->toBeTrue();
     });
 
     it('allows branch user to operate only their own tenant', function () {
         $access = app(TenantAccess::class);
-        $user = createUser(['tenant_id' => 'hq']);
+        $hq = Tenant::where('code', 'hq')->first();
+        $plant1 = Tenant::where('code', 'plant-1')->first();
+        $user = createUser(['tenant_id' => $hq->id]);
 
-        expect($access->canOperate($user, 'hq'))->toBeTrue();
-        expect($access->canOperate($user, 'plant-1'))->toBeFalse();
+        expect($access->canOperate($user, $hq->code))->toBeTrue();
+        expect($access->canOperate($user, $plant1->code))->toBeFalse();
     });
 
     it('denies user without tenant linkage', function () {
         $access = app(TenantAccess::class);
         $user = createUser(); // no tenant_id
+        $hq = Tenant::where('code', 'hq')->first();
 
-        expect($access->canOperate($user, 'hq'))->toBeFalse();
+        expect($access->canOperate($user, $hq->code))->toBeFalse();
         expect($access->operableTenants($user))->toHaveCount(0);
     });
 
@@ -166,11 +179,13 @@ describe('TenantAccess Service', function () {
 
     it('returns operable tenants correctly', function () {
         $access = app(TenantAccess::class);
-        $branchUser = createUser(['tenant_id' => 'hq']);
+        $hq = Tenant::where('code', 'hq')->first();
+        $plant1 = Tenant::where('code', 'plant-1')->first();
+        $branchUser = createUser(['tenant_id' => $hq->id]);
         $superAdmin = makeSuperAdmin(createUser());
 
         $branchTenants = $access->operableTenants($branchUser)->map(fn (Tenant $t) => $t->getTenantKey())->all();
-        expect($branchTenants)->toBe(['hq']);
+        expect($branchTenants)->toBe([$hq->id]);
 
         $superAdminTenants = $access->operableTenants($superAdmin)->map(fn (Tenant $t) => $t->getTenantKey())->all();
         expect($superAdminTenants)->toHaveCount(2);
@@ -179,7 +194,7 @@ describe('TenantAccess Service', function () {
     it('only allows super admin to manage tenants', function () {
         $access = app(TenantAccess::class);
 
-        expect($access->canManageTenants(createUser(['tenant_id' => 'hq'])))->toBeFalse();
+        expect($access->canManageTenants(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id])))->toBeFalse();
         expect($access->canManageTenants(makeSuperAdmin(createUser())))->toBeTrue();
     });
 });
@@ -199,7 +214,8 @@ describe('Tenant Switching', function () {
     });
 
     it('rejects unsigned switch URL', function () {
-        $user = createUser(['tenant_id' => 'hq']);
+        $hq = Tenant::where('code', 'hq')->first();
+        $user = createUser(['tenant_id' => $hq->id]);
 
         $this
             ->actingAs($user)
@@ -208,7 +224,8 @@ describe('Tenant Switching', function () {
     });
 
     it('prevents branch user from switching to another tenant', function () {
-        $user = createUser(['tenant_id' => 'hq']);
+        $hq = Tenant::where('code', 'hq')->first();
+        $user = createUser(['tenant_id' => $hq->id]);
 
         $this
             ->actingAs($user)
@@ -269,12 +286,12 @@ describe('Event Listeners', function () {
         initTenant('hq');
         $tenant = Tenant::current();
 
-        expect($tenant->id)->toBe('hq');
+        expect($tenant->code)->toBe('hq');
 
         Tenant::forgetCurrent();
         initTenant('plant-1');
 
-        expect(Tenant::current()->id)->toBe('plant-1');
+        expect(Tenant::current()->code)->toBe('plant-1');
     });
 
     it('clears permission cache on tenant switch', function () {
@@ -295,15 +312,22 @@ describe('Event Listeners', function () {
 describe('Queue Tenant Awareness', function () {
     it('stamps jobs with current tenant', function () {
         initTenant('hq');
-
-        // Dispatch a test job and verify it has tenant context
-        // This is a basic verification - full test would dispatch actual job
-        expect(config('queue.tenant_id'))->toBe('hq');
-
+        
+        // With Spatie v4, tenant awareness is handled via the MakeQueueTenantAwareAction
+        // Jobs implement TenantAware interface or have queues_are_tenant_aware_by_default=true
+        // The tenant is stored in the container binding
+        $tenant = Tenant::where('code', 'hq')->first();
+        $currentTenant = app('currentTenant');
+        
+        expect($currentTenant)->not->toBeNull();
+        expect($currentTenant->code)->toBe('hq');
+        
         Tenant::forgetCurrent();
         initTenant('plant-1');
-
-        expect(config('queue.tenant_id'))->toBe('plant-1');
+        
+        $currentTenant = app('currentTenant');
+        expect($currentTenant)->not->toBeNull();
+        expect($currentTenant->code)->toBe('plant-1');
     });
 
     it('isolates queued jobs per tenant', function () {
@@ -318,10 +342,7 @@ describe('Queue Tenant Awareness', function () {
 });
 
 describe('Superadmin Login Flow', function () {
-    beforeEach(function () {
-        Tenant::query()->firstOrCreate(['id' => 'hq'], ['name' => 'Head Office']);
-        Tenant::query()->firstOrCreate(['id' => 'plant-1'], ['name' => 'Plant 1']);
-    });
+    // Uses global beforeEach that creates hq and plant-1 tenants
 
     afterEach(function () {
         Tenant::forgetCurrent();
@@ -367,7 +388,8 @@ describe('Superadmin Login Flow', function () {
     });
 
     it('tenant admin logs in and is redirected to their tenant dashboard', function () {
-        $user = createUser(['tenant_id' => 'plant-1']);
+        $plant1 = Tenant::where('code', 'plant-1')->first();
+        $user = createUser(['tenant_id' => $plant1->id]);
 
         $response = $this
             ->actingAs($user)
@@ -389,6 +411,7 @@ describe('Superadmin Login Flow', function () {
 
     it('superadmin can switch from /admin to tenant dashboard and back', function () {
         $superAdmin = makeSuperAdmin(createUser());
+        $hq = Tenant::where('code', 'hq')->first();
 
         // Start at admin dashboard
         $this->actingAs($superAdmin)

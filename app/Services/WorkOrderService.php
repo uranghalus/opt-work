@@ -21,7 +21,7 @@ class WorkOrderService
     {
         return DB::transaction(function () use ($requester, $targetDepartment, $data, $attachments): WorkOrder {
             $workOrder = WorkOrder::create([
-                'nomor_wo' => $this->generateNomorWo($targetDepartment->tenant_id),
+                'nomor_wo' => $this->generateNomorWo($targetDepartment),
                 'requester_user_id' => $requester->getKey(),
                 'target_department_id' => $targetDepartment->getKey(),
                 'category' => $data['category'],
@@ -40,12 +40,13 @@ class WorkOrderService
         });
     }
 
-    private function generateNomorWo(string $tenantId): string
+    private function generateNomorWo(Department $targetDepartment): string
     {
-        $prefix = 'WO-'.strtoupper($tenantId).'-'.now()->format('Ymd').'-';
+        $tenantCode = $targetDepartment->tenant->code;
+        $prefix = 'WO-'.strtoupper($tenantCode).'-'.now()->format('Ymd').'-';
 
         $last = WorkOrder::query()
-            ->where('tenant_id', $tenantId)
+            ->where('tenant_id', $targetDepartment->tenant_id)
             ->where('nomor_wo', 'like', $prefix.'%')
             ->max('nomor_wo');
 

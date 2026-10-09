@@ -22,15 +22,16 @@ class TenantSwitchController extends Controller
     /**
      * Switch to a specific tenant via signed URL.
      * This is the primary, secure way to switch tenants.
+     * Route parameter 'tenant' is the `code` (slug).
      */
-    public function switch(Request $request, string $tenantId): RedirectResponse
+    public function switch(Request $request, string $tenantCode): RedirectResponse
     {
         // Verify the signed URL for security
         if (! $request->hasValidSignature()) {
             abort(403, 'Invalid or expired tenant switch link.');
         }
 
-        $tenant = Tenant::find($tenantId);
+        $tenant = Tenant::where('code', $tenantCode)->first();
 
         if (! $tenant) {
             abort(404, 'Cabang tidak ditemukan.');
@@ -43,17 +44,17 @@ class TenantSwitchController extends Controller
         }
 
         // Check if user can operate on this tenant
-        if (! $this->tenantAccess->canOperate($user, $tenantId)) {
+        if (! $this->tenantAccess->canOperate($user, $tenantCode)) {
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
         // Determine if this is an impersonation (super admin accessing another tenant)
-        $isImpersonating = $user->is_super_admin && $user->tenant_id !== $tenantId;
+        $isImpersonating = $user->is_super_admin && $user->tenant_id !== $tenant->id;
 
         // Make tenant current
         $this->makeTenantCurrentAction->execute($tenant);
 
-        // Store in session for convenience (same-tab navigation)
+        // Store in session for convenience (same-tab navigation) - store ULID
         if ($request->hasSession()) {
             $request->session()->put('current_tenant_id', $tenant->id);
             $request->session()->put('is_impersonating', $isImpersonating);
@@ -71,8 +72,8 @@ class TenantSwitchController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        // Redirect to the intended page or tenant dashboard
-        $redirectUrl = $request->query('redirect', $this->urlGenerator->route('dashboard', ['tenant' => $tenant->id]));
+        // Redirect to the intended page or tenant dashboard - use code for route
+        $redirectUrl = $request->query('redirect', $this->urlGenerator->route('dashboard', ['tenant' => $tenant->code]));
 
         return redirect($redirectUrl)
             ->with('success', "Berpindah ke cabang: {$tenant->name}");
@@ -81,10 +82,11 @@ class TenantSwitchController extends Controller
     /**
      * Generate a signed URL for switching to a tenant.
      * Used by the BranchSwitcher component.
+     * Route parameter 'tenant' is the `code` (slug).
      */
-    public function signedSwitchUrl(Request $request, string $tenantId): \Illuminate\Http\JsonResponse
+    public function signedSwitchUrl(Request $request, string $tenantCode): \Illuminate\Http\JsonResponse
     {
-        $tenant = Tenant::find($tenantId);
+        $tenant = Tenant::where('code', $tenantCode)->first();
 
         if (! $tenant) {
             return response()->json(['error' => 'Cabang tidak ditemukan.'], 404);
@@ -92,14 +94,14 @@ class TenantSwitchController extends Controller
 
         $user = $request->user();
 
-        if (! $user || ! $this->tenantAccess->canOperate($user, $tenantId)) {
+        if (! $user || ! $this->tenantAccess->canOperate($user, $tenantCode)) {
             return response()->json(['error' => 'Akses ditolak.'], 403);
         }
 
         $url = URL::temporarySignedRoute(
             'tenant.switch',
             now()->addMinutes(5),
-            ['tenant' => $tenantId, 'redirect' => $request->query('redirect')]
+            ['tenant' => $tenantCode, 'redirect' => $request->query('redirect')]
         );
 
         return response()->json([
@@ -155,7 +157,7 @@ class TenantSwitchController extends Controller
             'returned_to_tenant' => $homeTenant->id,
         ]);
 
-        return redirect()->route('dashboard', ['tenant' => $homeTenant->id])
+        return redirect()->route('dashboard', ['tenant' => $homeTenant->code])
             ->with('success', "Kembali ke cabang asal: {$homeTenant->name}");
     }
 
@@ -174,11 +176,14 @@ class TenantSwitchController extends Controller
         $impersonatedAt = $request->session()->get('impersonated_at');
         $homeTenantId = $user->tenant_id;
 
+        // Current tenant from route is the code
+        $currentTenantCode = $request->route('tenant');
+
         return response()->json([
             'impersonating' => $isImpersonating && $user->is_super_admin,
             'impersonated_at' => $impersonatedAt,
             'home_tenant_id' => $homeTenantId,
-            'current_tenant_id' => $request->route('tenant'),
+            'current_tenant_id' => $currentTenantCode,
         ]);
     }
 }

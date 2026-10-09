@@ -1,74 +1,54 @@
-# TODO - Lanjutan Multitenancy & Master Data
+# TODO - Spatie Multitenancy v4 Migration Progress
 
-## Konteks Singkat
-Frontend build sudah hijau. Rute `{tenant}` dan Wayfinder sudah ter-generate. Helper `tenant()` dan `Tenant::getTenantKey()` sudah ada.
-Blocker sekarang adalah schema `tenants` ganda → FK constraint gagal di test MasterData.
+## Completed
+- ✅ Replaced manual tenant CRUD with Optigate API sync approach
+- ✅ Tenant model uses ULID primary key, `optigate_company_id` (unique), `code` (URL slug)
+- ✅ Migration: Restructured tenants table with ULID id, optigate_company_id, code
+- ✅ Updated TenantFinder to find by `code` from route parameter
+- ✅ Updated TenantAccess service for ULID compatibility
+- ✅ Updated TenantSwitchController to use code for routing
+- ✅ Updated EnsureTenantAccess middleware for code-based tenant access
+- ✅ Fixed all models using BelongsToTenant trait for ULID compatibility
+- ✅ Updated controller route redirects to use `tenant()->code` instead of UUID
+- ✅ Fixed WorkOrderService to use tenant code for nomor_wo generation
+- ✅ Added explicit model binding for workOrder parameter in routes
+- ✅ Fixed WorkOrder show/attachment endpoints (removed implicit model binding conflicts)
+- ✅ Updated TenantFactory to match new structure (optigate_company_id, code as slug)
+- ✅ Updated tests to use new tenant structure (DashboardTest, MultitenancyTest)
+- ✅ Fixed QueueTenancyBootstrapper tests for Spatie v4 behavior
 
-## Prioritas Tinggi
+## Active/In Progress
+- 🔄 **Queue Tenant Awareness** - Spatie v4's MakeQueueTenantAwareAction restores tenant at JobProcessing time but tenant scope not filtering work orders correctly
+  - Job sees correct tenant (seenTenantKey = HQ ULID) 
+  - But WorkOrder query returns empty array even with tenant scope
+  - Need to debug BelongsToTenant global scope application in queue worker context
 
-### 1. Resolve duplicate tenants table migrations conflict
-**Masalah:** Ada dua migrasi membuat tabel `tenants` dengan skema berbeda pada koneksi yang sama.
-- `database/migrations/2019_09_15_000010_create_tenants_table.php` → `id string primary` sesuai Spatie v4
-- `database/migrations/landlord/2026_10_08_062157_create_landlord_tenants_table.php` → `id bigIncrements`, `domain`, `database`
+## Blocked/Issues
+- WorkOrder global scope `tenant` uses `Tenant::current()` which returns correct tenant in job
+- But query returns 0 results - likely tenant_id mismatch in database (ULID vs string)
+- Need to verify work orders were created with correct tenant_id in tests
 
-Ini menyebabkan FK `divisions.tenant_id → tenants.id` gagal di SQLite in-memory test.
+## Next Steps (Tomorrow)
+1. Debug why WorkOrder query returns empty in queue job despite correct tenant context
+2. Check if work orders created in tests have proper tenant_id (ULID format)
+3. Verify Spatie's Context facade integration with queue worker
+4. Ensure Multitenancy::start() is called in console/queue worker context
+5. Run full test suite to ensure no regressions
 
-**File yang perlu diperiksa/diubah:**
-- `config/multitenancy.php` → cek `tenant_database_connection_name` dan `landlord_database_connection_name`
-- `.env` / `.env.testing` → cek koneksi DB testing
-- `database/migrations/landlord/2026_10_08_062157_create_landlord_tenants_table.php` → hapus/rename/deskop jika tidak dipakai
-- `database/migrations/2019_09_15_000010_create_tenants_table.php` → schema referensi yang benar
-
-**Langkah:**
-1. Konfirmasi apakah landlord & tenant pakai DB terpisah atau single DB.
-2. Jika single DB, hapus atau komentari migrasi landlord yang membuat `tenants` ulang.
-3. Jalankan `php artisan migrate:fresh --env=testing` dan cek schema `tenants`.
-
-### 2. Konfirmasi koneksi DB untuk testing
-**File:**
-- `config/database.php`
-- `.env.testing`
-- `phpunit.xml`
-
-**Langkah:**
-Pastikan koneksi testing menggunakan SQLite in-memory yang sama untuk landlord & tenant, atau pisahkan sesuai config multitenancy.
-
-### 3. Pastikan DivisionController set tenant_id dengan benar
-**File:**
-- `app/Http\Controllers/MasterData/DivisionController.php` → method `store`
-- `app/Models/Division.php` → trait `BelongsToTenant`
-
-Saat ini `Division::create($validated)` tidak menyertakan `tenant_id`. Trait `BelongsToTenant` seharusnya auto-set dari tenant current, tapi verifikasi:
-- Apakah `IdentifyTenant` middleware benar-benar membuat tenant current sebelum controller dijalankan?
-- Jika perlu, tambahkan `tenant_id` secara eksplisit:
-  ```php
-  $data = $validated;
-  $data['tenant_id'] = tenant()?->getKey();
-  Division::create($data);
-  ```
-
-### 4. Jalankan dan perbaiki test MasterData
-**File test:**
-- `tests/Feature/MasterDataTest.php` → `it('creates a division scoped to the active cabang')`
-- `tests/Pest.php` → helper `initTenant`, `createUser`, `makeSuperAdmin`
-
-**Langkah:**
-```bash
-php artisan test tests/Feature/MasterDataTest.php
-```
-Perbaiki FK error sampai test hijau.
-
-## Prioritas Menengah
-### 5. Konsistensi penggunaan getTenantKey
-**File yang memakai `tenant()?->getTenantKey()`:**
-- `app/Http\Controllers/MasterData/DivisionController.php`
-- Controller master data lain: Department, Position, Employee
-
-Pastikan semua controller menggunakan `tenant()?->getKey()` atau `getTenantKey()` secara konsisten.
-
-## Catatan
-- Helper `tenant()` sudah ada di `app/Helpers/tenant_helper.php` dan ter-autoload di `composer.json`
-- `App\Models\Tenant::getTenantKey()` sudah ada
-- Build frontend sudah OK, BranchSwitcher sudah real
-
-Mulai dari poin 1. Jika ragu soal landlord vs tenant DB, tanyakan sebelum mengubah migrasi.
+## Files Modified
+- app/Models/Tenant.php
+- database/migrations/2026_10_09_121502_restructure_tenants_table.php
+- app/TenantFinder.php
+- app/Services/TenantAccess.php
+- app/Http/Controllers/TenantSwitchController.php
+- app/Http/Middleware/EnsureTenantAccess.php
+- app/Http/Controllers/WorkOrderController.php
+- app/Services/WorkOrderService.php
+- routes/web.php
+- database/factories/TenantFactory.php
+- config/multitenancy.php
+- tests/Feature/DashboardTest.php
+- tests/Feature/MultitenancyTest.php
+- tests/Feature/QueueTenancyBootstrapperTest.php
+- tests/Support/ProbeTenantContext.php
+- tests/Pest.php (createTestTenant, initTenant helpers)

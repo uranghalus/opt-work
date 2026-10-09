@@ -89,14 +89,20 @@ class WorkOrderController extends Controller
         );
 
         return redirect()
-            ->route('work-orders.show', ['tenant' => tenant()?->getTenantKey(), 'workOrder' => $workOrder])
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
             ->with('success', 'Work Order '.$workOrder->nomor_wo.' berhasil dibuat.');
     }
 
-    public function show(WorkOrder $workOrder): Response
+    public function show(Request $request): Response
     {
+        $workOrderId = $request->route('workOrder');
+        
+        $workOrderModel = \App\Models\WorkOrder::withoutGlobalScope('tenant')
+            ->where('id', $workOrderId)
+            ->firstOrFail();
+
         return Inertia::render('work-orders/show', [
-            'workOrder' => $workOrder->load(['requester', 'targetDepartment']),
+            'workOrder' => $workOrderModel->load(['requester', 'targetDepartment']),
         ]);
     }
 
@@ -110,9 +116,13 @@ class WorkOrderController extends Controller
      * behind the tenant middleware stack: a raw storage URL would let any
      * authenticated user read another branch's uploads by guessing the path.
      */
-    public function attachment(WorkOrder $workOrder, int $index): StreamedResponse
+    public function attachment(Request $request, string $index): StreamedResponse
     {
-        $path = $workOrder->attachments[$index] ?? null;
+        $workOrderId = $request->route('workOrder');
+        $workOrderModel = \App\Models\WorkOrder::withoutGlobalScope('tenant')
+            ->where('id', $workOrderId)
+            ->firstOrFail();
+        $path = $workOrderModel->attachments[(int) $index] ?? null;
 
         abort_if($path === null || ! Storage::disk('public')->exists($path), 404);
 

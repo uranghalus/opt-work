@@ -21,9 +21,9 @@ class TenantFactory extends Factory
         $name = fake()->unique()->company();
 
         return [
-            'id' => Str::slug($name),
+            'optigate_company_id' => fake()->unique()->randomNumber(6),
             'name' => $name,
-            'code' => Str::upper(Str::random(3)),
+            'code' => Str::slug($name),
             'is_active' => true,
         ];
     }

@@ -96,4 +96,17 @@ class WorkOrder extends Model
     {
         return $this->belongsTo(Department::class, 'target_department_id');
     }
+
+    /**
+     * Resolve route binding for implicit model binding.
+     * The route parameter is `work_order` (snake_case from resource route).
+     */
+    public function resolveRouteBinding($value, $field = null): ?self
+    {
+        if ($field === 'work_order' || $field === null) {
+            return $this->where('id', $value)->first();
+        }
+
+        return parent::resolveRouteBinding($value, $field);
+    }
 }

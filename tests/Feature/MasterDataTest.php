@@ -8,8 +8,16 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
-    Tenant::query()->firstOrCreate(['id' => 'hq'], ['name' => 'Head Office']);
-    Tenant::query()->firstOrCreate(['id' => 'plant-1'], ['name' => 'Plant 1']);
+    createTestTenant([
+        'optigate_company_id' => 1,
+        'code' => 'hq',
+        'name' => 'Head Office',
+    ]);
+    createTestTenant([
+        'optigate_company_id' => 2,
+        'code' => 'plant-1',
+        'name' => 'Plant 1',
+    ]);
 });
 
 afterEach(function () {
@@ -18,6 +26,7 @@ afterEach(function () {
 
 it('creates a division scoped to the active cabang', function () {
     $admin = makeSuperAdmin(createUser());
+    $hq = Tenant::where('code', 'hq')->first();
 
     $response = $this
         ->actingAs($admin)
@@ -31,7 +40,7 @@ it('creates a division scoped to the active cabang', function () {
     $this->assertDatabaseHas('divisions', [
         'kode_division' => 'DIV-OPS',
         'nama_division' => 'Operasional',
-        'tenant_id' => 'hq',
+        'tenant_id' => $hq->id,
     ]);
 });
 
@@ -70,7 +79,8 @@ it('denies cabang pages for users without tenant linkage', function () {
 });
 
 it('denies cabang pages for users from another cabang', function () {
-    $user = createUser(['tenant_id' => 'plant-1']);
+    $plant1 = Tenant::where('code', 'plant-1')->first();
+    $user = createUser(['tenant_id' => $plant1->id]);
 
     $this
         ->actingAs($user)
@@ -79,7 +89,8 @@ it('denies cabang pages for users from another cabang', function () {
 });
 
 it('allows reading cabang pages with tenant linkage alone', function () {
-    $user = createUser(['tenant_id' => 'hq']);
+    $hq = Tenant::where('code', 'hq')->first();
+    $user = createUser(['tenant_id' => $hq->id]);
 
     $this
         ->actingAs($user)
@@ -88,7 +99,8 @@ it('allows reading cabang pages with tenant linkage alone', function () {
 });
 
 it('allows creating a division without any role', function () {
-    $user = createUser(['tenant_id' => 'hq']);
+    $hq = Tenant::where('code', 'hq')->first();
+    $user = createUser(['tenant_id' => $hq->id]);
 
     $this
         ->actingAs($user)
@@ -103,6 +115,7 @@ it('allows creating a division without any role', function () {
 
 it('rejects duplicate department code within the same cabang', function () {
     $admin = makeSuperAdmin(createUser());
+    $hq = Tenant::where('code', 'hq')->first();
 
     $this
         ->actingAs($admin)
@@ -153,6 +166,8 @@ it('seeds the baseline roles and permissions', function () {
 
 it('lets a super admin operate any branch without a home branch', function () {
     $admin = makeSuperAdmin(createUser());
+    $hq = Tenant::where('code', 'hq')->first();
+    $plant1 = Tenant::where('code', 'plant-1')->first();
 
     expect($admin->tenant_id)->toBeNull();
 

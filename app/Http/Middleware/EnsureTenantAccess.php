@@ -15,14 +15,15 @@ class EnsureTenantAccess
 
     public function handle(Request $request, Closure $next): Response
     {
-        $tenant = $request->route('tenant');
+        // Route parameter 'tenant' is the code (slug)
+        $tenantCode = $request->route('tenant');
         $user = $request->user();
 
-        if (! $tenant || ! $user) {
+        if (! $tenantCode || ! $user) {
             return $next($request);
         }
 
-        if (! $this->tenantAccess->canOperate($user, $tenant)) {
+        if (! $this->tenantAccess->canOperate($user, $tenantCode)) {
             abort(403);
         }
 

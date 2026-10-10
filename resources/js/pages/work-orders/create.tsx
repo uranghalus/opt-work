@@ -57,7 +57,7 @@ export default function CreateWorkOrder({
 
                 <Form
                     {...WorkOrderController.store.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                     })}
                     className="space-y-6"
                 >

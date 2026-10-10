@@ -64,8 +64,20 @@ _Avoid_: manajemen user (itu assign karyawan)
 
 ## Places
 
+**Optigate Company**:
+The source-of-truth company record in the Optigate portal API; maps 1:1 to a Cabang via its API id. Cabang codes come from Optigate company codes.
+_Avoid_: tenant (untuk arti perusahaan di Optigate)
+
+**Tenant-Aware Job**:
+A queued job that carries its cabang context with it, so the worker restores that cabang before running the job — regardless of which cabang the worker happens to serve next.
+_Avoid_: queue bootstrap (nama mekanisme v3, sudah tidak ada di v4)
+
+**Tenant Scope**:
+The automatic filter that limits every cabang-owned record to the current cabang; with no current cabang, queries must return nothing, never everything.
+_Avoid_: global filter (terlalu umum)
+
 **Cabang**:
-A branch used as the multi-tenancy boundary; identified by path (`/{tenant}/...`), data isolated via the stancl/tenancy package in single-database mode.
+A branch used as the multi-tenancy boundary; identified by path (`/{tenant}/...`), data isolated via spatie/laravel-multitenancy v4 in single-database mode (superseded stancl/tenancy).
 _Avoid_: tenant (untuk arti cabang)
 
 **Tenant**:

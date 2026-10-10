@@ -24,7 +24,7 @@ export default function CreateDivision() {
 
                 <Form
                     {...DivisionController.store.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                     })}
                     className="space-y-6"
                 >

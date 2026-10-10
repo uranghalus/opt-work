@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
+use App\Http\Controllers\Settings\TenantController;
 use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
@@ -54,7 +56,15 @@ Route::middleware(['auth'])->group(function () {
 // Central Admin Panel — outside {tenant} prefix, for superadmins/executives only
 Route::middleware(['auth', 'ensure.platform.tenant.access'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
-    Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+});
+
+// Unit Bisnis (cabang) — platform level, super admin only.
+// Tenants are synced from the Optigate API; there is no manual CRUD.
+Route::middleware(['auth', 'ensure.platform.tenant.access'])->group(function () {
+    Route::get('settings/tenants', [TenantController::class, 'index'])->name('tenants.index');
+    Route::post('settings/tenants/sync', [TenantController::class, 'sync'])->name('tenants.sync');
+    Route::get('settings/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
 });
 
 Route::prefix('saml')->group(function () {
@@ -67,6 +77,24 @@ Route::prefix('saml')->group(function () {
     // responses are protected by the relay state check, and IdP-initiated
     // ones by the signature/issuer/timestamp validation of the SAML provider.
     Route::match(['get', 'post'], 'acs', [SamlController::class, 'acs'])->name('saml.acs');
+
+    // Post-login landing when the assertion's company cannot be matched to
+    // an active unit bisnis. The reason key is flashed by the ACS handler
+    // and mapped to fixed copy here; internals stay in the log.
+    Route::get('denied', function () {
+        $messages = [
+            'no_company_data' => 'Login berhasil, tetapi akun Anda tidak membawa data perusahaan dari portal. Hubungi administrator.',
+            'no_match' => 'Perusahaan pada akun Anda belum terdaftar sebagai unit bisnis. Minta administrator menjalankan sinkronisasi.',
+            'multiple_matches' => 'Data perusahaan Anda terdeteksi ganda pada sistem. Hubungi administrator untuk perbaikan.',
+            'inactive' => 'Unit bisnis Anda sedang tidak aktif. Hubungi administrator untuk mengaktifkannya kembali.',
+        ];
+
+        $reason = session('saml.denial_reason');
+
+        return inertia('saml/denied', [
+            'message' => $messages[$reason] ?? 'Anda tidak dapat mengakses sistem saat ini. Hubungi administrator.',
+        ]);
+    })->name('saml.denied');
 
     // Single logout service: receives unsolicited logout requests from the
     // identity provider. The portal registers this as 'saml/logout' so we
@@ -91,8 +119,14 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
     Route::resource('divisions', DivisionController::class)->names('divisions');
+    Route::post('divisions/sync', [DivisionController::class, 'sync'])->name('divisions.sync');
+
     Route::resource('employees', EmployeeController::class)->names('employees');
+    Route::post('employees/sync', [EmployeeController::class, 'sync'])->name('employees.sync');
+
     Route::resource('departments', DepartmentController::class)->names('departments');
+    Route::post('departments/sync', [DepartmentController::class, 'sync'])->name('departments.sync');
+
     Route::resource('positions', PositionController::class)->names('positions');
 });
 

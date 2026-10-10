@@ -56,6 +56,8 @@ export type OptiNavGroup = {
 
 type NavContext = {
     activeTenant?: string | null;
+    /** Unit Bisnis management is a platform-level, super-admin-only surface. */
+    isSuperAdmin?: boolean;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -101,8 +103,46 @@ function modulePending(name: string): Pick<OptiNavItem, 'disabled' | 'hint'> {
 
 export function navGroups({
     activeTenant = null,
+    isSuperAdmin = false,
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
+
+    const masterItems: OptiNavItem[] = [
+        {
+            title: 'Karyawan',
+            icon: Users,
+            tone: 'master',
+            ...tenantItem(tenant, (t) => employees.index({ tenant: t })),
+        },
+        {
+            title: 'Departemen',
+            icon: Building2,
+            tone: 'master',
+            ...tenantItem(tenant, (t) => departments.index({ tenant: t })),
+        },
+        {
+            title: 'Divisi',
+            icon: Network,
+            tone: 'master',
+            ...tenantItem(tenant, (t) => divisions.index({ tenant: t })),
+        },
+        {
+            title: 'Posisi',
+            icon: BriefcaseBusiness,
+            tone: 'master',
+            ...tenantItem(tenant, (t) => positions.index({ tenant: t })),
+        },
+        ...(isSuperAdmin
+            ? [
+                  {
+                      title: 'Unit Bisnis',
+                      icon: Building2,
+                      tone: 'master',
+                      href: tenants.index(),
+                  } satisfies OptiNavItem,
+              ]
+            : []),
+    ];
 
     const groups: OptiNavGroup[] = [
         {
@@ -165,60 +205,23 @@ export function navGroups({
             id: 'master',
             label: 'Data Master',
             tone: 'master',
-            items: [
-                {
-                    title: 'Karyawan',
-                    icon: Users,
-                    tone: 'master',
-                    ...tenantItem(tenant, (t) =>
-                        employees.index({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Departemen',
-                    icon: Building2,
-                    tone: 'master',
-                    ...tenantItem(tenant, (t) =>
-                        departments.index({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Divisi',
-                    icon: Network,
-                    tone: 'master',
-                    ...tenantItem(tenant, (t) =>
-                        divisions.index({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Posisi',
-                    icon: BriefcaseBusiness,
-                    tone: 'master',
-                    ...tenantItem(tenant, (t) =>
-                        positions.index({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Unit Bisnis',
-                    icon: Building2,
-                    tone: 'master',
-                    href: tenants.index(),
-                },
-            ],
+            items: masterItems,
         },
         {
             id: 'system',
             label: 'Sistem',
             tone: 'system',
-            items: [
-                {
-                    title: 'Pengaturan',
-                    shortTitle: 'Atur',
-                    href: tenants.index(),
-                    icon: Settings,
-                    tone: 'system',
-                },
-            ],
+            items: isSuperAdmin
+                ? [
+                      {
+                          title: 'Pengaturan',
+                          shortTitle: 'Atur',
+                          href: tenants.index(),
+                          icon: Settings,
+                          tone: 'system',
+                      } satisfies OptiNavItem,
+                  ]
+                : [],
         },
     ];
 
@@ -229,8 +232,8 @@ export function navGroups({
  * Flat primary navigation for the header tabs, the tablet menu, and the
  * icon rail: the operations group plus role-gated system entries.
  */
-export function mainNavItems(activeTenant?: string | null): OptiNavItem[] {
-    const groups = navGroups({ activeTenant });
+export function mainNavItems(context: NavContext): OptiNavItem[] {
+    const groups = navGroups(context);
     const ops = groups.find((group) => group.id === 'ops');
     const system = groups.find((group) => group.id === 'system');
 
@@ -251,12 +254,8 @@ export const utilityNavItems: OptiNavItem[] = [
 ];
 
 /** Mobile bottom bar entries (≤4 destinations; "Lainnya" holds the rest). */
-export function mobileNavItems({
-    activeTenant,
-}: NavContext): OptiNavItem[] {
-    const ops = navGroups({ activeTenant }).find(
-        (group) => group.id === 'ops',
-    );
+export function mobileNavItems(context: NavContext): OptiNavItem[] {
+    const ops = navGroups(context).find((group) => group.id === 'ops');
 
     return (ops?.items ?? []).filter((item) => !item.disabled).slice(0, 4);
 }

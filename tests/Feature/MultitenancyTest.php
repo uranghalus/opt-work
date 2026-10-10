@@ -1,13 +1,13 @@
 <?php
 
-use App\Models\Division;
 use App\Models\Department;
-use App\Models\Position;
+use App\Models\Division;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Tenant;
-use App\Models\User;
 use App\Services\TenantAccess;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     // Create test tenants with new structure (synced from Optigate)
@@ -87,7 +87,7 @@ describe('Tenant Isolation', function () {
 
         $response = $this
             ->actingAs($user)
-            ->get('/plant-1/divisions/' . $division->getKey());
+            ->get('/plant-1/divisions/'.$division->getKey());
 
         $response->assertNotFound();
     });
@@ -312,32 +312,32 @@ describe('Event Listeners', function () {
 describe('Queue Tenant Awareness', function () {
     it('stamps jobs with current tenant', function () {
         initTenant('hq');
-        
+
         // With Spatie v4, tenant awareness is handled via the MakeQueueTenantAwareAction
         // Jobs implement TenantAware interface or have queues_are_tenant_aware_by_default=true
         // The tenant is stored in the container binding
         $tenant = Tenant::where('code', 'hq')->first();
         $currentTenant = app('currentTenant');
-        
+
         expect($currentTenant)->not->toBeNull();
         expect($currentTenant->code)->toBe('hq');
-        
+
         Tenant::forgetCurrent();
         initTenant('plant-1');
-        
+
         $currentTenant = app('currentTenant');
         expect($currentTenant)->not->toBeNull();
         expect($currentTenant->code)->toBe('plant-1');
     });
 
-    it('isolates queued jobs per tenant', function () {
-        // In single-database mode, jobs table has tenant_id column
-        // This test verifies the column exists in the migration
-        // Run the tenant migrations first
-        $this->artisan('migrate', ['--path' => 'database/migrations/tenant']);
+    it('keeps tenant context in the job payload, not a jobs.tenant_id column', function () {
+        // Spatie v4 stamps the tenant into the job payload's log context —
+        // end-to-end restoration is proven in QueueTenancyBootstrapperTest.
+        // A jobs.tenant_id column was the rejected stancl-era mechanism and
+        // must not creep back into the schema.
+        $columns = Schema::getColumnListing('jobs');
 
-        $columns = \Illuminate\Support\Facades\Schema::getColumnListing('jobs');
-        expect($columns)->toContain('tenant_id');
+        expect($columns)->not->toContain('tenant_id');
     });
 });
 

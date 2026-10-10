@@ -7,7 +7,11 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
-    Tenant::query()->firstOrCreate(['id' => 'hq']);
+    Tenant::query()->firstOrCreate(['code' => 'hq'], [
+        'optigate_company_id' => 1,
+        'name' => 'Headquarters',
+        'is_active' => true,
+    ]);
 });
 
 afterEach(function () {

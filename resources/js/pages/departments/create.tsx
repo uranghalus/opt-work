@@ -48,7 +48,7 @@ export default function CreateDepartment({
 
                 <Form
                     {...DepartmentController.store.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                     })}
                     className="space-y-6"
                 >

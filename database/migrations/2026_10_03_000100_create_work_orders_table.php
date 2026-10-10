@@ -7,9 +7,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('work_orders', function (Blueprint $table) {
@@ -35,15 +32,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['tenant_id', 'nomor_wo']);
-
-            // Explicit: `constrained()` on a plain string column emits no foreign key.
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('work_orders');

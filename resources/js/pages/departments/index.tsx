@@ -33,7 +33,7 @@ function DepartmentActions() {
     >().props;
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant ?? '' })}>
+            <Link href={create({ tenant: activeTenant!, })}>
                 <Plus aria-hidden />
                 Tambah Department
             </Link>
@@ -52,7 +52,7 @@ Departments.layout = {
 export default function Departments(props: PageProps) {
     const { departments } = props;
     const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant ?? '';
+    const tenant = activeTenant!;
 
     return (
         <>

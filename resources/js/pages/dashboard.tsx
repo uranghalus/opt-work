@@ -34,7 +34,7 @@ import { InfoBanner } from '@/components/info-banner';
 import { Button } from '@/components/ui/button';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 import { create, index as workOrdersIndex } from '@/routes/work-orders';
 import type { InertiaConfig } from '@inertiajs/core';
 
@@ -546,7 +546,7 @@ function DashboardActions() {
 
 export default function Dashboard() {
     const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = (activeTenant as string | null) ?? '';
+    const tenant = activeTenant;
     const [range, setRange] = useState<(typeof rangeOptions)[number]>('7 hari');
     const [showNotice, setShowNotice] = useState(true);
 
@@ -917,9 +917,7 @@ export default function Dashboard() {
                             trailing={
                                 <Link
                                     href={
-                                        tenant
-                                            ? workOrdersIndex({ tenant })
-                                            : dashboard()
+                                        tenant ? workOrdersIndex({ tenant }) : home()
                                     }
                                     className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover"
                                 >
@@ -1080,9 +1078,7 @@ export default function Dashboard() {
                         <div className="mt-auto pt-4 text-xs text-ink-subtle">
                             <Link
                                 href={
-                                    tenant
-                                        ? workOrdersIndex({ tenant })
-                                        : dashboard()
+                                    tenant ? workOrdersIndex({ tenant }) : home()
                                 }
                                 className="inline-flex items-center gap-1 font-medium text-brand hover:text-brand-hover"
                             >
@@ -1127,7 +1123,7 @@ export default function Dashboard() {
 }
 
 Dashboard.layout = {
-    breadcrumbs: [{ title: 'Beranda', href: dashboard() }],
+    breadcrumbs: [{ title: 'Beranda', href: home() }],
     greeting: true,
     description: 'Kelola antrian dan pantau SLA hari ini.',
     actions: DashboardActions,

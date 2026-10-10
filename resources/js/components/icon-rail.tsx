@@ -75,7 +75,7 @@ function RailLogout() {
 }
 
 export function IconRail() {
-    const { activeTenant } = usePage().props;
+    const { activeTenant, auth } = usePage().props;
 
     return (
         <aside
@@ -89,7 +89,10 @@ export function IconRail() {
                     'shadow-[0_8px_32px_-8px_rgba(21,32,43,0.14),0_2px_6px_rgba(21,32,43,0.05),inset_0_1px_0_rgba(255,255,255,0.7)]',
                 )}
             >
-                {mainNavItems(activeTenant).map((item) => (
+                {mainNavItems({
+                    activeTenant,
+                    isSuperAdmin: auth?.isSuperAdmin,
+                }).map((item) => (
                     <RailLink key={item.title} item={item} />
                 ))}
 

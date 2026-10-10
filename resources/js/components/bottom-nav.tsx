@@ -90,7 +90,10 @@ export function BottomNav() {
     const tenantLabel =
         tenantsArray.find((item) => item.id === activeTenant)?.name ?? activeTenant;
     const items = mobileNavItems({ activeTenant });
-    const groups = navGroups({ activeTenant });
+    const groups = navGroups({
+        activeTenant,
+        isSuperAdmin: auth?.isSuperAdmin,
+    });
 
     return (
         <nav

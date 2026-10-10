@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\User;
+use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -105,5 +108,34 @@ class DepartmentController extends Controller
         return redirect()
             ->route('departments.index', ['tenant' => tenant()?->code])
             ->with('success', 'Department berhasil dihapus.');
+    }
+
+    /**
+     * Run the Optigate department sync from the UI. Idempotent, same as the
+     * scheduled command; the button only saves typing the command.
+     */
+    public function sync(): RedirectResponse
+    {
+        $tenant = tenant();
+        $tenantId = $tenant?->id;
+
+        if (! $tenantId) {
+            return back()->with('error', 'Tidak ada tenant aktif.');
+        }
+
+        $exitCode = Artisan::call('app:sync-departments', ['--tenant' => $tenantId]);
+        $output = Artisan::output();
+
+        if ($exitCode !== Command::SUCCESS) {
+            Log::error('Manual department sync from UI failed.', ['output' => $output, 'tenant_id' => $tenantId]);
+
+            return back()->with('error', 'Sinkronisasi gagal. Periksa log untuk detail.');
+        }
+
+        $summary = collect(explode("\n", $output))
+            ->map(fn (string $line) => trim($line))
+            ->first(fn (string $line) => str_contains($line, 'Sinkronisasi selesai'));
+
+        return back()->with('success', $summary ?? 'Sinkronisasi selesai.');
     }
 }

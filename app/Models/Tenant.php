@@ -28,7 +28,7 @@ class Tenant extends SpatieTenant
 
     protected $casts = [
         'id' => 'string',
-        'optigate_company_id' => 'integer',
+        'optigate_company_id' => 'string',
         'is_active' => 'boolean',
         'deactivated_at' => 'datetime',
     ];

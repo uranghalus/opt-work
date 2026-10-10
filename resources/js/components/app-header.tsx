@@ -33,7 +33,7 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { useAppearance, type Appearance } from '@/hooks/use-appearance';
 import { cn, toUrl } from '@/lib/utils';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -121,7 +121,7 @@ function PillTab({ item }: { item: OptiNavItem }) {
 
 /** Tablet hamburger: opens the full navigation sheet. */
 function MobileMenu() {
-    const { activeTenant } = usePage().props;
+    const { activeTenant, auth } = usePage().props;
 
     return (
         <Sheet>
@@ -151,7 +151,10 @@ function MobileMenu() {
                         aria-label="Navigasi utama"
                         className="flex flex-col gap-1"
                     >
-                        {mainNavItems(activeTenant).map((item) => (
+                        {mainNavItems({
+                            activeTenant,
+                            isSuperAdmin: auth?.isSuperAdmin,
+                        }).map((item) => (
                             <SheetNavLink key={item.title} item={item} />
                         ))}
                     </nav>
@@ -349,7 +352,7 @@ function HeaderBrand() {
     return (
         <div className="flex min-w-0 items-center gap-2.5">
             <Link
-                href={dashboard()}
+                href={home()}
                 prefetch
                 aria-label="Beranda OptiWorks"
                 className="-ml-1.5 flex shrink-0 items-center rounded-full p-1.5 transition-colors duration-150 hover:bg-white/60 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
@@ -367,7 +370,7 @@ function HeaderBrand() {
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const scrolled = useScrolled();
-    const { activeTenant } = usePage().props;
+    const { activeTenant, auth } = usePage().props;
 
     return (
         <header
@@ -392,7 +395,12 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                 <HeaderBrand />
 
                 {/* Pill-tab section navigation (desktop) */}
-                <PillTabs items={mainNavItems(activeTenant)} />
+                <PillTabs
+                    items={mainNavItems({
+                        activeTenant,
+                        isSuperAdmin: auth?.isSuperAdmin,
+                    })}
+                />
 
                 {/* Right cluster: appearance + notification bell + user identity */}
                 <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">

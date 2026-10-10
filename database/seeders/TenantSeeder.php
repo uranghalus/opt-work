@@ -10,15 +10,14 @@ class TenantSeeder extends Seeder
     public function run(): void
     {
         $cabang = [
-            ['id' => 'hq', 'name' => 'Head Office', 'code' => 'HQ', 'is_active' => true],
-            ['id' => 'plant-1', 'name' => 'Plant 1', 'code' => 'P01', 'is_active' => true],
+            ['optigate_company_id' => 1, 'name' => 'Head Office', 'code' => 'hq', 'is_active' => true],
+            ['optigate_company_id' => 2, 'name' => 'Plant 1', 'code' => 'plant-1', 'is_active' => true],
         ];
 
         foreach ($cabang as $data) {
-            // Columns are passed as top-level attributes. Handing them to `data`
-            // instead does nothing: VirtualColumn strips the `data` attribute on
-            // creating and rewrites it from the remaining virtual attributes.
-            Tenant::firstOrCreate(['id' => $data['id']], $data);
+            // `code` is the URL slug and lookup key; the ULID id is generated
+            // by the model, `optigate_company_id` is the sync mapping key.
+            Tenant::firstOrCreate(['code' => $data['code']], $data);
         }
     }
 }

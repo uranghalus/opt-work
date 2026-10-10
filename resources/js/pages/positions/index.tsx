@@ -30,7 +30,7 @@ function PositionActions() {
     >().props;
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant ?? '' })}>
+            <Link href={create({ tenant: activeTenant!, })}>
                 <Plus aria-hidden />
                 Tambah Position
             </Link>
@@ -48,7 +48,7 @@ Positions.layout = {
 export default function Positions(props: PageProps) {
     const { positions } = props;
     const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant ?? '';
+    const tenant = activeTenant!;
 
     return (
         <>

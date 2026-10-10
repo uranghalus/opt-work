@@ -1,13 +1,16 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { DeleteTenant } from '@/components/delete-tenant';
+import { ExternalLink } from 'lucide-react';
+import { index } from '@/routes/tenants';
 import { Button } from '@/components/ui/button';
 import type { InertiaConfig } from '@inertiajs/core';
 
 type Branch = {
     id: string;
+    optigate_company_id: number | null;
+    code: string;
     name: string;
-    code: string | null;
     is_active: boolean;
+    deactivated_at: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -26,59 +29,54 @@ const USAGE_LABELS: Record<string, string> = {
     posisi: 'Posisi',
 };
 
+function formatDate(value: string): string {
+    return new Date(value).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    });
+}
+
 function BranchActions() {
     const { branch } = usePage<PageProps>().props;
 
     return (
-        <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-                <Link href={`/${branch.id}/work-orders`}>Buka work order</Link>
-            </Button>
-            <Button asChild>
-                <Link href={`/settings/tenants/${branch.id}/edit`}>Edit</Link>
-            </Button>
-        </div>
+        <Button variant="outline" asChild>
+            <Link href={`/${branch.code}/work-orders`}>
+                <ExternalLink aria-hidden />
+                Buka Work Order
+            </Link>
+        </Button>
     );
 }
 
 export default function ShowTenant({ branch, usage, errors }: PageProps) {
     const { flash } = usePage<
-        InertiaConfig['sharedPageProps'] & { flash?: { success?: string | null } }
+        InertiaConfig['sharedPageProps'] & {
+            flash?: { success?: string | null; error?: string | null };
+        }
     >().props;
-
-    const hasUsage = Object.values(usage).some((count) => count > 0);
 
     return (
         <>
             <Head title={branch.name} />
 
             <div className="mx-auto w-full max-w-3xl space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                        <h2 className="text-xl font-semibold tracking-tight">
-                            {branch.name}
-                        </h2>
-                        <p className="text-sm text-muted-foreground">
-                            Cabang dengan slug{' '}
-                            <span className="font-mono">{branch.id}</span>
-                        </p>
-                    </div>
-
-                    {hasUsage ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                            Nonaktifkan untuk menonaktifkan
-                        </span>
-                    ) : (
-                        <DeleteTenant id={branch.id} name={branch.name} />
-                    )}
-                </div>
-
                 {flash?.success && (
                     <p
                         role="status"
                         className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
                     >
                         {flash.success}
+                    </p>
+                )}
+
+                {flash?.error && (
+                    <p
+                        role="alert"
+                        className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+                    >
+                        {flash.error}
                     </p>
                 )}
 
@@ -94,14 +92,16 @@ export default function ShowTenant({ branch, usage, errors }: PageProps) {
                 <dl className="overflow-hidden rounded-lg border bg-card">
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
-                            Slug (URL)
+                            Kode (URL)
                         </dt>
-                        <dd className="font-mono text-sm">{branch.id}</dd>
+                        <dd className="font-mono text-sm">{branch.code}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">Kode</dt>
+                        <dt className="text-sm text-muted-foreground">
+                            ID Optigate
+                        </dt>
                         <dd className="font-mono text-sm">
-                            {branch.code ?? '—'}
+                            {branch.optigate_company_id ?? '—'}
                         </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
@@ -109,21 +109,41 @@ export default function ShowTenant({ branch, usage, errors }: PageProps) {
                             Status
                         </dt>
                         <dd className="text-sm font-semibold">
-                            {branch.is_active ? 'Aktif' : 'Nonaktif'}
+                            {branch.is_active ? (
+                                <span className="inline-flex items-center gap-1.5 text-success">
+                                    <span
+                                        aria-hidden
+                                        className="size-1.5 rounded-full bg-success"
+                                    />
+                                    Aktif
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 text-ink-muted">
+                                    <span
+                                        aria-hidden
+                                        className="size-1.5 rounded-full bg-ink-subtle"
+                                    />
+                                    Nonaktif
+                                </span>
+                            )}
                         </dd>
                     </div>
+                    {!branch.is_active && branch.deactivated_at && (
+                        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                            <dt className="text-sm text-muted-foreground">
+                                Nonaktif sejak
+                            </dt>
+                            <dd className="text-sm tabular-nums">
+                                {formatDate(branch.deactivated_at)}
+                            </dd>
+                        </div>
+                    )}
                     <div className="flex items-center justify-between gap-4 px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
                             Dibuat
                         </dt>
                         <dd className="text-sm tabular-nums">
-                            {new Date(
-                                branch.created_at,
-                            ).toLocaleDateString('id-ID', {
-                                day: '2-digit',
-                                month: 'long',
-                                year: 'numeric',
-                            })}
+                            {formatDate(branch.created_at)}
                         </dd>
                     </div>
                 </dl>
@@ -137,9 +157,7 @@ export default function ShowTenant({ branch, usage, errors }: PageProps) {
                             <div
                                 key={label}
                                 className={`flex items-center justify-between gap-4 px-4 py-3 ${
-                                    index === 0
-                                        ? ''
-                                        : 'border-t'
+                                    index === 0 ? '' : 'border-t'
                                 }`}
                             >
                                 <dt className="text-sm text-muted-foreground">
@@ -152,9 +170,9 @@ export default function ShowTenant({ branch, usage, errors }: PageProps) {
                         ))}
                     </dl>
                     <p className="text-xs text-muted-foreground">
-                        Cabang dengan data di atas tidak dapat dihapus. Ubah
-                        status menjadi Nonaktif agar tetap dapat diakses lewat
-                        URL tanpa muncul di pemilih cabang.
+                        Unit bisnis disinkronkan dari Optigate. Cabang yang
+                        hilang dari Optigate dinonaktifkan otomatis, bukan
+                        dihapus, agar riwayat datanya tetap utuh.
                     </p>
                 </section>
             </div>
@@ -165,9 +183,10 @@ export default function ShowTenant({ branch, usage, errors }: PageProps) {
 ShowTenant.layout = {
     breadcrumbs: [
         { title: 'Pengaturan' },
-        { title: 'Cabang', href: '/settings/tenants' },
+        { title: 'Unit Bisnis', href: '/settings/tenants' },
+        { title: 'Detail' },
     ],
-    title: 'Detail Cabang',
-    description: 'Identitas dan status cabang',
+    title: 'Detail Unit Bisnis',
+    description: 'Identitas, status, dan penggunaan data cabang',
     actions: BranchActions,
 };

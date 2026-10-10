@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn } from '@/lib/utils';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 import { create as workOrdersCreate } from '@/routes/work-orders';
 import type { InertiaConfig } from '@inertiajs/core';
 
@@ -228,10 +228,13 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
 }
 
 export function AppSidebar() {
-    const { activeTenant, unreadNotificationsCount } =
+    const { activeTenant, unreadNotificationsCount, auth } =
         usePage<InertiaConfig['sharedPageProps']>().props;
     const { state } = useSidebar();
-    const groups = navGroups({ activeTenant });
+    const groups = navGroups({
+        activeTenant,
+        isSuperAdmin: auth?.isSuperAdmin,
+    });
     const unread = Number(unreadNotificationsCount ?? 0);
 
     return (
@@ -241,7 +244,7 @@ export function AppSidebar() {
         >
             <SidebarHeader className="gap-4 px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2 overflow-hidden">
                 <Link
-                    href={dashboard({ tenant: activeTenant })}
+                    href={home()}
                     prefetch
                     aria-label="Beranda OptiWorks"
                     className="-m-1 flex items-center gap-3 rounded-md px-2 py-1 transition-colors duration-150 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none group-data-[collapsible=icon]:justify-center"

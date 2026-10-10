@@ -11,6 +11,8 @@ export type User = {
 
 export type Auth = {
     user: User;
+    /** Platform-level account: may access any unit bisnis (see SamlTenantResolver). */
+    isSuperAdmin: boolean;
 };
 
 /**

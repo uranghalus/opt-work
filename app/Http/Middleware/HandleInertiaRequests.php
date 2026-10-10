@@ -3,8 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
-use App\Services\TenantAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -43,7 +43,7 @@ class HandleInertiaRequests extends Middleware
         $availableTenants = [];
 
         try {
-            $activeTenant = \App\Models\Tenant::current();
+            $activeTenant = Tenant::current();
 
             $isSuperAdmin = $user && ($user->hasRole('super-admin') || $user->is_super_admin);
 
@@ -51,16 +51,16 @@ class HandleInertiaRequests extends Middleware
                 $currentTenant = $activeTenant->only(['id', 'name']);
                 $query = $user
                     ? ($isSuperAdmin
-                        ? \App\Models\Tenant::latest()->get()
+                        ? Tenant::latest()->get()
                         : $this->getUserTenants($user))
                     : collect();
-                $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
+                $availableTenants = $query->map(fn (Tenant $t) => $this->mapTenant($t));
             } elseif ($user) {
-                $query = $isSuperAdmin ? \App\Models\Tenant::latest()->get() : $this->getUserTenants($user);
-                $availableTenants = $query->map(fn (\App\Models\Tenant $t) => $this->mapTenant($t));
+                $query = $isSuperAdmin ? Tenant::latest()->get() : $this->getUserTenants($user);
+                $availableTenants = $query->map(fn (Tenant $t) => $this->mapTenant($t));
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('HandleInertiaRequests: '.$e->getMessage());
+            Log::warning('HandleInertiaRequests: '.$e->getMessage());
         }
 
         $isSuperAdmin = $user !== null && ($user->hasRole('super-admin') || $user->is_super_admin);
@@ -82,6 +82,9 @@ class HandleInertiaRequests extends Middleware
                 'isSuperAdmin' => $isSuperAdmin,
             ],
             'tenant' => $currentTenant,
+            // The route identifier for {tenant} URLs — the code slug, not the
+            // ULID. Null in central contexts (admin panel, pre-tenant pages).
+            'activeTenant' => $activeTenant?->code,
             'availableTenants' => $availableTenants,
             'tenants' => $availableTenants,
             'impersonation' => [
@@ -92,6 +95,7 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
+                'error' => fn (): ?string => $request->session()->get('error'),
             ],
             'unreadNotificationsCount' => fn (): int => $user?->unreadNotifications()->count() ?? 0,
         ];
@@ -104,13 +108,13 @@ class HandleInertiaRequests extends Middleware
     {
         if ($user->tenant_id) {
             // Use the tenant_id column as fallback for users without pivot records
-            return \App\Models\Tenant::where('id', $user->tenant_id)->get();
+            return Tenant::where('id', $user->tenant_id)->get();
         }
 
         return $user->tenants()->get();
     }
 
-    private function mapTenant(\App\Models\Tenant $tenant): array
+    private function mapTenant(Tenant $tenant): array
     {
         return [
             'id' => $tenant->id,

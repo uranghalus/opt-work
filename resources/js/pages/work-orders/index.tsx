@@ -60,7 +60,7 @@ WorkOrders.layout = {
 
 export default function WorkOrders({ workOrders }: PageProps) {
     const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant ?? '';
+    const tenant = activeTenant!;
 
     return (
         <>

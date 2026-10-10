@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Accounts plus the user↔unit-bisnis pivot.
+     *
+     * `employee_id` is created here as a bare uuid column; its foreign key
+     * is added by the organization migration once `employees` exists.
      */
     public function up(): void
     {
@@ -17,8 +20,17 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('phone')->nullable();
+            $table->foreignUuid('employee_id')->nullable();
+            $table->string('tenant_id')->nullable();
+            $table->boolean('is_super_admin')->default(false);
+            $table->boolean('is_hod')->default(false);
             $table->rememberToken();
             $table->timestamps();
+
+            // The nullable home-tenant link; `nullOnDelete` keeps accounts
+            // alive when a unit bisnis disappears.
+            $table->foreign('tenant_id')->references('id')->on('tenants')->nullOnDelete();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -35,15 +47,23 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
+
+        Schema::create('user_tenants', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('tenant_id');
+            $table->timestamps();
+
+            $table->unique(['user_id', 'tenant_id']);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('user_tenants');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

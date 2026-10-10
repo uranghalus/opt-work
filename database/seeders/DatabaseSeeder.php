@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@example.com',
         ]);
 
-        $hq = Tenant::find('hq');
+        $hq = Tenant::where('code', 'hq')->first();
 
         User::factory()->create([
             'name' => 'Test User',

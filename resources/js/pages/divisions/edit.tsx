@@ -34,7 +34,7 @@ export default function EditDivision({ division }: PageProps) {
 
                 <Form
                     {...DivisionController.update.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                         division: division.id,
                     })}
                     className="space-y-6"

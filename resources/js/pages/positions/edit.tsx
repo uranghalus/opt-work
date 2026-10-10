@@ -32,7 +32,7 @@ export default function EditPosition({ position }: PageProps) {
 
                 <Form
                     {...PositionController.update.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                         position: position.id,
                     })}
                     className="space-y-6"

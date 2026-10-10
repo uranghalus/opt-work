@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
@@ -58,15 +59,23 @@ test('the redirect route remembers the relay state in the session', function () 
 });
 
 test('a signed response completes login and creates the user', function () {
+    // The assertion's company resolves to this unit bisnis, so the ACS
+    // handler activates it and lands the user on its dashboard.
+    $tenant = Tenant::factory()->create([
+        'name' => FakeIdentityProvider::COMPANY,
+        'code' => 'test-co',
+    ]);
+
     $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl());
 
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('dashboard', ['tenant' => 'test-co'], absolute: false));
 
     $user = User::query()->sole();
 
     expect($user->email)->toBe(FakeIdentityProvider::EMAIL)
         ->and($user->name)->toBe(FakeIdentityProvider::NAME)
+        ->and($user->fresh()->tenant_id)->toBe($tenant->id)
         ->and($this->app['auth']->guard()->user()?->is($user))->toBeTrue();
 });
 

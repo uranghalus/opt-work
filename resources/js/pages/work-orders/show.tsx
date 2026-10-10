@@ -28,7 +28,7 @@ type WorkOrder = {
  */
 export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
     const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant ?? '';
+    const tenant = activeTenant!;
 
     const scheduledFor = workOrder.requested_schedule_date
         ? new Date(workOrder.requested_schedule_date).toLocaleDateString('id-ID', {

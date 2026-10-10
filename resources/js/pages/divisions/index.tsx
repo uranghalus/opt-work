@@ -30,7 +30,7 @@ function DivisionActions() {
     >().props;
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant ?? '' })}>
+            <Link href={create({ tenant: activeTenant!, })}>
                 <Plus aria-hidden />
                 Tambah Divisi
             </Link>
@@ -87,7 +87,7 @@ export default function Divisions(props: PageProps) {
                                         <TableCell className="font-semibold">
                                             <Link
                                                 href={show({
-                                                    tenant: activeTenant ?? '',
+                                                    tenant: activeTenant!,
                                                     division: division.id,
                                                 })}
                                                 className="hover:underline"
@@ -106,7 +106,7 @@ export default function Divisions(props: PageProps) {
                                                 >
                                                     <Link
                                                         href={edit({
-                                                            tenant: activeTenant ?? '',
+                                                            tenant: activeTenant!,
                                                             division: division.id,
                                                         })}
                                                     >

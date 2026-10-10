@@ -23,7 +23,7 @@ export default function CreatePosition() {
 
                 <Form
                     {...PositionController.store.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                     })}
                     className="space-y-6"
                 >

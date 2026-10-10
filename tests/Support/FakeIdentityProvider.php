@@ -57,6 +57,13 @@ class FakeIdentityProvider
     public const NAME = 'Janet Garcia';
 
     /**
+     * The company name the identity provider sends as the `company`
+     * attribute, exactly like a real Optigate assertion (which carries no
+     * company code or ID — only the name).
+     */
+    public const COMPANY = 'PT Optigate Test';
+
+    /**
      * Identity provider metadata equivalent to the metadata the real
      * OptiGate identity provider publishes.
      */
@@ -118,7 +125,7 @@ XML;
      * A URL for the service provider's assertion consumer service carrying a
      * signed SAML response (HTTP-Redirect binding style).
      *
-     * @param  array{success?: bool, signed_by?: 'idp'|'sp', issuer?: string, state?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null}  $options
+     * @param  array{success?: bool, signed_by?: 'idp'|'sp', issuer?: string, state?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null, company?: string|null}  $options
      */
     public static function assertionResponseUrl(array $options = []): string
     {
@@ -233,7 +240,7 @@ XML;
     }
 
     /**
-     * @param  array{success?: bool, signed_by?: 'idp'|'sp', issuer?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null}  $options
+     * @param  array{success?: bool, signed_by?: 'idp'|'sp', issuer?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null, company?: string|null}  $options
      */
     private static function buildResponse(array $options): Response
     {
@@ -261,7 +268,7 @@ XML;
     }
 
     /**
-     * @param  array{signed_by?: 'idp'|'sp', issuer?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null}  $options
+     * @param  array{success?: bool, signed_by?: 'idp'|'sp', issuer?: string, name_id?: string, in_response_to?: string|null, email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null, company?: string|null}  $options
      */
     private static function buildAssertion(array $options): Assertion
     {
@@ -318,7 +325,7 @@ XML;
     }
 
     /**
-     * @param  array{email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null}  $options
+     * @param  array{email?: string|null, name?: string|null, first_name?: string|null, last_name?: string|null, company?: string|null}  $options
      */
     private static function buildAttributeStatement(array $options): AttributeStatement
     {
@@ -327,6 +334,9 @@ XML;
             ClaimTypes::NAME => $options['name'] ?? self::NAME,
             ClaimTypes::GIVEN_NAME => $options['first_name'] ?? 'Janet',
             ClaimTypes::SURNAME => $options['last_name'] ?? 'Garcia',
+            'company' => array_key_exists('company', $options)
+                ? $options['company']
+                : self::COMPANY,
         ];
 
         $attributeStatement = new AttributeStatement;

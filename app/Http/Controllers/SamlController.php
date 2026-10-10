@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\SamlTenantResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,10 @@ use Throwable;
 
 class SamlController extends Controller
 {
+    public function __construct(
+        protected SamlTenantResolver $tenantResolver,
+    ) {}
+
     /**
      * Send the user to the identity provider (SP-initiated SSO).
      */
@@ -55,7 +60,6 @@ class SamlController extends Controller
             $samlUser = $stateless
                 ? $this->statelessSamlUser()
                 : $this->samlUser();
-            dd($samlUser);
         } catch (Throwable $exception) {
             Log::warning('SAML login failed.', [
                 'exception' => $exception,
@@ -70,17 +74,36 @@ class SamlController extends Controller
         // make a later IdP-initiated response look state-forged.
         request()->session()->forget('state');
 
-        // Redirect based on user role
-        if ($user->is_super_admin) {
-            return redirect()->intended(route('admin.dashboard'));
+        $resolution = $this->tenantResolver->resolve($samlUser);
+
+        // Platform accounts are never denied: when their assertion matches a
+        // company they land straight on that dashboard, otherwise they pick a
+        // unit bisnis from the central admin panel.
+        if ($this->tenantResolver->canAccessAnyTenant($user)) {
+            if ($resolution->isFound()) {
+                $resolution->tenant->makeCurrent();
+
+                return redirect()->intended(route('dashboard', ['tenant' => $resolution->tenant->code]));
+            }
+
+            return redirect()->route('admin.dashboard');
         }
 
-        if ($user->tenant_id) {
-            return redirect()->intended(route('dashboard', ['tenant' => $user->tenant_id]));
+        if ($resolution->isDenied()) {
+            return redirect()
+                ->route('saml.denied')
+                ->with('saml.denial_reason', $resolution->denialReason);
         }
 
-        // Superadmin without home tenant - go to admin dashboard to pick tenant
-        return redirect()->route('admin.dashboard');
+        $tenant = $resolution->tenant;
+        $tenant->makeCurrent();
+
+        // The dashboard's tenant.access middleware compares the user's home
+        // tenant to the route tenant; the assertion is the source of truth at
+        // login, so persist it.
+        $user->forceFill(['tenant_id' => $tenant->id])->save();
+
+        return redirect()->intended(route('dashboard', ['tenant' => $tenant->code]));
     }
 
     /**

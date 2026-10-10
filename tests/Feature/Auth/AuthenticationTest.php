@@ -13,7 +13,10 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    // Fortify redirects to the configured home. The proper landing flow for
+    // users without a home tenant is still open (see .scratch/superadmin-login
+    // /issues/04b), so this asserts the configured target, not a tenant route.
+    $response->assertRedirect(config('fortify.home'));
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

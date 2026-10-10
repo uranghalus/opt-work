@@ -29,6 +29,7 @@ export function PageHeader({
 
     const current = navGroups({
         activeTenant: tenant,
+        isSuperAdmin: page.props.auth?.isSuperAdmin,
     })
         .flatMap((group) => group.items)
         .find((item) => !item.disabled && isCurrentOrParentUrl(item.href));

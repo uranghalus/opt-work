@@ -54,7 +54,7 @@ export default function EditEmployee({
 
                 <Form
                     {...EmployeeController.update.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                         employee: employee.id,
                     })}
                     className="space-y-6"

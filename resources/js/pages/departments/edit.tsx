@@ -59,7 +59,7 @@ export default function EditDepartment({
 
                 <Form
                     {...DepartmentController.update.form({
-                        tenant: activeTenant ?? '',
+                        tenant: activeTenant!,
                         department: department.id,
                     })}
                     className="space-y-6"

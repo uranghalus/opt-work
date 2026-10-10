@@ -4,15 +4,20 @@ use App\Models\Tenant;
 use App\Models\User;
 
 test('guests are redirected to the sso portal', function () {
-    $response = $this->get(route('dashboard'));
+    $response = $this->get(route('dashboard', ['tenant' => 'hq']));
     $response->assertRedirect(route('saml.redirect'));
 });
 
 test('authenticated users can visit the dashboard', function () {
-    $user = User::factory()->create();
+    $tenant = Tenant::factory()->create([
+        'code' => 'hq',
+        'optigate_company_id' => 1,
+        'name' => 'Headquarters',
+    ]);
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
     $this->actingAs($user);
 
-    $response = $this->get(route('dashboard'));
+    $response = $this->get(route('dashboard', ['tenant' => 'hq']));
     $response->assertOk();
 });
 
@@ -32,7 +37,7 @@ test('shares only the branches a user may operate', function () {
     $platformUser = User::factory()->create(['is_super_admin' => true]);
 
     $this->actingAs($branchUser)
-        ->get(route('dashboard'))
+        ->get(route('dashboard', ['tenant' => 'hq']))
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
@@ -42,7 +47,7 @@ test('shares only the branches a user may operate', function () {
         );
 
     $this->actingAs($platformUser)
-        ->get(route('dashboard'))
+        ->get(route('dashboard', ['tenant' => 'hq']))
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page

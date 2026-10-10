@@ -22,6 +22,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Platform Super Admin
+    |--------------------------------------------------------------------------
+    |
+    | The seed account allowed to access any unit bisnis without being tied
+    | to the company in its SAML assertion. Kept in exactly one place so the
+    | check can be replaced by Spatie Permission later. The is_super_admin
+    | user flag grants the same bypass.
+    |
+    */
+
+    'super_admin_email' => env('SUPER_ADMIN_EMAIL', 'superadmin@appdutamall.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Authentication Guards
     |--------------------------------------------------------------------------
     |

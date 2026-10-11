@@ -132,6 +132,9 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
 
     Route::resource('employees', EmployeeController::class)->names('employees');
     Route::post('employees/sync', [EmployeeController::class, 'sync'])->name('employees.sync');
+    // Record-level block on a karyawan (superadmin only); survives portal syncs.
+    Route::post('employees/{employee}/ban', [EmployeeController::class, 'ban'])->name('employees.ban');
+    Route::post('employees/{employee}/unban', [EmployeeController::class, 'unban'])->name('employees.unban');
 
     Route::resource('departments', DepartmentController::class)->names('departments');
     Route::post('departments/sync', [DepartmentController::class, 'sync'])->name('departments.sync');

@@ -62,6 +62,14 @@ _Avoid_: hak (terlalu umum)
 The settings surface where roles are created, edited, deleted, and assigned permissions. Same concept as "RBAC management".
 _Avoid_: manajemen user (itu assign karyawan)
 
+**Akun**:
+The application login linked to a Karyawan. A Karyawan synced from the portal has no Akun until one is linked locally; having an Akun is visible state, never implied by the portal data.
+_Avoid_: user (untuk arti akun karyawan), status (untuk indikator keberadaan akun)
+
+**Blokir**:
+A record-level block on a Karyawan. A diblokir Karyawan stays in the data (never deleted), and the portal sync never clears the block. Distinct from a unit usaha's status: blokir binds to the person, not the cabang.
+_Avoid_: nonaktif (itu status unit usaha), ditangguhkan (istilah unit usaha), hapus (blokir bukan penghapusan)
+
 ## Places
 
 **Optigate Company**:

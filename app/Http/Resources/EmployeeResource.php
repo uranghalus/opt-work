@@ -22,6 +22,16 @@ class EmployeeResource extends JsonResource
             'number' => $this->number,
             'photo_url' => $this->photo_url,
             'created_at' => $this->created_at?->toISOString(),
+            'is_banned' => $this->isBanned(),
+            'banned_at' => $this->banned_at?->toISOString(),
+            // Account status: the linked akun, null-safe — most portal-synced
+            // karyawan have none, and the relation may hold null.
+            'has_account' => $this->whenLoaded('user', fn (): bool => $this->user !== null),
+            'user' => $this->whenLoaded('user', fn (): ?array => $this->user === null ? null : [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'email' => $this->user->email,
+            ]),
             'department' => $this->whenLoaded('department', fn () => [
                 'id' => $this->department->id,
                 'kode_department' => $this->department->kode_department,
@@ -35,11 +45,6 @@ class EmployeeResource extends JsonResource
                 'id' => $this->division->id,
                 'kode_division' => $this->division->kode_division,
                 'nama_division' => $this->division->nama_division,
-            ]),
-            'user' => $this->whenLoaded('user', fn () => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-                'is_active' => (bool) ($this->user->is_active ?? true),
             ]),
         ];
     }

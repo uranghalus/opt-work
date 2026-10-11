@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\Division;
 use App\Models\Employee;
 use App\Models\Position;
+use App\Models\Tenant;
 use App\Queries\EmployeeQuery;
 use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
@@ -143,6 +144,63 @@ class EmployeeController extends Controller
         return redirect()
             ->route('employees.index', ['tenant' => tenant()?->code])
             ->with('success', 'Karyawan berhasil dihapus.');
+    }
+
+    /**
+     * Diblokir a karyawan (record-level block, superadmin only). The block
+     * survives portal syncs; the linked akun, if any, is untouched.
+     *
+     * The karyawan is resolved manually against the route's tenant: implicit
+     * binding runs before tenancy bootstraps, so the BelongsToTenant scope
+     * cannot be trusted at bind time (same reason WorkOrderController does
+     * its own resolution).
+     */
+    public function ban(Request $request): RedirectResponse
+    {
+        $this->authorizeBan($request);
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+
+        $employee->forceFill(['banned_at' => now()])->save();
+
+        return back()->with('success', "{$employee->nama_employee} diblokir.");
+    }
+
+    /**
+     * Clear the blokir on a karyawan (superadmin only).
+     */
+    public function unban(Request $request): RedirectResponse
+    {
+        $this->authorizeBan($request);
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+
+        $employee->forceFill(['banned_at' => null])->save();
+
+        return back()->with('success', "Blokir {$employee->nama_employee} dibatalkan.");
+    }
+
+    /**
+     * Resolve the {employee} of the {tenant} route, refusing any karyawan
+     * that does not belong to that cabang (no IDOR across cabang).
+     */
+    protected function resolveEmployeeFromRoute(Request $request): Employee
+    {
+        $tenant = Tenant::whereCode((string) $request->route('tenant'))->first();
+        abort_unless($tenant !== null, 404);
+
+        return Employee::withoutGlobalScope('tenant')
+            ->where('id', (string) $request->route('employee'))
+            ->where('tenant_id', $tenant->id)
+            ->firstOrFail();
+    }
+
+    /**
+     * Blokir management is a superadmin capability for now.
+     */
+    protected function authorizeBan(Request $request): void
+    {
+        abort_unless($request->user()?->is_super_admin, 403, 'Hanya superadmin yang dapat memblokir karyawan.');
     }
 
     /**

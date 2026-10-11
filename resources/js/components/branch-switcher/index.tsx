@@ -1,4 +1,5 @@
-import { usePage, router } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
+import { switchTenant } from '@/lib/tenant';
 import {
     Building2,
     Check,
@@ -63,10 +64,11 @@ const light = {
 };
 
 export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcherProps) => {
-    const { tenants = [], tenant, impersonation } = usePage<{
+    const { tenants = [], tenant, impersonation, route } = usePage<{
         tenants?: Tenant[];
         tenant?: { id: string; name: string } | null;
         impersonation?: ImpersonationInfo;
+        route?: { name: string | null; params: Record<string, string> };
     }>().props;
 
     const prefersReducedMotion = useReducedMotion();
@@ -75,7 +77,11 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
 
     const currentId = tenant?.id;
     const currentTenant = tenants.find((t) => t.id === currentId);
-    const activeTenants = tenants.filter((t) => t.is_active);
+    // Only tenants with a code can be switched to: the {tenant} URL segment
+    // is the code slug, never the raw id.
+    const activeTenants = tenants.filter(
+        (t): t is Tenant & { code: string } => !!t.is_active && !!t.code,
+    );
     const inactiveTenants = tenants.filter((t) => !t.is_active);
 
     const isImpersonating = impersonation?.active ?? false;
@@ -85,17 +91,10 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
 
     const eyebrowOf = (t: Tenant) => t.code ?? 'Cabang Aktif';
 
-    const handleSwitch = async (id: string) => {
-        if (!id || id === currentId) return;
+    const handleSwitch = (code: string) => {
+        if (!code || code === currentTenant?.code) return;
 
-        try {
-            const response = await router.get(`/tenant/switch-url/${id}?redirect=${encodeURIComponent(window.location.pathname)}`);
-            if (response.url) {
-                window.location.href = response.url;
-            }
-        } catch {
-            window.location.href = `/${id}`;
-        }
+        switchTenant(code, route ?? { name: null, params: {} });
     };
 
     const base = prefersReducedMotion ? 0 : 200;
@@ -125,7 +124,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                 </div>
             )}
 
-            <Select value={currentId ?? ''} onValueChange={handleSwitch}>
+            <Select value={currentTenant?.code ?? ''} onValueChange={handleSwitch}>
                 {/* ---------------- Trigger: light card 2 lines ---------------- */}
                 <SelectTrigger
                     className={cn(
@@ -210,7 +209,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                             return (
                                 <SelectItem
                                     key={t.id}
-                                    value={t.id}
+                                    value={t.code}
                                     className={cn(
                                         'flex cursor-pointer items-center rounded-lg px-2.5 py-2 outline-none transition-colors duration-150',
                                         'focus:bg-slate-100 data-[highlighted]:bg-slate-100',

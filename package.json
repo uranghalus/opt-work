@@ -3,9 +3,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vp build",
-        "build:ssr": "vp build && vp build --ssr",
-        "dev": "vp dev",
+        "build": "php artisan wayfinder:generate --with-form && npm run types:check && vp build",
+        "build:ssr": "npm run build && vp build --ssr",
+        "dev": "php artisan wayfinder:generate --with-form && vp dev",
         "check": "vp check",
         "check:fix": "vp check --fix",
         "types:check": "tsc --noEmit"

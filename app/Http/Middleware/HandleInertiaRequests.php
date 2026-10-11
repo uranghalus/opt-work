@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Middleware;
@@ -85,6 +86,17 @@ class HandleInertiaRequests extends Middleware
             // The route identifier for {tenant} URLs — the code slug, not the
             // ULID. Null in central contexts (admin panel, pre-tenant pages).
             'activeTenant' => $activeTenant?->code,
+            // Current route identity, so the tenant switcher can rebuild the
+            // same page for another tenant server-side (models reduced to
+            // their route keys).
+            'route' => [
+                'name' => $request->route()?->getName(),
+                'params' => collect($request->route()?->parameters() ?? [])
+                    ->map(fn ($value) => $value instanceof Model
+                        ? $value->getRouteKey()
+                        : $value)
+                    ->all(),
+            ],
             'availableTenants' => $availableTenants,
             'tenants' => $availableTenants,
             'impersonation' => [

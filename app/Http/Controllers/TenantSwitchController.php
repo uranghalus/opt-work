@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Services\TenantAccess;
+use App\Services\TenantSwitchTarget;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\UrlGenerator;
@@ -17,7 +19,76 @@ class TenantSwitchController extends Controller
         protected TenantAccess $tenantAccess,
         protected MakeTenantCurrentAction $makeTenantCurrentAction,
         protected UrlGenerator $urlGenerator,
+        protected TenantSwitchTarget $switchTarget,
     ) {}
+
+    /**
+     * Switch tenant while staying on the current page.
+     *
+     * The client posts the current route name + parameters; the target page
+     * is computed server-side (record pages map to their parent list, the
+     * query string is dropped, unknown pages fall back to the dashboard).
+     * Route parameter 'tenant' is the `code` (slug).
+     */
+    public function switching(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tenant' => ['required', 'string'],
+            'route.name' => ['nullable', 'string'],
+            'route.params' => ['nullable', 'array'],
+            'route.params.*' => ['string'],
+        ]);
+
+        $tenant = Tenant::whereCode($validated['tenant'])->first();
+
+        if (! $tenant) {
+            abort(404, 'Cabang tidak ditemukan.');
+        }
+
+        $user = $request->user();
+
+        if (! $user) {
+            return redirect()->route('saml.redirect');
+        }
+
+        if (! $this->tenantAccess->canOperate($user, $tenant->code)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
+        $target = $this->switchTarget->resolve(
+            $tenant->code,
+            $validated['route']['name'] ?? null,
+            $validated['route']['params'] ?? [],
+        );
+
+        $this->makeTenantCurrentAction->execute($tenant);
+
+        if ($request->hasSession()) {
+            $request->session()->put('current_tenant_id', $tenant->id);
+            $request->session()->put('is_impersonating', $user->is_super_admin && $user->tenant_id !== $tenant->id);
+            $request->session()->put('impersonated_at', now()->toISOString());
+        }
+
+        Log::info('Tenant switched', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'from_tenant' => $user->tenant_id,
+            'to_tenant' => $tenant->id,
+            'target_route' => $validated['route']['name'] ?? null,
+            'target_path' => $target['path'],
+            'fell_back' => $target['fell_back'],
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->to($target['path'])
+            ->with(
+                $target['fell_back'] ? 'error' : 'success',
+                $target['fell_back']
+                    ? "Halaman ini tidak tersedia untuk cabang {$tenant->name}. Anda diarahkan ke halaman dashboard cabang tersebut."
+                    : "Berpindah ke cabang: {$tenant->name}",
+            );
+    }
 
     /**
      * Switch to a specific tenant via signed URL.
@@ -84,7 +155,7 @@ class TenantSwitchController extends Controller
      * Used by the BranchSwitcher component.
      * Route parameter 'tenant' is the `code` (slug).
      */
-    public function signedSwitchUrl(Request $request, string $tenantCode): \Illuminate\Http\JsonResponse
+    public function signedSwitchUrl(Request $request, string $tenantCode): JsonResponse
     {
         $tenant = Tenant::where('code', $tenantCode)->first();
 
@@ -164,7 +235,7 @@ class TenantSwitchController extends Controller
     /**
      * Get current impersonation status for UI.
      */
-    public function impersonationStatus(Request $request): \Illuminate\Http\JsonResponse
+    public function impersonationStatus(Request $request): JsonResponse
     {
         $user = $request->user();
 

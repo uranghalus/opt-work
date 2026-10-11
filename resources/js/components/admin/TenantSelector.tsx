@@ -1,7 +1,8 @@
-import { router } from '@inertiajs/react';
-import { Building2, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
+import { Building2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { switchTenant } from '@/lib/tenant';
 
 interface TenantStats {
     id: string;
@@ -38,27 +39,17 @@ interface TenantSelectorProps {
 }
 
 export function TenantSelector({ tenants, onSelect, className }: TenantSelectorProps) {
-    const [isClient, setIsClient] = useState(false);
+    const { route } = usePage<InertiaConfig['sharedPageProps']>().props;
 
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    const handleSwitchTenant = async (tenantId: string) => {
-        if (!isClient) return;
-
+    const handleSwitchTenant = (code: string) => {
         if (onSelect) {
-            onSelect(tenantId);
-        } else {
-            try {
-                const response = await router.get(`/tenant/switch-url/${tenantId}?redirect=${encodeURIComponent('/dashboard')}`);
-                if (response.url) {
-                    window.location.href = response.url;
-                }
-            } catch {
-                window.location.href = `/${tenantId}/dashboard`;
-            }
+            onSelect(code);
+            return;
         }
+
+        // Central admin context: the backend maps any non-tenant page to the
+        // target tenant's dashboard.
+        switchTenant(code, route);
     };
 
     if (!tenants.length) {
@@ -143,8 +134,8 @@ export function TenantSelector({ tenants, onSelect, className }: TenantSelectorP
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                         <button
-                            onClick={() => handleSwitchTenant(tenant.id)}
-                            disabled={!tenant.is_active}
+                            onClick={() => handleSwitchTenant(tenant.code ?? '')}
+                            disabled={!tenant.is_active || !tenant.code}
                             className={cn(
                                 'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-150',
                                 'focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:outline-none',

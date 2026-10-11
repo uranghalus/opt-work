@@ -47,6 +47,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('tenant.switch')
         ->middleware('signed');
 
+    // Same-page switching: the client sends the current route name + params,
+    // the backend computes the equivalent page for the target tenant.
+    Route::post('tenant/switching', [TenantSwitchController::class, 'switching'])
+        ->name('tenant.switching');
+
     Route::get('tenant/switch-url/{tenant}', [TenantSwitchController::class, 'signedSwitchUrl'])
         ->name('tenant.switch-url');
 

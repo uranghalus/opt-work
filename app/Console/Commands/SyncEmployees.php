@@ -7,9 +7,8 @@ use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 #[Signature('app:sync-employees {--tenant= : ID tenant tujuan (default: tenant aktif)}')]
 #[Description('Auto-sync employees data from Optigate Portal API to local database')]
@@ -54,17 +53,24 @@ class SyncEmployees extends Command
             $count = 0;
 
             foreach ($employees as $employee) {
+                if (blank($employee['id'] ?? null)) {
+                    continue;
+                }
+
+                // Idempotent key: the portal user uuid. Identity fields refresh
+                // from the portal; local-only state (banned_at) and the linked
+                // akun are never touched here.
                 Employee::withoutGlobalScopes()->updateOrCreate(
-                    ['id_employee' => $employee['id']],
                     [
                         'tenant_id' => $tenantId,
+                        'optigate_user_id' => $employee['id'],
+                    ],
+                    [
                         'nik_employee' => $employee['nik'] ?? null,
                         'nama_employee' => $employee['name'],
                         'email' => $employee['email'] ?? null,
                         'number' => $employee['whatsapp_number'] ?? null,
                         'photo_url' => $employee['photo_url'] ?? null,
-                        'id_department' => $employee['department'] ?? $employee['department_id'] ?? null,
-                        'id_position' => $employee['position'] ?? $employee['position_id'] ?? null,
                         'last_login_ip' => $employee['last_login_ip'] ?? null,
                     ]
                 );

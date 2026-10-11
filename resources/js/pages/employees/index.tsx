@@ -13,13 +13,17 @@ import {
     ChevronLeft,
     ChevronRight,
     User,
+    UserCheck,
+    UserX,
+    Ban,
+    Undo2,
     Mail,
     Phone,
     Calendar,
     Building2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { index, create, edit, show, destroy, sync } from '@/routes/employees';
+import { index, create, edit, show, destroy, sync, ban, unban } from '@/routes/employees';
 import { useRequiredTenant } from '@/lib/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -82,7 +86,7 @@ type Division = {
 type User = {
     id: string;
     name: string;
-    is_active: boolean;
+    email: string | null;
 };
 
 type Employee = {
@@ -93,6 +97,9 @@ type Employee = {
     number: string | null;
     photo_url: string | null;
     created_at: string | null;
+    is_banned: boolean;
+    banned_at: string | null;
+    has_account: boolean;
     department: Department | null;
     position: Position | null;
     division: Division | null;
@@ -146,7 +153,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
     'phone',
     'email',
     'joined',
-    'status',
+    'akun',
 ] as const;
 
 type ColumnKey = (typeof DEFAULT_VISIBLE_COLUMNS)[number];
@@ -205,18 +212,31 @@ function Avatar({ src, name, size = 32 }: { src?: string | null; name: string; s
     );
 }
 
-function StatusBadge({ active }: { active: boolean }) {
+function AccountBadge({ hasAccount }: { hasAccount: boolean }) {
     return (
         <span
             className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap',
-                active
+                'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+                hasAccount
                     ? 'border-success/30 bg-success/10 text-success'
-                    : 'border-border bg-surface-raised text-ink-muted'
+                    : 'border-border bg-surface-raised text-ink-muted',
             )}
         >
-            <span aria-hidden className={cn('size-1.5 rounded-full', active ? 'bg-success' : 'bg-ink-subtle')} />
-            {active ? 'Aktif' : 'Nonaktif'}
+            {hasAccount ? (
+                <UserCheck aria-hidden className="size-3" />
+            ) : (
+                <UserX aria-hidden className="size-3" />
+            )}
+            {hasAccount ? 'Punya akun' : 'Tanpa akun'}
+        </span>
+    );
+}
+
+function BannedBadge() {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-[11px] font-semibold text-danger whitespace-nowrap">
+            <Ban aria-hidden className="size-3" />
+            Diblokir
         </span>
     );
 }
@@ -246,7 +266,7 @@ const COLUMN_DEFINITIONS: Record<ColumnKey, { label: string; icon?: React.ReactN
     phone: { label: 'Telepon', icon: <Phone className="size-3" /> },
     email: { label: 'Email', icon: <Mail className="size-3" /> },
     joined: { label: 'Bergabung', icon: <Calendar className="size-3" /> },
-    status: { label: 'Status', icon: <User className="size-3" /> },
+    akun: { label: 'Akun', icon: <UserCheck className="size-3" /> },
 };
 
 function EmployeeActions({ onSync }: { onSync: () => void }) {
@@ -331,14 +351,16 @@ function EmployeeRow({
     tenant,
     visibleColumns,
     onDelete,
+    onBanToggle,
+    canBan,
 }: {
     employee: Employee;
     tenant: string;
     visibleColumns: ColumnKey[];
     onDelete: (id: string) => void;
+    onBanToggle: (employee: Employee) => void;
+    canBan: boolean;
 }) {
-    const isActive = employee.user !== null ? employee.user.is_active : true;
-
     return (
         <TableRow key={employee.id}>
             {visibleColumns.includes('nik') && (
@@ -352,10 +374,14 @@ function EmployeeRow({
                         <Avatar src={employee.photo_url} name={employee.nama_employee} size={32} />
                         <Link
                             href={show({ tenant, employee: employee.id })}
-                            className="hover:underline"
+                            className={cn(
+                                'hover:underline',
+                                employee.is_banned && 'text-ink-muted',
+                            )}
                         >
                             {employee.nama_employee}
                         </Link>
+                        {employee.is_banned && <BannedBadge />}
                     </div>
                 </TableCell>
             )}
@@ -389,12 +415,12 @@ function EmployeeRow({
                     {formatDate(employee.created_at)}
                 </TableCell>
             )}
-            {visibleColumns.includes('status') && (
+            {visibleColumns.includes('akun') && (
                 <TableCell>
-                    <StatusBadge active={isActive} />
+                    <AccountBadge hasAccount={employee.has_account} />
                 </TableCell>
             )}
-            <TableCell className="w-24 sticky right-0 bg-card/95 z-10 border-l border-border">
+            <TableCell className="w-28 sticky right-0 bg-card/95 z-10 border-l border-border">
                 <div className="flex items-center justify-end gap-1">
                     <Button
                         variant="ghost"
@@ -416,6 +442,25 @@ function EmployeeRow({
                             <Edit2 className="size-4" />
                         </Link>
                     </Button>
+                    {canBan && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onBanToggle(employee)}
+                            aria-label={
+                                employee.is_banned
+                                    ? `Batalkan blokir ${employee.nama_employee}`
+                                    : `Blokir ${employee.nama_employee}`
+                            }
+                            className={
+                                employee.is_banned
+                                    ? 'text-success hover:bg-success/10'
+                                    : 'text-destructive hover:bg-destructive/10'
+                            }
+                        >
+                            {employee.is_banned ? <Undo2 className="size-4" /> : <Ban className="size-4" />}
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="icon"
@@ -469,15 +514,57 @@ function DeleteConfirmDialog({
 
 DeleteConfirmDialog.displayName = 'DeleteConfirmDialog';
 
+function BanConfirmDialog({
+    open,
+    onOpenChange,
+    onConfirm,
+    employeeName,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onConfirm: () => void;
+    employeeName: string;
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Blokir karyawan?</DialogTitle>
+                    <DialogDescription>
+                        <strong>{employeeName}</strong> akan langsung diblokir dari
+                        penggunaan operasional pada request berikutnya. Blokir
+                        menempel pada karyawan dan tidak ikut terhapus saat
+                        sinkronisasi portal berjalan. Riwayat datanya tetap tersimpan,
+                        dan blokir dapat dibatalkan kapan saja.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Batal
+                    </Button>
+                    <Button variant="destructive" onClick={() => { onConfirm(); onOpenChange(false); }}>
+                        Blokir
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+BanConfirmDialog.displayName = 'BanConfirmDialog';
+
 export default function Employees({ employees, filters, errors }: PageProps) {
-    const { flash } = usePage<FlashProps>().props;
+    const { flash, auth } = usePage<FlashProps>().props;
     const tenant = useRequiredTenant('employees.index');
+    const canBan = auth?.isSuperAdmin ?? false;
 
     const [searchTerm, setSearchTerm] = useState(filters.search);
     const [appliedFilters, setAppliedFilters] = useState<Filters>(filters);
     const [navigating, setNavigating] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [banDialogOpen, setBanDialogOpen] = useState(false);
+    const [employeeToBan, setEmployeeToBan] = useState<Employee | null>(null);
     const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>([...DEFAULT_VISIBLE_COLUMNS]);
     const skipFirstQuery = useRef(true);
 
@@ -558,6 +645,30 @@ export default function Employees({ employees, filters, errors }: PageProps) {
         );
     };
 
+    const handleBanToggle = (employee: Employee) => {
+        if (!employee.is_banned) {
+            // Ban is destructive with lasting consequences: confirm first.
+            setEmployeeToBan(employee);
+            setBanDialogOpen(true);
+            return;
+        }
+
+        router.post(
+            unban({ tenant, employee: employee.id }).url,
+            {},
+            { preserveScroll: true },
+        );
+    };
+
+    const confirmBan = () => {
+        if (!employeeToBan) return;
+        router.post(
+            ban({ tenant, employee: employeeToBan.id }).url,
+            {},
+            { preserveScroll: true },
+        );
+    };
+
     const handleSort = (column: string) => {
         setAppliedFilters((current) => ({
             ...current,
@@ -587,6 +698,13 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                 onOpenChange={setDeleteDialogOpen}
                 onConfirm={confirmDelete}
                 employeeName={employeeToDelete?.name ?? ''}
+            />
+
+            <BanConfirmDialog
+                open={banDialogOpen}
+                onOpenChange={setBanDialogOpen}
+                onConfirm={confirmBan}
+                employeeName={employeeToBan?.nama_employee ?? ''}
             />
 
             <div className="space-y-6">
@@ -658,8 +776,6 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                                 ))}
                             </SelectContent>
                         </Select>
-
-                        <EmployeeActions onSync={() => {}} />
                     </div>
                 </div>
 
@@ -778,12 +894,12 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                                             </Button>
                                         </TableHead>
                                     )}
-                                    {visibleColumns.includes('status') && (
+                                    {visibleColumns.includes('akun') && (
                                         <TableHead className="w-32">
-                                            <span className="text-xs font-semibold text-ink-muted">Status</span>
+                                            <span className="text-xs font-semibold text-ink-muted">Akun</span>
                                         </TableHead>
                                     )}
-                                    <TableHead className="w-24 sticky right-0 z-30 bg-card/95 border-l border-border">
+                                    <TableHead className="w-28 sticky right-0 z-30 bg-card/95 border-l border-border">
                                         <span className="sr-only">Aksi</span>
                                     </TableHead>
                                 </TableRow>
@@ -817,7 +933,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Building2 className="size-8 mx-auto text-ink-subtle" />
+                                                    <UserX className="size-8 mx-auto text-ink-subtle" />
                                                     <p className="mt-2 text-sm font-semibold text-ink">
                                                         Belum ada karyawan.
                                                     </p>
@@ -852,6 +968,8 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                                             tenant={tenant}
                                             visibleColumns={visibleColumns}
                                             onDelete={handleDelete}
+                                            onBanToggle={handleBanToggle}
+                                            canBan={canBan}
                                         />
                                     ))
                                 )}

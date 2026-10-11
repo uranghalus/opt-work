@@ -68,10 +68,10 @@ class RoleAndPermissionSeeder extends Seeder
         // Akun superadmin operasional. Akses lintas cabang datang dari flag
         // is_super_admin (TenantAccess), bukan dari hardcode email. Saat RBAC
         // dikembalikan, role super_admin di bawah akan menjadi sumbernya lagi.
-        $superadmin = User::where('email', 'superadmin@appdutamall.com')->first()
+        $superadmin = User::where('email', config('auth.super_admin_email'))->first()
             ?? User::factory()->create([
                 'name' => 'Super Admin',
-                'email' => 'superadmin@appdutamall.com',
+                'email' => config('auth.super_admin_email'),
             ]);
         $superadmin->forceFill(['is_super_admin' => true])->save();
 

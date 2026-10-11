@@ -56,7 +56,7 @@ class SamlTenantResolver
         }
 
         $matches = Tenant::query()
-            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($companyName)])
+            ->whereRaw('LOWER(TRIM(name)) = LOWER(TRIM(?))', [$companyName])
             ->get();
 
         if ($matches->count() > 1) {

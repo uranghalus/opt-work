@@ -10,6 +10,7 @@ use App\Http\Controllers\SamlController;
 use App\Http\Controllers\Settings\TenantController;
 use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkOrderController;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -23,8 +24,11 @@ Route::get('/', function () {
         return redirect()->route('admin.dashboard');
     }
 
-    if ($user->tenant_id) {
-        return redirect()->route('dashboard', ['tenant' => $user->tenant_id]);
+    // The dashboard route param is the tenant code (URL slug), not the ULID.
+    $tenant = $user->tenant_id ? Tenant::find($user->tenant_id) : null;
+
+    if ($tenant) {
+        return redirect()->route('dashboard', ['tenant' => $tenant->code]);
     }
 
     // Superadmin without home tenant

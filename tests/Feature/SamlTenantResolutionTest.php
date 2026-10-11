@@ -140,6 +140,16 @@ it('denies access when the assertion carries no company data', function () {
     expect(session('saml.denial_reason'))->toBe(SamlTenantResolver::REASON_NO_COMPANY_DATA);
 });
 
+it('logs a warning with the assertion identifiers when the assertion carries no company data', function () {
+    Log::spy();
+
+    loginWithAssertion(['company' => null]);
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context) => str_contains($message, 'no company data')
+            && $context['name_id'] === FakeIdentityProvider::EMAIL);
+});
+
 it('sends the denied user to an error page that explains the reason', function () {
     loginWithAssertion(['company' => 'Perusahaan Tak Terdaftar']);
 

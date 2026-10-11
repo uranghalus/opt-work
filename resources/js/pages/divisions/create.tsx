@@ -1,16 +1,15 @@
 import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
-import { usePage } from '@inertiajs/react';
 import DivisionController from '@/actions/App/Http/Controllers/MasterData/DivisionController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 export default function CreateDivision() {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('divisions.create');
 
     return (
         <>
@@ -24,7 +23,7 @@ export default function CreateDivision() {
 
                 <Form
                     {...DivisionController.store.form({
-                        tenant: activeTenant!,
+                        tenant,
                     })}
                     className="space-y-6"
                 >

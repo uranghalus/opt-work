@@ -17,6 +17,11 @@ declare module '@inertiajs/core' {
             /** Branches the user may switch into — the same set the server enforces. */
             tenants: TenantSummary[];
             activeTenant: string | null;
+            /** Current route identity for same-page tenant switching. */
+            route: {
+                name: string | null;
+                params: Record<string, string>;
+            };
             unreadNotificationsCount: number;
             [key: string]: unknown;
         };

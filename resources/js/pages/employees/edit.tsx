@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
 import EmployeeController from '@/actions/App/Http/Controllers/MasterData/EmployeeController';
 import Heading from '@/components/heading';
@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Employee = {
     id: string;
@@ -40,7 +40,7 @@ export default function EditEmployee({
     departments,
     positions,
 }: PageProps) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('employees.edit');
 
     return (
         <>
@@ -54,7 +54,7 @@ export default function EditEmployee({
 
                 <Form
                     {...EmployeeController.update.form({
-                        tenant: activeTenant!,
+                        tenant,
                         employee: employee.id,
                     })}
                     className="space-y-6"

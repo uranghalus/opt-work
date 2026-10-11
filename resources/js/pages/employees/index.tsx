@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { index, create, edit, show, destroy, sync } from '@/routes/employees';
+import { useRequiredTenant } from '@/lib/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -248,24 +249,22 @@ const COLUMN_DEFINITIONS: Record<ColumnKey, { label: string; icon?: React.ReactN
     status: { label: 'Status', icon: <User className="size-3" /> },
 };
 
-function EmployeeActions({
-    activeTenant,
-    onSync,
-}: { activeTenant: string; onSync: () => void }) {
+function EmployeeActions({ onSync }: { onSync: () => void }) {
+    const tenant = useRequiredTenant('employees.index');
     const [syncing, setSyncing] = useState(false);
 
     const runSync = useCallback(() => {
         if (syncing) return;
         setSyncing(true);
         router.post(
-            sync({ tenant: activeTenant }),
+            sync({ tenant }),
             {},
             {
                 preserveScroll: true,
                 onFinish: () => setSyncing(false),
             }
         );
-    }, [activeTenant, syncing]);
+    }, [tenant, syncing]);
 
     return (
         <div className="flex items-center gap-2">
@@ -283,7 +282,7 @@ function EmployeeActions({
                 )}
             </Button>
             <Button asChild size="lg">
-                <Link href={create({ tenant: activeTenant })}>
+                <Link href={create({ tenant })}>
                     <Plus aria-hidden className="mr-1.5" />
                     Tambah Karyawan
                 </Link>
@@ -338,8 +337,7 @@ function EmployeeRow({
     visibleColumns: ColumnKey[];
     onDelete: (id: string) => void;
 }) {
-    const hasUser = employee.user !== null;
-    const isActive = hasUser ? employee.user.is_active : true;
+    const isActive = employee.user !== null ? employee.user.is_active : true;
 
     return (
         <TableRow key={employee.id}>
@@ -473,15 +471,14 @@ DeleteConfirmDialog.displayName = 'DeleteConfirmDialog';
 
 export default function Employees({ employees, filters, errors }: PageProps) {
     const { flash } = usePage<FlashProps>().props;
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant!;
+    const tenant = useRequiredTenant('employees.index');
 
     const [searchTerm, setSearchTerm] = useState(filters.search);
     const [appliedFilters, setAppliedFilters] = useState<Filters>(filters);
     const [navigating, setNavigating] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; name: string } | null>(null);
-    const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_VISIBLE_COLUMNS);
+    const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>([...DEFAULT_VISIBLE_COLUMNS]);
     const skipFirstQuery = useRef(true);
 
     // Debounce search
@@ -662,7 +659,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                             </SelectContent>
                         </Select>
 
-                        <EmployeeActions activeTenant={tenant} onSync={() => {}} />
+                        <EmployeeActions onSync={() => {}} />
                     </div>
                 </div>
 
@@ -937,9 +934,8 @@ Employees.layout = {
     breadcrumbs: [{ title: 'Data Master' }, { title: 'Karyawan' }],
     title: 'Karyawan',
     description: 'Data karyawan dalam cabang aktif',
-    actions: ({ activeTenant }: { activeTenant?: string }) => (
+    actions: () => (
         <EmployeeActions
-            activeTenant={activeTenant!}
             onSync={() => {}}
         />
     ),

@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
 import DepartmentController from '@/actions/App/Http/Controllers/MasterData/DepartmentController';
 import Heading from '@/components/heading';
@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Department = {
     id: string;
@@ -45,7 +45,7 @@ export default function EditDepartment({
     divisions,
     users,
 }: PageProps) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('departments.edit');
 
     return (
         <>
@@ -59,7 +59,7 @@ export default function EditDepartment({
 
                 <Form
                     {...DepartmentController.update.form({
-                        tenant: activeTenant!,
+                        tenant,
                         department: department.id,
                     })}
                     className="space-y-6"

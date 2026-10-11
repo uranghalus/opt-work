@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
 import DepartmentController from '@/actions/App/Http/Controllers/MasterData/DepartmentController';
 import Heading from '@/components/heading';
@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type DivisionOption = {
     id: string;
@@ -34,7 +34,7 @@ export default function CreateDepartment({
     divisions,
     users,
 }: PageProps) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('departments.create');
 
     return (
         <>
@@ -48,7 +48,7 @@ export default function CreateDepartment({
 
                 <Form
                     {...DepartmentController.store.form({
-                        tenant: activeTenant!,
+                        tenant,
                     })}
                     className="space-y-6"
                 >

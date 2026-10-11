@@ -11,6 +11,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Position = {
     id: string;
@@ -25,12 +26,10 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function PositionActions() {
-    const { activeTenant } = usePage<
-        InertiaConfig['sharedPageProps']
-    >().props;
+    const tenant = useRequiredTenant('positions.create');
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant!, })}>
+            <Link href={create({ tenant })}>
                 <Plus aria-hidden />
                 Tambah Position
             </Link>
@@ -47,8 +46,7 @@ Positions.layout = {
 
 export default function Positions(props: PageProps) {
     const { positions } = props;
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant!;
+    const tenant = useRequiredTenant('positions.index');
 
     return (
         <>

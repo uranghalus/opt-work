@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { create, edit, index, show } from '@/routes/departments';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Department = {
     id: string;
@@ -28,12 +28,10 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function DepartmentActions() {
-    const { activeTenant } = usePage<
-        InertiaConfig['sharedPageProps']
-    >().props;
+    const tenant = useRequiredTenant('departments.create');
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant!, })}>
+            <Link href={create({ tenant })}>
                 <Plus aria-hidden />
                 Tambah Department
             </Link>
@@ -51,8 +49,7 @@ Departments.layout = {
 
 export default function Departments(props: PageProps) {
     const { departments } = props;
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant!;
+    const tenant = useRequiredTenant('departments.index');
 
     return (
         <>

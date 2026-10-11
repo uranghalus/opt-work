@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
 import PositionController from '@/actions/App/Http/Controllers/MasterData/PositionController';
 import Heading from '@/components/heading';
@@ -6,10 +6,10 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 export default function CreatePosition() {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('positions.create');
 
     return (
         <>
@@ -23,7 +23,7 @@ export default function CreatePosition() {
 
                 <Form
                     {...PositionController.store.form({
-                        tenant: activeTenant!,
+                        tenant,
                     })}
                     className="space-y-6"
                 >

@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 import { create, index as workOrdersIndex } from '@/routes/work-orders';
 import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 /*
  * Executive overview home (Stitch reference, DESIGN.md §13 executive
@@ -528,15 +529,11 @@ function AvatarStack({ people }: { people: string }) {
 }
 
 function DashboardActions() {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-
-    if (!activeTenant) {
-        return null;
-    }
+    const tenant = useRequiredTenant('work-orders.create');
 
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant })}>
+            <Link href={create({ tenant })}>
                 <Plus aria-hidden="true" className="size-4" />
                 Buat Work Order
             </Link>
@@ -545,8 +542,7 @@ function DashboardActions() {
 }
 
 export default function Dashboard() {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant;
+    const tenant = useRequiredTenant('dashboard');
     const [range, setRange] = useState<(typeof rangeOptions)[number]>('7 hari');
     const [showNotice, setShowNotice] = useState(true);
 
@@ -558,7 +554,7 @@ export default function Dashboard() {
                 <InfoBanner
                     iconClassName="text-danger"
                     message="6 WO telat dan 2 eskalasi aktif — tinjau sekarang agar SLA tidak memburuk."
-                    href={tenant ? workOrdersIndex({ tenant }) : undefined}
+                    href={workOrdersIndex({ tenant })}
                     onDismiss={() => setShowNotice(false)}
                 />
             )}
@@ -916,9 +912,7 @@ export default function Dashboard() {
                             description="Tiket P1–P3 yang butuh tindakan sebelum SLA terlampaui."
                             trailing={
                                 <Link
-                                    href={
-                                        tenant ? workOrdersIndex({ tenant }) : home()
-                                    }
+                                    href={workOrdersIndex({ tenant })}
                                     className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover"
                                 >
                                     Lihat semua
@@ -1077,9 +1071,7 @@ export default function Dashboard() {
 
                         <div className="mt-auto pt-4 text-xs text-ink-subtle">
                             <Link
-                                href={
-                                    tenant ? workOrdersIndex({ tenant }) : home()
-                                }
+                                href={workOrdersIndex({ tenant })}
                                 className="inline-flex items-center gap-1 font-medium text-brand hover:text-brand-hover"
                             >
                                 Buka audit log lengkap

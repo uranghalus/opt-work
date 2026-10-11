@@ -34,18 +34,39 @@ import type { NavItem } from '@/types';
  */
 export type NavTone = 'ops' | 'master' | 'system';
 
-export type OptiNavItem = NavItem & {
+/**
+ * A renderable item: it has a destination.
+ */
+export type ActiveOptiNavItem = Omit<NavItem, 'disabled'> & {
     /** Group identity hue used for the icon tint. */
     tone?: NavTone;
     /** Compact label used by the mobile bottom navigation. */
     shortTitle?: string;
     /** Reads the shared unread notification count and renders a badge. */
     badge?: 'notifications';
-    /** Module not built yet (or no cabang active): rendered inert. */
-    disabled?: boolean;
+    disabled?: false;
     /** Reason shown in the tooltip when an item is inert. */
     hint?: string;
 };
+
+/**
+ * An inert item: no destination at all (not built yet, or no cabang
+ * active) — never a fake URL.
+ */
+type InertOptiNavItem = Omit<NavItem, 'href' | 'disabled'> & {
+    href?: undefined;
+    /** Group identity hue used for the icon tint. */
+    tone?: NavTone;
+    /** Compact label used by the mobile bottom navigation. */
+    shortTitle?: string;
+    /** Reads the shared unread notification count and renders a badge. */
+    badge?: 'notifications';
+    disabled: true;
+    /** Reason shown in the tooltip when an item is inert. */
+    hint?: string;
+};
+
+export type OptiNavItem = ActiveOptiNavItem | InertOptiNavItem;
 
 export type OptiNavGroup = {
     id: string;
@@ -82,23 +103,28 @@ export const navToneStyles: Record<
     },
 };
 
-/** A tenant-scoped href, or an inert item when no cabang is active. */
+/** A tenant-scoped item: usable with the active cabang, inert without one. */
 function tenantItem(
+    item: Omit<ActiveOptiNavItem, 'href' | 'disabled'>,
     activeTenant: string | null,
     build: (tenant: string) => NonNullable<NavItem['href']>,
-): Pick<OptiNavItem, 'href' | 'disabled' | 'hint'> {
+): OptiNavItem {
     if (!activeTenant) {
         return {
+            ...item,
             disabled: true,
-            hint: 'Pilih cabang untuk membuka modul ini',
+            hint: item.hint ?? 'Pilih cabang untuk membuka modul ini',
         };
     }
 
-    return { href: build(activeTenant) };
+    return { ...item, href: build(activeTenant) };
 }
 
-function modulePending(name: string): Pick<OptiNavItem, 'disabled' | 'hint'> {
-    return { disabled: true, hint: `${name} segera hadir` };
+function modulePending(
+    item: Omit<ActiveOptiNavItem, 'href' | 'disabled'>,
+    name: string,
+): InertOptiNavItem {
+    return { ...item, disabled: true, hint: `${name} segera hadir` };
 }
 
 export function navGroups({
@@ -108,30 +134,26 @@ export function navGroups({
     const tenant = activeTenant ?? null;
 
     const masterItems: OptiNavItem[] = [
-        {
-            title: 'Karyawan',
-            icon: Users,
-            tone: 'master',
-            ...tenantItem(tenant, (t) => employees.index({ tenant: t })),
-        },
-        {
-            title: 'Departemen',
-            icon: Building2,
-            tone: 'master',
-            ...tenantItem(tenant, (t) => departments.index({ tenant: t })),
-        },
-        {
-            title: 'Divisi',
-            icon: Network,
-            tone: 'master',
-            ...tenantItem(tenant, (t) => divisions.index({ tenant: t })),
-        },
-        {
-            title: 'Posisi',
-            icon: BriefcaseBusiness,
-            tone: 'master',
-            ...tenantItem(tenant, (t) => positions.index({ tenant: t })),
-        },
+        tenantItem(
+            { title: 'Karyawan', icon: Users, tone: 'master' },
+            tenant,
+            (t) => employees.index({ tenant: t }),
+        ),
+        tenantItem(
+            { title: 'Departemen', icon: Building2, tone: 'master' },
+            tenant,
+            (t) => departments.index({ tenant: t }),
+        ),
+        tenantItem(
+            { title: 'Divisi', icon: Network, tone: 'master' },
+            tenant,
+            (t) => divisions.index({ tenant: t }),
+        ),
+        tenantItem(
+            { title: 'Posisi', icon: BriefcaseBusiness, tone: 'master' },
+            tenant,
+            (t) => positions.index({ tenant: t }),
+        ),
         ...(isSuperAdmin
             ? [
                   {
@@ -150,54 +172,61 @@ export function navGroups({
             label: 'Operasional',
             tone: 'ops',
             items: [
-                {
-                    title: 'Dashboard Utama',
-                    shortTitle: 'Beranda',
-                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
-                    icon: House,
-                    tone: 'ops',
-                },
-                {
-                    title: 'Work Order',
-                    shortTitle: 'WO',
-                    icon: ClipboardList,
-                    tone: 'ops',
-                    ...tenantItem(tenant, (t) =>
-                        workOrdersIndex({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Terjadwal',
-                    shortTitle: 'Jadwal',
-                    icon: CalendarClock,
-                    tone: 'ops',
-                    ...tenantItem(tenant, (t) =>
-                        workOrdersIndex({ tenant: t }),
-                    ),
-                },
-                {
-                    title: 'Daily Work',
-                    shortTitle: 'Harian',
-                    icon: LayoutGrid,
-                    tone: 'ops',
-                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
-                    ...modulePending('Daily Work'),
-                },
-                {
-                    title: 'Work Data',
-                    shortTitle: 'Data',
-                    icon: Database,
-                    tone: 'ops',
-                    ...tenantItem(tenant, (t) => dashboard({ tenant: t })),
-                    ...modulePending('Work Data'),
-                },
+                tenantItem(
+                    {
+                        title: 'Dashboard Utama',
+                        shortTitle: 'Beranda',
+                        icon: House,
+                        tone: 'ops',
+                    },
+                    tenant,
+                    (t) => dashboard({ tenant: t }),
+                ),
+                tenantItem(
+                    {
+                        title: 'Work Order',
+                        shortTitle: 'WO',
+                        icon: ClipboardList,
+                        tone: 'ops',
+                    },
+                    tenant,
+                    (t) => workOrdersIndex({ tenant: t }),
+                ),
+                tenantItem(
+                    {
+                        title: 'Terjadwal',
+                        shortTitle: 'Jadwal',
+                        icon: CalendarClock,
+                        tone: 'ops',
+                    },
+                    tenant,
+                    (t) => workOrdersIndex({ tenant: t }),
+                ),
+                modulePending(
+                    {
+                        title: 'Daily Work',
+                        shortTitle: 'Harian',
+                        icon: LayoutGrid,
+                        tone: 'ops',
+                    },
+                    'Daily Work',
+                ),
+                modulePending(
+                    {
+                        title: 'Work Data',
+                        shortTitle: 'Data',
+                        icon: Database,
+                        tone: 'ops',
+                    },
+                    'Work Data',
+                ),
                 {
                     title: 'Notifikasi',
                     shortTitle: 'Notif',
                     icon: Bell,
                     tone: 'ops',
                     badge: 'notifications',
-                    ...tenantItem(tenant, (t) => notificationsIndex({ tenant: t })),
+                    href: notificationsIndex(),
                 },
             ],
         },

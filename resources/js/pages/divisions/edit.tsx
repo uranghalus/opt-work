@@ -1,13 +1,12 @@
 import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
-import { usePage } from '@inertiajs/react';
 import DivisionController from '@/actions/App/Http/Controllers/MasterData/DivisionController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Division = {
     id: string;
@@ -20,7 +19,7 @@ type PageProps = {
 };
 
 export default function EditDivision({ division }: PageProps) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('divisions.edit');
 
     return (
         <>
@@ -34,7 +33,7 @@ export default function EditDivision({ division }: PageProps) {
 
                 <Form
                     {...DivisionController.update.form({
-                        tenant: activeTenant!,
+                        tenant,
                         division: division.id,
                     })}
                     className="space-y-6"

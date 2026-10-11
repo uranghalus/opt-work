@@ -11,6 +11,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type Division = {
     id: string;
@@ -25,12 +26,10 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function DivisionActions() {
-    const { activeTenant } = usePage<
-        InertiaConfig['sharedPageProps']
-    >().props;
+    const tenant = useRequiredTenant('divisions.create');
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant!, })}>
+            <Link href={create({ tenant })}>
                 <Plus aria-hidden />
                 Tambah Divisi
             </Link>
@@ -47,7 +46,7 @@ Divisions.layout = {
 
 export default function Divisions(props: PageProps) {
     const { divisions } = props;
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('divisions.index');
 
     return (
         <>
@@ -87,7 +86,7 @@ export default function Divisions(props: PageProps) {
                                         <TableCell className="font-semibold">
                                             <Link
                                                 href={show({
-                                                    tenant: activeTenant!,
+                                                    tenant,
                                                     division: division.id,
                                                 })}
                                                 className="hover:underline"
@@ -106,7 +105,7 @@ export default function Divisions(props: PageProps) {
                                                 >
                                                     <Link
                                                         href={edit({
-                                                            tenant: activeTenant!,
+                                                            tenant,
                                                             division: division.id,
                                                         })}
                                                     >

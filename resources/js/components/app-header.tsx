@@ -8,6 +8,7 @@ import {
     mainNavItems,
     navIcon,
     utilityNavItems,
+    type ActiveOptiNavItem,
     type OptiNavItem,
 } from '@/components/nav-items';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -163,7 +164,9 @@ function MobileMenu() {
                             Lainnya
                         </p>
                         <div className="flex flex-col gap-1">
-                            {utilityNavItems.map((item) => (
+                            {utilityNavItems
+                                .filter((item): item is ActiveOptiNavItem => !item.disabled)
+                                .map((item) => (
                                 <SheetClose key={item.title} asChild>
                                     <Link
                                         href={toUrl(item.href)}

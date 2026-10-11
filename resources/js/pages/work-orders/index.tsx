@@ -13,6 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type WorkOrder = {
     id: string;
@@ -32,17 +33,11 @@ type PageProps = {
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function WorkOrderActions() {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-
-    // Tenant-scoped route: without an active cabang there is no URL to
-    // build, so the action is withheld rather than pointed at a dead link.
-    if (!activeTenant) {
-        return null;
-    }
+    const tenant = useRequiredTenant('work-orders.create');
 
     return (
         <Button asChild size="lg">
-            <Link href={create({ tenant: activeTenant })}>
+            <Link href={create({ tenant })}>
                 <Plus aria-hidden />
                 Buat Work Order
             </Link>
@@ -59,8 +54,8 @@ WorkOrders.layout = {
 };
 
 export default function WorkOrders({ workOrders }: PageProps) {
-    const { can, activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant!;
+    const { can } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('work-orders.index');
 
     return (
         <>

@@ -1,9 +1,9 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
 import { CategoryBadge } from '@/components/category-badge';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
 import { Separator } from '@/components/ui/separator';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type WorkOrder = {
     id: string;
@@ -27,8 +27,7 @@ type WorkOrder = {
  * owning branch may read the work order. See `.scratch/tenancy-reconfig/issues/01`.
  */
 export default function ShowWorkOrder({ workOrder }: { workOrder: WorkOrder }) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
-    const tenant = activeTenant!;
+    const tenant = useRequiredTenant('work-orders.show');
 
     const scheduledFor = workOrder.requested_schedule_date
         ? new Date(workOrder.requested_schedule_date).toLocaleDateString('id-ID', {

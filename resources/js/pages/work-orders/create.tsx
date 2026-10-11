@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Form } from '@inertiajs/react';
 import { useState } from 'react';
 import WorkOrderController from '@/actions/App/Http/Controllers/WorkOrderController';
@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useRequiredTenant } from '@/lib/tenant';
 
 type DepartmentOption = {
     id: string;
@@ -39,7 +39,7 @@ export default function CreateWorkOrder({
     departments,
     categories,
 }: PageProps) {
-    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('work-orders.create');
     const [category, setCategory] = useState<string>(
         categories[0]?.value ?? 'normal',
     );
@@ -57,7 +57,7 @@ export default function CreateWorkOrder({
 
                 <Form
                     {...WorkOrderController.store.form({
-                        tenant: activeTenant!,
+                        tenant,
                     })}
                     className="space-y-6"
                 >

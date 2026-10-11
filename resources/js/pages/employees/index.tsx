@@ -349,7 +349,7 @@ function EmployeeRow({
                 </TableCell>
             )}
             {visibleColumns.includes('name') && (
-                <TableCell className="font-semibold sticky left-[80px] bg-card/95 z-10 border-r border-border">
+                <TableCell className="font-semibold sticky left-32 bg-card/95 z-10 border-r border-border">
                     <div className="flex items-center gap-3">
                         <Avatar src={employee.photo_url} name={employee.nama_employee} size={32} />
                         <Link
@@ -362,7 +362,7 @@ function EmployeeRow({
                 </TableCell>
             )}
             {visibleColumns.includes('department') && (
-                <TableCell className="font-mono text-sm text-muted-foreground sticky left-[200px] bg-card/95 z-10 border-r border-border">
+                <TableCell className="font-mono text-sm text-muted-foreground sticky left-[328px] bg-card/95 z-10 border-r border-border">
                     {employee.department?.kode_department ?? '—'}
                 </TableCell>
             )}

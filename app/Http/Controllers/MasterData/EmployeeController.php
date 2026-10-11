@@ -23,7 +23,7 @@ class EmployeeController extends Controller
 {
     public function index(EmployeeIndexRequest $request): Response
     {
-        $query = (new EmployeeQuery())->build(
+        $query = (new EmployeeQuery)->build(
             $request->search(),
             $request->sort(),
             $request->direction()
@@ -33,7 +33,7 @@ class EmployeeController extends Controller
 
         $employees = $query->paginate($perPage)
             ->withQueryString()
-            ->through(fn (Employee $employee) => EmployeeResource::make($employee));
+            ->through(fn (Employee $employee) => EmployeeResource::make($employee)->resolve());
 
         return Inertia::render('employees/index', [
             'employees' => $employees,

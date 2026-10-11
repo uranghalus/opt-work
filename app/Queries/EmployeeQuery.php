@@ -7,7 +7,7 @@ use Illuminate\Contracts\Database\Eloquent\Builder;
 
 class EmployeeQuery
 {
-    private const SORTABLE_COLUMNS = [
+    public const SORTABLE_COLUMNS = [
         'nik_employee',
         'nama_employee',
         'email',
@@ -39,7 +39,6 @@ class EmployeeQuery
                 'tenant_id',
             ]);
 
-        // Search across multiple columns
         if ($search !== null && $search !== '') {
             $searchTerm = "%{$search}%";
             $query->where(function (Builder $q) use ($searchTerm) {
@@ -55,7 +54,6 @@ class EmployeeQuery
             });
         }
 
-        // Validate and apply sort
         $sort = in_array($sort, self::SORTABLE_COLUMNS, true) ? $sort : 'nama_employee';
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
         $query->orderBy($sort, $direction);

@@ -39,7 +39,7 @@ class EmployeeResource extends JsonResource
             'user' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'is_active' => (bool) $this->user->is_active ?? true,
+                'is_active' => (bool) ($this->user->is_active ?? true),
             ]),
         ];
     }

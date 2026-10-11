@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Queries\EmployeeQuery;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class EmployeeIndexRequest extends FormRequest
 {
@@ -25,7 +27,7 @@ class EmployeeIndexRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
-            'sort' => ['nullable', 'string', 'in:nik_employee,nama_employee,email,number,created_at'],
+            'sort' => ['nullable', 'string', Rule::in(EmployeeQuery::SORTABLE_COLUMNS)],
             'direction' => ['nullable', 'string', 'in:asc,desc'],
         ];
     }

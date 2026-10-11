@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
 use App\Services\TenantAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,6 +22,13 @@ class EnsureTenantAccess
 
         if (! $tenantCode || ! $user) {
             return $next($request);
+        }
+
+        // The URL segment is the source of truth: a segment that resolves to
+        // no tenant is an unknown page (404), never a tenant-less render —
+        // those pages would crash every tenant route helper in the browser.
+        if (! Tenant::whereCode($tenantCode)->exists()) {
+            abort(404, 'Cabang tidak ditemukan.');
         }
 
         if (! $this->tenantAccess->canOperate($user, $tenantCode)) {

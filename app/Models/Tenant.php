@@ -39,6 +39,16 @@ class Tenant extends SpatieTenant
     }
 
     /**
+     * The single seam for looking a tenant up by its URL identifier: exact,
+     * trimmed, case-insensitive match on the code slug. Never partial, never
+     * a guess — callers decide what "no row" means (404, deny, ...).
+     */
+    public function scopeWhereCode($query, string $code)
+    {
+        return $query->whereRaw('LOWER(TRIM(code)) = LOWER(TRIM(?))', [$code]);
+    }
+
+    /**
      * Resolve route binding with access verification.
      * Prevents IDOR by ensuring the current user can access this tenant.
      * Uses the `code` column for route binding (URL slug).
@@ -46,7 +56,7 @@ class Tenant extends SpatieTenant
     public function resolveRouteBinding($value, $field = null): ?self
     {
         // Route binding uses the `code` (slug) from URL
-        $tenant = $this->where('code', $value)->first();
+        $tenant = $this->whereCode($value)->first();
 
         if (! $tenant) {
             return null;

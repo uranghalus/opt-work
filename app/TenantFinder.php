@@ -16,13 +16,14 @@ class TenantFinder extends BaseFinder
         $routeTenantCode = $request->route('tenant');
 
         if ($routeTenantCode) {
-            $tenant = Tenant::where('code', $routeTenantCode)->first();
+            $tenant = Tenant::whereCode($routeTenantCode)->first();
 
             if ($tenant) {
                 // Store in session for same-tab convenience (store ULID)
                 if ($request->hasSession()) {
                     $request->session()->put('current_tenant_id', $tenant->id);
                 }
+
                 return $tenant;
             }
 

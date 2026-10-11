@@ -20,9 +20,8 @@ class TenantAccess
 
         // tenantId can be either the ULID (from session/user) or code (from route)
         // Resolve to ULID for comparison
-        $tenant = Tenant::where('id', $tenantId)
-            ->orWhere('code', $tenantId)
-            ->first();
+        $tenant = Tenant::where('id', $tenantId)->first()
+            ?? Tenant::whereCode($tenantId)->first();
 
         if (! $tenant) {
             return false;

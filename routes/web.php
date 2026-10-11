@@ -108,8 +108,13 @@ Route::prefix('saml')->group(function () {
     // Single logout service: receives unsolicited logout requests from the
     // identity provider. The portal registers this as 'saml/logout' so we
     // expose that path as an alias alongside the canonical 'saml/sls'.
-    Route::get('sls', [SamlController::class, 'sls'])->name('saml.sls');
-    Route::get('logout', [SamlController::class, 'sls'])->name('saml.logout');
+    //
+    // Both bindings are accepted: OptiGate answers an SP-initiated logout with
+    // an auto-POST form carrying the LogoutResponse, while unsolicited
+    // LogoutRequests may arrive over HTTP-Redirect. Accepting both verbs also
+    // makes the generated SP metadata advertise both bindings for this route.
+    Route::match(['get', 'post'], 'sls', [SamlController::class, 'sls'])->name('saml.sls');
+    Route::match(['get', 'post'], 'logout', [SamlController::class, 'sls'])->name('saml.logout');
 
     // SP-initiated single logout: ends the local session, then forwards a
     // LogoutRequest to the identity provider's SLO endpoint.

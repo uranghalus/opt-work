@@ -4,6 +4,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
+use LightSaml\SamlConstants;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Saml2\Provider;
 use Tests\Support\FakeIdentityProvider;
@@ -173,6 +174,22 @@ test('the service provider metadata route renders valid xml', function () {
         ->toContain('SingleLogoutService');
 });
 
+test('the service provider metadata advertises both logout bindings', function () {
+    // The SAML provider derives the advertised bindings from the HTTP verbs
+    // the single logout route accepts, so a GET-only route would tell the
+    // identity provider it may never POST a logout message here.
+    $metadata = $this->get(route('saml.metadata'))->getContent();
+
+    foreach ([
+        SamlConstants::BINDING_SAML2_HTTP_POST,
+        SamlConstants::BINDING_SAML2_HTTP_REDIRECT,
+    ] as $binding) {
+        expect($metadata)->toContain(
+            'SingleLogoutService Binding="'.$binding.'" Location="'.FakeIdentityProvider::slsUrl().'"'
+        );
+    }
+});
+
 test('an idp logout request terminates the local session', function () {
     $user = User::factory()->create();
 
@@ -225,6 +242,43 @@ test('the identity provider logout response completes the logout', function () {
     actingAs($user)
         ->get(FakeIdentityProvider::logoutResponseUrl())
         ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeFalse();
+});
+
+test('the logout response posted over the post binding completes the logout', function () {
+    $user = User::factory()->create();
+
+    // OptiGate answers an SP-initiated logout with an auto-POST form carrying
+    // the LogoutResponse, so the single logout service must accept POST as well
+    // as the HTTP-Redirect binding.
+    actingAs($user)
+        ->post(route('saml.logout'), [
+            'SAMLResponse' => FakeIdentityProvider::logoutResponsePayload(),
+        ])
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeFalse();
+});
+
+test('a posted logout response with an unexpected signature is rejected', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->post(route('saml.logout'), [
+            'SAMLResponse' => FakeIdentityProvider::logoutResponsePayload(['signed_by' => 'sp']),
+        ])
+        ->assertRedirect(url('/'));
+
+    expect($this->app['auth']->guard()->check())->toBeTrue();
+});
+
+test('an idp logout request posted over the post binding terminates the local session', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)->post(route('saml.logout'), [
+        'SAMLRequest' => FakeIdentityProvider::logoutRequestPayload(),
+    ]);
 
     expect($this->app['auth']->guard()->check())->toBeFalse();
 });

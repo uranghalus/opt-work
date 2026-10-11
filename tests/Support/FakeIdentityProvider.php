@@ -146,6 +146,66 @@ XML;
      */
     public static function logoutRequestUrl(array $options = []): string
     {
+        $messageContext = new MessageContext;
+        $messageContext->setMessage(self::buildLogoutRequest($options));
+
+        $binding = (new BindingFactory)->create(SamlConstants::BINDING_SAML2_HTTP_REDIRECT);
+
+        /** @var RedirectResponse $redirect */
+        $redirect = $binding->send($messageContext);
+
+        return $redirect->getTargetUrl();
+    }
+
+    /**
+     * The `SAMLRequest` form field an identity provider would auto-POST to the
+     * single logout service when it delivers a logout request over the
+     * HTTP-POST binding instead of HTTP-Redirect.
+     *
+     * @param  array{signed_by?: 'idp'|'sp', name_id?: string}  $options
+     */
+    public static function logoutRequestPayload(array $options = []): string
+    {
+        return base64_encode(self::serialize(self::buildLogoutRequest($options)));
+    }
+
+    /**
+     * A URL for the service provider's single logout service carrying a
+     * signed SAML logout response (HTTP-Redirect binding), as an identity
+     * provider would answer an SP-initiated logout.
+     *
+     * @param  array{signed_by?: 'idp'|'sp', issuer?: string, success?: bool}  $options
+     */
+    public static function logoutResponseUrl(array $options = []): string
+    {
+        $messageContext = new MessageContext;
+        $messageContext->setMessage(self::buildLogoutResponse($options));
+
+        $binding = (new BindingFactory)->create(SamlConstants::BINDING_SAML2_HTTP_REDIRECT);
+
+        /** @var RedirectResponse $redirect */
+        $redirect = $binding->send($messageContext);
+
+        return $redirect->getTargetUrl();
+    }
+
+    /**
+     * The `SAMLResponse` form field an identity provider would auto-POST to
+     * the single logout service when it answers an SP-initiated logout over
+     * the HTTP-POST binding — which is what OptiGate does.
+     *
+     * @param  array{signed_by?: 'idp'|'sp', issuer?: string, success?: bool}  $options
+     */
+    public static function logoutResponsePayload(array $options = []): string
+    {
+        return base64_encode(self::serialize(self::buildLogoutResponse($options)));
+    }
+
+    /**
+     * @param  array{signed_by?: 'idp'|'sp', name_id?: string}  $options
+     */
+    private static function buildLogoutRequest(array $options): LogoutRequest
+    {
         $logoutRequest = new LogoutRequest;
         $logoutRequest
             ->setID(Helper::generateID())
@@ -157,25 +217,13 @@ XML;
 
         self::sign($logoutRequest, $options);
 
-        $messageContext = new MessageContext;
-        $messageContext->setMessage($logoutRequest);
-
-        $binding = (new BindingFactory)->create(SamlConstants::BINDING_SAML2_HTTP_REDIRECT);
-
-        /** @var RedirectResponse $redirect */
-        $redirect = $binding->send($messageContext);
-
-        return $redirect->getTargetUrl();
+        return $logoutRequest;
     }
 
     /**
-     * A URL for the service provider's single logout service carrying a
-     * signed SAML logout response (HTTP-Redirect binding), as an identity
-     * provider would answer an SP-initiated logout.
-     *
      * @param  array{signed_by?: 'idp'|'sp', issuer?: string, success?: bool}  $options
      */
-    public static function logoutResponseUrl(array $options = []): string
+    private static function buildLogoutResponse(array $options): LogoutResponse
     {
         $logoutResponse = new LogoutResponse;
         $logoutResponse
@@ -189,15 +237,7 @@ XML;
 
         self::sign($logoutResponse, $options);
 
-        $messageContext = new MessageContext;
-        $messageContext->setMessage($logoutResponse);
-
-        $binding = (new BindingFactory)->create(SamlConstants::BINDING_SAML2_HTTP_REDIRECT);
-
-        /** @var RedirectResponse $redirect */
-        $redirect = $binding->send($messageContext);
-
-        return $redirect->getTargetUrl();
+        return $logoutResponse;
     }
 
     /**

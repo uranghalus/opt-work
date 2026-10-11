@@ -8,7 +8,6 @@ import {
     Eye,
     Edit2,
     Trash2,
-    Download,
     Columns,
     ChevronLeft,
     ChevronRight,
@@ -22,8 +21,17 @@ import {
     Calendar,
     Building2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { index, create, edit, show, destroy, sync, ban, unban } from '@/routes/employees';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import {
+    index,
+    create,
+    edit,
+    show,
+    destroy,
+    sync,
+    ban,
+    unban,
+} from '@/routes/employees';
 import { useRequiredTenant } from '@/lib/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -39,7 +47,6 @@ import {
     DropdownMenu,
     DropdownMenuTrigger,
     DropdownMenuContent,
-    DropdownMenuItem,
     DropdownMenuCheckboxItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
@@ -61,8 +68,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import type { InertiaConfig } from '@inertiajs/core';
 
@@ -136,13 +141,6 @@ type FlashProps = InertiaConfig['sharedPageProps'] & {
 };
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
-const SORT_OPTIONS = [
-    { value: 'nama_employee', label: 'Nama' },
-    { value: 'nik_employee', label: 'NIK' },
-    { value: 'email', label: 'Email' },
-    { value: 'number', label: 'Telepon' },
-    { value: 'created_at', label: 'Bergabung' },
-] as const;
 
 const DEFAULT_VISIBLE_COLUMNS = [
     'nik',
@@ -176,7 +174,15 @@ function getInitials(name: string): string {
         .toUpperCase();
 }
 
-function Avatar({ src, name, size = 32 }: { src?: string | null; name: string; size?: number }) {
+function Avatar({
+    src,
+    name,
+    size = 32,
+}: {
+    src?: string | null;
+    name: string;
+    size?: number;
+}) {
     const initials = getInitials(name);
     const bgColors = [
         'bg-brand-soft text-brand',
@@ -193,7 +199,10 @@ function Avatar({ src, name, size = 32 }: { src?: string | null; name: string; s
             <img
                 src={src}
                 alt={name}
-                className={cn('rounded-full object-cover', `w-${size / 4} h-${size / 4}`)}
+                className={cn(
+                    'rounded-full object-cover',
+                    `w-${size / 4} h-${size / 4}`,
+                )}
             />
         );
     }
@@ -201,9 +210,9 @@ function Avatar({ src, name, size = 32 }: { src?: string | null; name: string; s
     return (
         <div
             className={cn(
-                'rounded-full flex items-center justify-center font-medium text-xs',
+                'flex items-center justify-center rounded-full text-xs font-medium',
                 `w-${size / 4} h-${size / 4}`,
-                bgColors[colorIndex]
+                bgColors[colorIndex],
             )}
             aria-label={name}
         >
@@ -234,7 +243,7 @@ function AccountBadge({ hasAccount }: { hasAccount: boolean }) {
 
 function BannedBadge() {
     return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-[11px] font-semibold text-danger whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-danger">
             <Ban aria-hidden className="size-3" />
             Diblokir
         </span>
@@ -244,20 +253,41 @@ function BannedBadge() {
 function SkeletonRow() {
     return (
         <TableRow>
-            <TableCell className="font-mono text-sm"><Skeleton className="w-24 h-4" /></TableCell>
-            <TableCell className="font-semibold"><Skeleton className="w-32 h-5" /></TableCell>
-            <TableCell className="font-mono text-sm text-muted-foreground"><Skeleton className="w-20 h-4" /></TableCell>
-            <TableCell className="text-muted-foreground"><Skeleton className="w-28 h-4" /></TableCell>
-            <TableCell className="text-muted-foreground"><Skeleton className="w-24 h-4" /></TableCell>
-            <TableCell className="text-muted-foreground"><Skeleton className="w-32 h-4" /></TableCell>
-            <TableCell className="text-muted-foreground"><Skeleton className="w-24 h-4" /></TableCell>
-            <TableCell><Skeleton className="w-20 h-5" /></TableCell>
-            <TableCell className="w-24"><Skeleton className="w-20 h-8" /></TableCell>
+            <TableCell className="font-mono text-sm">
+                <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell className="font-semibold">
+                <Skeleton className="h-5 w-32" />
+            </TableCell>
+            <TableCell className="font-mono text-sm text-muted-foreground">
+                <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+                <Skeleton className="h-4 w-28" />
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+                <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+                <Skeleton className="h-4 w-32" />
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+                <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell>
+                <Skeleton className="h-5 w-20" />
+            </TableCell>
+            <TableCell className="w-24">
+                <Skeleton className="h-8 w-20" />
+            </TableCell>
         </TableRow>
     );
 }
 
-const COLUMN_DEFINITIONS: Record<ColumnKey, { label: string; icon?: React.ReactNode }> = {
+const COLUMN_DEFINITIONS: Record<
+    ColumnKey,
+    { label: string; icon?: React.ReactNode }
+> = {
     nik: { label: 'NIK', icon: <User className="size-3" /> },
     name: { label: 'Nama', icon: <User className="size-3" /> },
     department: { label: 'Department', icon: <Building2 className="size-3" /> },
@@ -269,7 +299,11 @@ const COLUMN_DEFINITIONS: Record<ColumnKey, { label: string; icon?: React.ReactN
     akun: { label: 'Akun', icon: <UserCheck className="size-3" /> },
 };
 
-function EmployeeActions({ onSync }: { onSync: () => void }) {
+/**
+ * Post to the sync endpoint, which re-runs the Optigate employee import for
+ * the current cabang and flashes the summary back.
+ */
+function useEmployeeSync() {
     const tenant = useRequiredTenant('employees.index');
     const [syncing, setSyncing] = useState(false);
 
@@ -282,16 +316,36 @@ function EmployeeActions({ onSync }: { onSync: () => void }) {
             {
                 preserveScroll: true,
                 onFinish: () => setSyncing(false),
-            }
+            },
         );
     }, [tenant, syncing]);
 
+    return { syncing, runSync };
+}
+
+/**
+ * Primary actions of this page, rendered in the shell's heading band. The
+ * shell instantiates layout actions with no props, so this component owns its
+ * own sync state and call.
+ */
+function EmployeeActions() {
+    const tenant = useRequiredTenant('employees.index');
+    const { syncing, runSync } = useEmployeeSync();
+
     return (
         <div className="flex items-center gap-2">
-            <Button onClick={onSync} disabled={syncing} variant="outline" size="sm">
+            <Button
+                onClick={runSync}
+                disabled={syncing}
+                variant="outline"
+                size="sm"
+            >
                 {syncing ? (
                     <>
-                        <LoaderCircle aria-hidden className="animate-spin mr-1.5" />
+                        <LoaderCircle
+                            aria-hidden
+                            className="mr-1.5 animate-spin"
+                        />
                         Menyinkronkan…
                     </>
                 ) : (
@@ -313,7 +367,13 @@ function EmployeeActions({ onSync }: { onSync: () => void }) {
 
 EmployeeActions.displayName = 'EmployeeActions';
 
-function ColumnVisibilityDropdown({ visibleColumns, setVisibleColumns }: { visibleColumns: ColumnKey[]; setVisibleColumns: React.Dispatch<React.SetStateAction<ColumnKey[]>> }) {
+function ColumnVisibilityDropdown({
+    visibleColumns,
+    setVisibleColumns,
+}: {
+    visibleColumns: ColumnKey[];
+    setVisibleColumns: React.Dispatch<React.SetStateAction<ColumnKey[]>>;
+}) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -331,7 +391,9 @@ function ColumnVisibilityDropdown({ visibleColumns, setVisibleColumns }: { visib
                         checked={visibleColumns.includes(key)}
                         onCheckedChange={(checked) =>
                             setVisibleColumns((prev) =>
-                                checked ? [...prev, key] : prev.filter((k) => k !== key)
+                                checked
+                                    ? [...prev, key]
+                                    : prev.filter((k) => k !== key),
                             )
                         }
                         className="capitalize"
@@ -364,14 +426,18 @@ function EmployeeRow({
     return (
         <TableRow key={employee.id}>
             {visibleColumns.includes('nik') && (
-                <TableCell className="font-mono text-sm sticky left-0 bg-card/95 z-10 border-r border-border">
+                <TableCell className="font-mono text-sm">
                     {employee.nik_employee ?? '—'}
                 </TableCell>
             )}
             {visibleColumns.includes('name') && (
-                <TableCell className="font-semibold sticky left-32 bg-card/95 z-10 border-r border-border">
+                <TableCell className="font-semibold">
                     <div className="flex items-center gap-3">
-                        <Avatar src={employee.photo_url} name={employee.nama_employee} size={32} />
+                        <Avatar
+                            src={employee.photo_url}
+                            name={employee.nama_employee}
+                            size={32}
+                        />
                         <Link
                             href={show({ tenant, employee: employee.id })}
                             className={cn(
@@ -386,7 +452,7 @@ function EmployeeRow({
                 </TableCell>
             )}
             {visibleColumns.includes('department') && (
-                <TableCell className="font-mono text-sm text-muted-foreground sticky left-[328px] bg-card/95 z-10 border-r border-border">
+                <TableCell className="font-mono text-sm text-muted-foreground">
                     {employee.department?.kode_department ?? '—'}
                 </TableCell>
             )}
@@ -420,7 +486,7 @@ function EmployeeRow({
                     <AccountBadge hasAccount={employee.has_account} />
                 </TableCell>
             )}
-            <TableCell className="w-28 sticky right-0 bg-card/95 z-10 border-l border-border">
+            <TableCell className="w-28">
                 <div className="flex items-center justify-end gap-1">
                     <Button
                         variant="ghost"
@@ -458,7 +524,11 @@ function EmployeeRow({
                                     : 'text-destructive hover:bg-destructive/10'
                             }
                         >
-                            {employee.is_banned ? <Undo2 className="size-4" /> : <Ban className="size-4" />}
+                            {employee.is_banned ? (
+                                <Undo2 className="size-4" />
+                            ) : (
+                                <Ban className="size-4" />
+                            )}
                         </Button>
                     )}
                     <Button
@@ -495,15 +565,25 @@ function DeleteConfirmDialog({
                 <DialogHeader>
                     <DialogTitle>Hapus Karyawan</DialogTitle>
                     <DialogDescription>
-                        Apakah Anda yakin ingin menghapus <strong>{employeeName}</strong>?
-                        Tindakan ini tidak dapat dibatalkan.
+                        Apakah Anda yakin ingin menghapus{' '}
+                        <strong>{employeeName}</strong>? Tindakan ini tidak
+                        dapat dibatalkan.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
                         Batal
                     </Button>
-                    <Button variant="destructive" onClick={() => { onConfirm(); onOpenChange(false); }}>
+                    <Button
+                        variant="destructive"
+                        onClick={() => {
+                            onConfirm();
+                            onOpenChange(false);
+                        }}
+                    >
                         Hapus
                     </Button>
                 </DialogFooter>
@@ -531,18 +611,27 @@ function BanConfirmDialog({
                 <DialogHeader>
                     <DialogTitle>Blokir karyawan?</DialogTitle>
                     <DialogDescription>
-                        <strong>{employeeName}</strong> akan langsung diblokir dari
-                        penggunaan operasional pada request berikutnya. Blokir
-                        menempel pada karyawan dan tidak ikut terhapus saat
-                        sinkronisasi portal berjalan. Riwayat datanya tetap tersimpan,
-                        dan blokir dapat dibatalkan kapan saja.
+                        <strong>{employeeName}</strong> akan langsung diblokir
+                        dari penggunaan operasional pada request berikutnya.
+                        Blokir menempel pada karyawan dan tidak ikut terhapus
+                        saat sinkronisasi portal berjalan. Riwayat datanya tetap
+                        tersimpan, dan blokir dapat dibatalkan kapan saja.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
                         Batal
                     </Button>
-                    <Button variant="destructive" onClick={() => { onConfirm(); onOpenChange(false); }}>
+                    <Button
+                        variant="destructive"
+                        onClick={() => {
+                            onConfirm();
+                            onOpenChange(false);
+                        }}
+                    >
                         Blokir
                     </Button>
                 </DialogFooter>
@@ -562,10 +651,16 @@ export default function Employees({ employees, filters, errors }: PageProps) {
     const [appliedFilters, setAppliedFilters] = useState<Filters>(filters);
     const [navigating, setNavigating] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [employeeToDelete, setEmployeeToDelete] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
     const [banDialogOpen, setBanDialogOpen] = useState(false);
     const [employeeToBan, setEmployeeToBan] = useState<Employee | null>(null);
-    const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>([...DEFAULT_VISIBLE_COLUMNS]);
+    const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>([
+        ...DEFAULT_VISIBLE_COLUMNS,
+    ]);
+    const { syncing, runSync } = useEmployeeSync();
     const skipFirstQuery = useRef(true);
 
     // Debounce search
@@ -574,7 +669,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
             setAppliedFilters((current) =>
                 current.search === searchTerm
                     ? current
-                    : { ...current, search: searchTerm, page: 1 }
+                    : { ...current, search: searchTerm, page: 1 },
             );
         }, 300);
 
@@ -602,7 +697,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                 replace: true,
                 onStart: () => setNavigating(true),
                 onFinish: () => setNavigating(false),
-            }
+            },
         );
     }, [appliedFilters, tenant]);
 
@@ -634,15 +729,12 @@ export default function Employees({ employees, filters, errors }: PageProps) {
 
     const confirmDelete = () => {
         if (!employeeToDelete) return;
-        router.delete(
-            destroy({ tenant, employee: employeeToDelete.id }),
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setEmployeeToDelete(null);
-                },
-            }
-        );
+        router.delete(destroy({ tenant, employee: employeeToDelete.id }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setEmployeeToDelete(null);
+            },
+        });
     };
 
     const handleBanToggle = (employee: Employee) => {
@@ -673,13 +765,17 @@ export default function Employees({ employees, filters, errors }: PageProps) {
         setAppliedFilters((current) => ({
             ...current,
             sort: column,
-            direction: current.sort === column && current.direction === 'asc' ? 'desc' : 'asc',
+            direction:
+                current.sort === column && current.direction === 'asc'
+                    ? 'desc'
+                    : 'asc',
             page: 1,
         }));
     };
 
     const sortIcon = (column: string) => {
-        if (appliedFilters.sort !== column) return <ChevronUpIcon className="size-4 text-ink-subtle" />;
+        if (appliedFilters.sort !== column)
+            return <ChevronUpIcon className="size-4 text-ink-subtle" />;
         return appliedFilters.direction === 'asc' ? (
             <ChevronUpIcon className="size-4 text-brand" />
         ) : (
@@ -727,7 +823,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                 )}
 
                 {/* Sticky Action Bar */}
-                <div className="sticky top-16 z-40 flex flex-col gap-4 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+                <div className="sticky top-16 z-40 flex flex-col gap-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between lg:px-6">
                     <div className="relative w-full max-w-xs sm:max-w-md">
                         <Search
                             aria-hidden
@@ -741,7 +837,9 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                             type="search"
                             placeholder="Cari karyawan…"
                             value={searchTerm}
-                            onChange={(event) => setSearchTerm(event.target.value)}
+                            onChange={(event) =>
+                                setSearchTerm(event.target.value)
+                            }
                             className="h-10 pl-9"
                         />
                         {searchTerm && (
@@ -749,7 +847,7 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink"
+                                className="absolute top-1/2 right-2 -translate-y-1/2 text-ink-subtle hover:text-ink"
                                 onClick={clearFilters}
                                 aria-label="Bersihkan pencarian"
                             >
@@ -764,13 +862,25 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                             setVisibleColumns={setVisibleColumns}
                         />
 
-                        <Select value={appliedFilters.per_page.toString()} onValueChange={(value) => setAppliedFilters((c) => ({ ...c, per_page: parseInt(value), page: 1 }))}>
+                        <Select
+                            value={appliedFilters.per_page.toString()}
+                            onValueChange={(value) =>
+                                setAppliedFilters((c) => ({
+                                    ...c,
+                                    per_page: parseInt(value),
+                                    page: 1,
+                                }))
+                            }
+                        >
                             <SelectTrigger size="sm" className="w-[110px]">
                                 <SelectValue placeholder="Per halaman" />
                             </SelectTrigger>
                             <SelectContent>
                                 {PER_PAGE_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt} value={opt.toString()}>
+                                    <SelectItem
+                                        key={opt}
+                                        value={opt.toString()}
+                                    >
                                         {opt} per halaman
                                     </SelectItem>
                                 ))}
@@ -784,222 +894,289 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                     className="overflow-hidden rounded-lg border bg-card transition-opacity duration-150 aria-busy:pointer-events-none aria-busy:opacity-60"
                     aria-busy={navigating}
                 >
-                    <div className="overflow-x-auto">
-                        <Table className="w-full">
-                            <TableHeader className="sticky top-[60px] z-20 bg-card/95 backdrop-blur-sm border-b border-border-strong">
-                                <TableRow className="hover:bg-transparent">
-                                    {visibleColumns.includes('nik') && (
-                                        <TableHead className="w-32 sticky left-0 z-30 bg-card/95">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                                onClick={() => handleSort('nik_employee')}
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <User className="size-3" />
-                                                    NIK
-                                                    {sortIcon('nik_employee')}
-                                                </div>
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('name') && (
-                                        <TableHead className="min-w-[200px] sticky left-[80px] z-30 bg-card/95">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                                onClick={() => handleSort('nama_employee')}
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <User className="size-3" />
-                                                    Nama
-                                                    {sortIcon('nama_employee')}
-                                                </div>
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('department') && (
-                                        <TableHead className="w-40 sticky left-[200px] z-30 bg-card/95">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <Building2 className="size-3" />
-                                                    Department
-                                                </div>
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('position') && (
-                                        <TableHead className="min-w-[160px]">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                            >
-                                                Position
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('division') && (
-                                        <TableHead className="min-w-[160px]">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                            >
-                                                Division
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('phone') && (
-                                        <TableHead className="min-w-[140px]">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                            >
-                                                Telepon
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('email') && (
-                                        <TableHead className="min-w-[200px]">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                            >
-                                                Email
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('joined') && (
-                                        <TableHead className="w-40">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-full justify-start p-0 h-auto text-xs font-semibold"
-                                                onClick={() => handleSort('created_at')}
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <Calendar className="size-3" />
-                                                    Bergabung
-                                                    {sortIcon('created_at')}
-                                                </div>
-                                            </Button>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.includes('akun') && (
-                                        <TableHead className="w-32">
-                                            <span className="text-xs font-semibold text-ink-muted">Akun</span>
-                                        </TableHead>
-                                    )}
-                                    <TableHead className="w-28 sticky right-0 z-30 bg-card/95 border-l border-border">
-                                        <span className="sr-only">Aksi</span>
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {navigating && employeesData.length > 0 ? (
-                                    [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
-                                ) : employeesData.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={visibleColumns.length + 1}
-                                            className="h-32 text-center text-ink-muted"
+                    <Table>
+                        <TableHeader className="bg-surface-sunken">
+                            <TableRow className="hover:bg-transparent">
+                                {visibleColumns.includes('nik') && (
+                                    <TableHead className="w-32">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                            onClick={() =>
+                                                handleSort('nik_employee')
+                                            }
                                         >
+                                            <div className="flex items-center gap-1.5">
+                                                <User className="size-3" />
+                                                NIK
+                                                {sortIcon('nik_employee')}
+                                            </div>
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('name') && (
+                                    <TableHead className="min-w-[200px]">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                            onClick={() =>
+                                                handleSort('nama_employee')
+                                            }
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                <User className="size-3" />
+                                                Nama
+                                                {sortIcon('nama_employee')}
+                                            </div>
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('department') && (
+                                    <TableHead className="w-40">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                <Building2 className="size-3" />
+                                                Department
+                                            </div>
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('position') && (
+                                    <TableHead className="min-w-[160px]">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                        >
+                                            Position
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('division') && (
+                                    <TableHead className="min-w-[160px]">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                        >
+                                            Division
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('phone') && (
+                                    <TableHead className="min-w-[140px]">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                        >
+                                            Telepon
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('email') && (
+                                    <TableHead className="min-w-[200px]">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                        >
+                                            Email
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('joined') && (
+                                    <TableHead className="w-40">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
+                                            onClick={() =>
+                                                handleSort('created_at')
+                                            }
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar className="size-3" />
+                                                Bergabung
+                                                {sortIcon('created_at')}
+                                            </div>
+                                        </Button>
+                                    </TableHead>
+                                )}
+                                {visibleColumns.includes('akun') && (
+                                    <TableHead className="w-32">
+                                        <span className="text-xs font-semibold text-ink-muted">
+                                            Akun
+                                        </span>
+                                    </TableHead>
+                                )}
+                                <TableHead className="w-28">
+                                    <span className="sr-only">Aksi</span>
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {navigating && employeesData.length > 0 ? (
+                                [...Array(5)].map((_, i) => (
+                                    <SkeletonRow key={i} />
+                                ))
+                            ) : employeesData.length === 0 ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell
+                                        colSpan={visibleColumns.length + 1}
+                                        className="px-6 py-16 text-center text-ink-muted"
+                                    >
+                                        <div className="flex flex-col items-center">
                                             {hasActiveFilters ? (
                                                 <>
-                                                    <SearchX className="size-8 mx-auto text-ink-subtle" />
-                                                    <p className="mt-2 text-sm font-semibold text-ink">
-                                                        Tidak ada karyawan yang cocok.
+                                                    <SearchX
+                                                        aria-hidden
+                                                        className="size-8 text-ink-subtle"
+                                                    />
+                                                    <p className="mt-3 text-sm font-semibold text-ink">
+                                                        Tidak ada karyawan yang
+                                                        cocok.
                                                     </p>
-                                                    <p className="text-sm text-ink-muted">
-                                                        Coba kata kunci lain atau{' '}
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="ml-1 p-0 h-auto"
-                                                            onClick={clearFilters}
+                                                    <p className="mt-1 max-w-sm text-sm text-ink-muted">
+                                                        Coba kata kunci lain
+                                                        atau{' '}
+                                                        <button
+                                                            type="button"
+                                                            onClick={
+                                                                clearFilters
+                                                            }
+                                                            className="font-medium text-brand underline underline-offset-2 hover:no-underline"
                                                         >
                                                             bersihkan pencarian
-                                                        </Button>
+                                                        </button>
                                                     </p>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <UserX className="size-8 mx-auto text-ink-subtle" />
-                                                    <p className="mt-2 text-sm font-semibold text-ink">
+                                                    <UserX
+                                                        aria-hidden
+                                                        className="size-8 text-ink-subtle"
+                                                    />
+                                                    <p className="mt-3 text-sm font-semibold text-ink">
                                                         Belum ada karyawan.
                                                     </p>
-                                                    <p className="max-w-sm text-sm text-ink-muted">
-                                                        Tambah karyawan pertama atau sinkronkan dari Optigate.
+                                                    <p className="mt-1 max-w-sm text-sm text-ink-muted">
+                                                        Tambah karyawan pertama
+                                                        atau sinkronkan dari
+                                                        Optigate.
                                                     </p>
-                                                    <div className="mt-3 flex gap-2 justify-center">
-                                                        <Button asChild variant="outline" size="sm">
-                                                            <Link href={create({ tenant })}>
-                                                                <Plus className="size-3.5 mr-1.5" />
+                                                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                                                        <Button
+                                                            asChild
+                                                            variant="outline"
+                                                            size="sm"
+                                                        >
+                                                            <Link
+                                                                href={create({
+                                                                    tenant,
+                                                                })}
+                                                            >
+                                                                <Plus
+                                                                    aria-hidden
+                                                                    className="mr-1.5"
+                                                                />
                                                                 Tambah Karyawan
                                                             </Link>
                                                         </Button>
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            onClick={() => router.post(sync({ tenant }), {}, { preserveScroll: true })}
+                                                            disabled={syncing}
+                                                            onClick={runSync}
                                                         >
-                                                            <RefreshCw className="size-3.5 mr-1.5" />
-                                                            Sinkronkan
+                                                            <RefreshCw
+                                                                aria-hidden
+                                                                className={cn(
+                                                                    'mr-1.5',
+                                                                    syncing &&
+                                                                        'animate-spin',
+                                                                )}
+                                                            />
+                                                            {syncing
+                                                                ? 'Menyinkronkan…'
+                                                                : 'Sinkronkan'}
                                                         </Button>
                                                     </div>
                                                 </>
                                             )}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    employeesData.map((employee) => (
-                                        <EmployeeRow
-                                            key={employee.id}
-                                            employee={employee}
-                                            tenant={tenant}
-                                            visibleColumns={visibleColumns}
-                                            onDelete={handleDelete}
-                                            onBanToggle={handleBanToggle}
-                                            canBan={canBan}
-                                        />
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                employeesData.map((employee) => (
+                                    <EmployeeRow
+                                        key={employee.id}
+                                        employee={employee}
+                                        tenant={tenant}
+                                        visibleColumns={visibleColumns}
+                                        onDelete={handleDelete}
+                                        onBanToggle={handleBanToggle}
+                                        canBan={canBan}
+                                    />
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
 
                     {/* Pagination */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
-                        <p className="text-xs text-ink-muted" aria-live="polite">
-                            Menampilkan {pagination.from}–{pagination.to} dari {pagination.total} karyawan
+                        <p
+                            className="text-xs text-ink-muted"
+                            aria-live="polite"
+                        >
+                            Menampilkan {pagination.from}–{pagination.to} dari{' '}
+                            {pagination.total} karyawan
                         </p>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 disabled={!pagination.prev_page_url}
-                                onClick={() => pagination.prev_page_url && router.get(pagination.prev_page_url, {}, { preserveScroll: true, preserveState: true })}
+                                onClick={() =>
+                                    pagination.prev_page_url &&
+                                    router.get(
+                                        pagination.prev_page_url,
+                                        {},
+                                        {
+                                            preserveScroll: true,
+                                            preserveState: true,
+                                        },
+                                    )
+                                }
                             >
                                 <ChevronLeft aria-hidden />
                                 Sebelumnya
                             </Button>
-                            <span className="text-sm text-ink-muted px-2">
-                                Halaman {pagination.current_page} dari {pagination.last_page}
+                            <span className="px-2 text-sm text-ink-muted">
+                                Halaman {pagination.current_page} dari{' '}
+                                {pagination.last_page}
                             </span>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 disabled={!pagination.next_page_url}
-                                onClick={() => pagination.next_page_url && router.get(pagination.next_page_url, {}, { preserveScroll: true, preserveState: true })}
+                                onClick={() =>
+                                    pagination.next_page_url &&
+                                    router.get(
+                                        pagination.next_page_url,
+                                        {},
+                                        {
+                                            preserveScroll: true,
+                                            preserveState: true,
+                                        },
+                                    )
+                                }
                             >
                                 Selanjutnya
                                 <ChevronRight aria-hidden />
@@ -1030,7 +1207,10 @@ function ChevronUpIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
     );
 }
 
-function ChevronDownIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+function ChevronDownIcon({
+    className,
+    ...props
+}: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1052,9 +1232,5 @@ Employees.layout = {
     breadcrumbs: [{ title: 'Data Master' }, { title: 'Karyawan' }],
     title: 'Karyawan',
     description: 'Data karyawan dalam cabang aktif',
-    actions: () => (
-        <EmployeeActions
-            onSync={() => {}}
-        />
-    ),
+    actions: EmployeeActions,
 };

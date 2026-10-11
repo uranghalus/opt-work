@@ -51,8 +51,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // The SAML assertion consumer service receives signed POST assertions
         // from the identity provider, which cannot carry our CSRF token.
         // Relay state and SAML signature validation protect this endpoint.
+        //
+        // The single logout service is exempt for the same reason: an
+        // identity provider answers an SP-initiated logout with an auto-POST
+        // form carrying the signed LogoutResponse.
         $middleware->validateCsrfTokens(except: [
             'saml/acs',
+            'saml/sls',
+            'saml/logout',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

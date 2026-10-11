@@ -26,7 +26,7 @@ afterEach(function () {
 function fakePortalUsers(array $users = [])
 {
     Http::fake([
-        '*/api/users' => Http::response(['data' => $users]),
+        '*/api/users*' => Http::response(['data' => $users]),
     ]);
 }
 
@@ -53,13 +53,46 @@ it('creates employees from the portal payload keyed by the portal user id', func
         ->and($employee->number)->toBe('081234567890');
 });
 
+it('creates employees without a current tenant (CLI context regression)', function () {
+    // The button/scheduler runs landlord-side: no Tenant::current() exists,
+    // so the creating hook cannot backfill tenant_id. Regression for
+    // "Field 'tenant_id' doesn't have a default value".
+    Tenant::forgetCurrent();
+
+    fakePortalUsers([
+        ['id' => '019fdfb7-cli', 'name' => 'CLI User', 'nik' => 'NIK-CLI'],
+    ]);
+
+    $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $employee = Employee::withoutGlobalScopes()->where('optigate_user_id', '019fdfb7-cli')->first();
+
+    expect($employee)->not->toBeNull()
+        ->and($employee->tenant_id)->toBe($this->hq->id);
+});
+
+it('scopes the portal request to the tenant optigate company', function () {
+    Tenant::forgetCurrent();
+
+    fakePortalUsers([
+        ['id' => '019fdfb7-scoped', 'name' => 'Scoped User', 'nik' => 'NIK-SC'],
+    ]);
+
+    $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), '/api/users')
+            && str_contains($request->url(), 'company_id=1');
+    });
+});
+
 it('is idempotent: rerunning the sync updates instead of duplicating', function () {
     $portalId = '019fdfb7-4959-7b3b-9a99-bcfd4e963fa1';
 
     // One fake serving different payloads per call: a second Http::fake()
     // call would not replace the stubs mid-test.
     Http::fake([
-        '*/api/users' => Http::sequence([
+        '*/api/users*' => Http::sequence([
             ['data' => [['id' => $portalId, 'name' => 'First Name', 'nik' => 'NIK-1']]],
             ['data' => [['id' => $portalId, 'name' => 'Second Name', 'nik' => 'NIK-1']]],
         ]),
@@ -85,7 +118,7 @@ it('never creates application accounts during the sync', function () {
 });
 
 it('fails gracefully when the portal is unreachable', function () {
-    Http::fake(['*/api/users' => Http::response(null, 500)]);
+    Http::fake(['*/api/users*' => Http::response(null, 500)]);
 
     $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertFailed();
 });

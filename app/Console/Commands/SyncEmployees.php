@@ -33,13 +33,30 @@ class SyncEmployees extends Command
             return Command::FAILURE;
         }
 
+        // Landlord-side sync (runs from the scheduler and the sync button):
+        // there is no Tenant::current() here, so the tenant and its Optigate
+        // company are resolved explicitly.
+        $tenant = Tenant::query()->find($tenantId);
+
+        if (! $tenant) {
+            $this->error("Tenant {$tenantId} tidak ditemukan.");
+
+            return Command::FAILURE;
+        }
+
+        if (blank($tenant->optigate_company_id)) {
+            $this->error('Tenant tidak memiliki optigate_company_id — tarik per company agar karyawan tidak tercampur antar cabang.');
+
+            return Command::FAILURE;
+        }
+
         $this->info("Memulai sinkronisasi employee untuk tenant {$tenantId}...");
 
         try {
             $response = Http::withToken($token)
                 ->timeout(10)
                 ->withOptions(['verify' => config('services.optigate_portal.verify')])
-                ->get($url);
+                ->get($url, ['company_id' => $tenant->optigate_company_id]);
 
             if (! $response->successful()) {
                 $errorMsg = 'Gagal mengambil data employee dari API Portal: '.$response->body();
@@ -57,23 +74,25 @@ class SyncEmployees extends Command
                     continue;
                 }
 
-                // Idempotent key: the portal user uuid. Identity fields refresh
-                // from the portal; local-only state (banned_at) and the linked
-                // akun are never touched here.
-                Employee::withoutGlobalScopes()->updateOrCreate(
-                    [
-                        'tenant_id' => $tenantId,
-                        'optigate_user_id' => $employee['id'],
-                    ],
-                    [
-                        'nik_employee' => $employee['nik'] ?? null,
-                        'nama_employee' => $employee['name'],
-                        'email' => $employee['email'] ?? null,
-                        'number' => $employee['whatsapp_number'] ?? null,
-                        'photo_url' => $employee['photo_url'] ?? null,
-                        'last_login_ip' => $employee['last_login_ip'] ?? null,
-                    ]
-                );
+                // Idempotent key: the portal user uuid. tenant_id is
+                // force-filled explicitly (it is not fillable, and there is
+                // no Tenant::current() to backfill it here). Local-only state
+                // (banned_at) and the linked akun are never touched.
+                $record = Employee::withoutGlobalScopes()->firstOrNew([
+                    'tenant_id' => $tenant->id,
+                    'optigate_user_id' => $employee['id'],
+                ]);
+
+                $record->forceFill([
+                    'tenant_id' => $tenant->id,
+                    'optigate_user_id' => $employee['id'],
+                    'nik_employee' => $employee['nik'] ?? null,
+                    'nama_employee' => $employee['name'],
+                    'email' => $employee['email'] ?? null,
+                    'number' => $employee['whatsapp_number'] ?? null,
+                    'photo_url' => $employee['photo_url'] ?? null,
+                    'last_login_ip' => $employee['last_login_ip'] ?? null,
+                ])->save();
                 $count++;
             }
 

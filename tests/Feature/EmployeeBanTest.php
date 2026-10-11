@@ -140,7 +140,7 @@ it('keeps the ban flag when the portal sync runs', function () {
     ]);
 
     Http::fake([
-        '*/api/users' => Http::response([
+        '*/api/users*' => Http::response([
             'data' => [
                 [
                     'id' => $portalId,

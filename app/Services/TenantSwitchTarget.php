@@ -45,9 +45,10 @@ class TenantSwitchTarget
 
         try {
             $path = route($targetName, $params, absolute: false);
-        } catch (\Throwable) {
-            // The target page needs a parameter the old page didn't carry —
-            // the page effectively does not exist for the target tenant.
+        } catch (\InvalidArgumentException) {
+            // UrlGenerationException: the target page needs a parameter the
+            // old page didn't carry — it effectively does not exist for the
+            // target tenant.
             return $this->dashboard($tenant, fellBack: true);
         }
 

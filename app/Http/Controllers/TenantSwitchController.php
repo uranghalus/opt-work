@@ -36,7 +36,15 @@ class TenantSwitchController extends Controller
             'tenant' => ['required', 'string'],
             'route.name' => ['nullable', 'string'],
             'route.params' => ['nullable', 'array'],
-            'route.params.*' => ['string'],
+            // Route keys are strings (ULIDs) or integers ({index} params);
+            // anything else cannot rebuild a URL and falls back server-side.
+            'route.params.*' => [
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (! is_string($value) && ! is_int($value)) {
+                        $fail("The {$attribute} must be a route key (string or integer).");
+                    }
+                },
+            ],
         ]);
 
         $tenant = Tenant::whereCode($validated['tenant'])->first();
@@ -46,10 +54,6 @@ class TenantSwitchController extends Controller
         }
 
         $user = $request->user();
-
-        if (! $user) {
-            return redirect()->route('saml.redirect');
-        }
 
         if (! $this->tenantAccess->canOperate($user, $tenant->code)) {
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
@@ -61,13 +65,7 @@ class TenantSwitchController extends Controller
             $validated['route']['params'] ?? [],
         );
 
-        $this->makeTenantCurrentAction->execute($tenant);
-
-        if ($request->hasSession()) {
-            $request->session()->put('current_tenant_id', $tenant->id);
-            $request->session()->put('is_impersonating', $user->is_super_admin && $user->tenant_id !== $tenant->id);
-            $request->session()->put('impersonated_at', now()->toISOString());
-        }
+        $this->persistSwitch($request, $user, $tenant);
 
         Log::info('Tenant switched', [
             'user_id' => $user->id,
@@ -88,6 +86,21 @@ class TenantSwitchController extends Controller
                     ? "Halaman ini tidak tersedia untuk cabang {$tenant->name}. Anda diarahkan ke halaman dashboard cabang tersebut."
                     : "Berpindah ke cabang: {$tenant->name}",
             );
+    }
+
+    /**
+     * Shared bookkeeping for every switch path: make the tenant current and
+     * remember the context (and impersonation state) in the session.
+     */
+    protected function persistSwitch(Request $request, $user, Tenant $tenant): void
+    {
+        $this->makeTenantCurrentAction->execute($tenant);
+
+        if ($request->hasSession()) {
+            $request->session()->put('current_tenant_id', $tenant->id);
+            $request->session()->put('is_impersonating', $user->is_super_admin && $user->tenant_id !== $tenant->id);
+            $request->session()->put('impersonated_at', now()->toISOString());
+        }
     }
 
     /**
@@ -119,18 +132,7 @@ class TenantSwitchController extends Controller
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
-        // Determine if this is an impersonation (super admin accessing another tenant)
-        $isImpersonating = $user->is_super_admin && $user->tenant_id !== $tenant->id;
-
-        // Make tenant current
-        $this->makeTenantCurrentAction->execute($tenant);
-
-        // Store in session for convenience (same-tab navigation) - store ULID
-        if ($request->hasSession()) {
-            $request->session()->put('current_tenant_id', $tenant->id);
-            $request->session()->put('is_impersonating', $isImpersonating);
-            $request->session()->put('impersonated_at', now()->toISOString());
-        }
+        $this->persistSwitch($request, $user, $tenant);
 
         // Log the tenant switch for audit
         Log::info('Tenant switched', [
@@ -138,7 +140,7 @@ class TenantSwitchController extends Controller
             'user_email' => $user->email,
             'from_tenant' => $user->tenant_id,
             'to_tenant' => $tenant->id,
-            'is_impersonating' => $isImpersonating,
+            'is_impersonating' => $user->is_super_admin && $user->tenant_id !== $tenant->id,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);

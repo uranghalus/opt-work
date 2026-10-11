@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\TenantAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -43,7 +44,7 @@ class Tenant extends SpatieTenant
      * trimmed, case-insensitive match on the code slug. Never partial, never
      * a guess — callers decide what "no row" means (404, deny, ...).
      */
-    public function scopeWhereCode($query, string $code)
+    public function scopeWhereCode(Builder $query, string $code): Builder
     {
         return $query->whereRaw('LOWER(TRIM(code)) = LOWER(TRIM(?))', [$code]);
     }

@@ -74,6 +74,22 @@ it('drops the query string when switching', function () {
         ->and($response->headers->get('Location'))->not->toContain('search=');
 });
 
+it('accepts integer route params when switching (regression: 422 on int params)', function () {
+    $this->admin = makeSuperAdmin(createUser());
+
+    // Numeric route keys ({index}-style params) must not fail validation —
+    // the switch should resolve (or fall back), never 422.
+    $response = $this->actingAs($this->admin)->post('/tenant/switching', [
+        'tenant' => 'bm',
+        'route' => [
+            'name' => 'work-orders.attachments.show',
+            'params' => ['workOrder' => '01work-order-ulid', 'attachment' => 2],
+        ],
+    ]);
+
+    expect($response->status())->toBe(302);
+});
+
 it('falls back to the dashboard with a message when the current page is not a tenant page', function () {
     $this->admin = makeSuperAdmin(createUser());
 

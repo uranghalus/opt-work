@@ -1,5 +1,7 @@
 import { usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import { switchTenant } from '@/lib/tenant';
+import type { TenantSummary } from '@/types/auth';
 import {
     Building2,
     Check,
@@ -24,22 +26,11 @@ import {
 import { cn } from '@/lib/utils';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
-type Tenant = {
-    id: string;
-    name: string;
-    code?: string | null;
-    is_active?: boolean;
-};
+type BranchSwitcherTenant = TenantSummary & { code: string };
 
 interface BranchSwitcherProps {
     variant?: 'header' | 'sidebar';
     className?: string;
-}
-
-interface ImpersonationInfo {
-    active: boolean;
-    home_tenant_id?: string;
-    impersonated_at?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -64,12 +55,8 @@ const light = {
 };
 
 export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcherProps) => {
-    const { tenants = [], tenant, impersonation, route } = usePage<{
-        tenants?: Tenant[];
-        tenant?: { id: string; name: string } | null;
-        impersonation?: ImpersonationInfo;
-        route?: { name: string | null; params: Record<string, string> };
-    }>().props;
+    const { tenants, tenant, impersonation, route } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
 
     const prefersReducedMotion = useReducedMotion();
 
@@ -80,7 +67,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
     // Only tenants with a code can be switched to: the {tenant} URL segment
     // is the code slug, never the raw id.
     const activeTenants = tenants.filter(
-        (t): t is Tenant & { code: string } => !!t.is_active && !!t.code,
+        (t): t is BranchSwitcherTenant => !!t.is_active && !!t.code,
     );
     const inactiveTenants = tenants.filter((t) => !t.is_active);
 
@@ -89,12 +76,12 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
         ? tenants.find((t) => t.id === impersonation.home_tenant_id)
         : null;
 
-    const eyebrowOf = (t: Tenant) => t.code ?? 'Cabang Aktif';
+    const eyebrowOf = (t: TenantSummary) => t.code ?? 'Cabang Aktif';
 
     const handleSwitch = (code: string) => {
         if (!code || code === currentTenant?.code) return;
 
-        switchTenant(code, route ?? { name: null, params: {} });
+        switchTenant(code, route);
     };
 
     const base = prefersReducedMotion ? 0 : 200;
@@ -263,10 +250,10 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                     Tidak Aktif
                                 </SelectLabel>
 
-                                {inactiveTenants.map((t) => (
-                                    <SelectItem
-                                        key={t.id}
-                                        value={t.id}
+                                            {inactiveTenants.map((t) => (
+                                                <SelectItem
+                                                    key={t.id}
+                                                    value={t.code ?? t.id}
                                         disabled
                                         className={cn(
                                             'flex cursor-not-allowed items-center rounded-lg px-2.5 py-2 outline-none',

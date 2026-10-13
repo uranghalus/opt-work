@@ -41,17 +41,17 @@ pest()->extend(TestCase::class)
 function createTestTenant(array $attributes = []): Tenant
 {
     static $counter = 1;
-    
+
     $defaults = [
         'optigate_company_id' => $counter++,
         'code' => 'test-'.str()->lower(class_basename($attributes['name'] ?? 'tenant')),
         'name' => 'Test Tenant',
         'is_active' => true,
     ];
-    
+
     $tenant = Tenant::create(array_merge($defaults, $attributes));
     $tenant->makeCurrent();
-    
+
     return $tenant;
 }
 
@@ -59,6 +59,7 @@ function initTenant(string $tenantCode): Tenant
 {
     $tenant = Tenant::where('code', $tenantCode)->firstOrFail();
     $tenant->makeCurrent();
+
     return $tenant;
 }
 
@@ -68,10 +69,9 @@ function createUser(array $attributes = []): User
 }
 
 /**
- * Platform-level user: may operate any branch.
- *
- * Replaces the `super_admin` Spatie role, which is deferred along with the rest
- * of RBAC. See `.scratch/tenancy-reconfig/issues/02`.
+ * Platform-level user: may operate any branch. The Gate bypass in
+ * AppServiceProvider treats the flag the same as the seeded super_admin
+ * role — see User::isSuperAdmin() (ADR-0004).
  */
 function makeSuperAdmin(User $user): User
 {

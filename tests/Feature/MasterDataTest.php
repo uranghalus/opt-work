@@ -137,9 +137,10 @@ it('rejects duplicate department code within the same cabang', function () {
 });
 
 it('seeds the baseline roles and permissions', function () {
-    // The role catalogue is retained even though no gate reads it: RBAC returns
-    // at the end of the project and the seed data should already be correct.
-    // Only super-admin access is live today, via the is_super_admin flag.
+    // The role catalogue is seeded even where no gate reads it yet: forward-
+    // looking permissions carry a forward-looking allowlist entry (ADR-0004).
+    // super_admin holds ZERO database permissions — its Gate bypass via
+    // User::isSuperAdmin() is the single source of power.
     $seeder = new class extends Seeder
     {
         public function run(): void
@@ -159,7 +160,7 @@ it('seeds the baseline roles and permissions', function () {
         expect(Role::query()->where('name', $role)->exists())->toBeTrue($role.' missing');
     }
 
-    expect(Role::query()->where('name', 'super_admin')->first()->hasPermissionTo('division.create'))->toBeTrue();
+    expect(Role::query()->where('name', 'super_admin')->first()->hasPermissionTo('division.create'))->toBeFalse();
     expect(Role::query()->where('name', 'viewer')->first()->hasPermissionTo('division.read'))->toBeTrue();
     expect(Role::query()->where('name', 'viewer')->first()->hasPermissionTo('division.create'))->toBeFalse();
 });

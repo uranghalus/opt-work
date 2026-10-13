@@ -4,16 +4,168 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
+/**
+ * Canonical RBAC seed (see ADR-0004 hak-akses surface).
+ *
+ * Re-run semantics:
+ * - Permissions are firstOrCreate: never renamed, never deleted. A permission
+ *   deleted via Hak Akses is re-created here (it could only be deleted while
+ *   unattached, so nothing silently re-attaches).
+ * - Role defaults sync ONLY on first creation: re-runs never touch an existing
+ *   role's permissions, so Hak Akses customizations survive.
+ * - New permissions for existing roles are granted by an explicit per-release
+ *   step (migration or command), never by making this seeder smarter.
+ *
+ * Verb map (enforced two-way by the consistency test): every resource carries
+ * read/create/update/delete; work-order additionally carries the PRD lifecycle
+ * verbs review/assign/submit/verify.
+ */
 class RoleAndPermissionSeeder extends Seeder
 {
+    /**
+     * The nine canonical system roles, in PRD order.
+     *
+     * @var list<string>
+     */
+    public const SYSTEM_ROLES = [
+        'super_admin',
+        'admin_tenant',
+        'general_manager',
+        'deputy_general_manager',
+        'hod',
+        'team_leader',
+        'karyawan',
+        'field_staff',
+        'viewer',
+    ];
+
+    /**
+     * Verbs every resource may carry (ADR-0004 §2).
+     *
+     * @var list<string>
+     */
+    public const BASE_VERBS = ['read', 'create', 'update', 'delete'];
+
+    /**
+     * Extra workflow verbs granted per resource — never globally.
+     *
+     * @var array<string, list<string>>
+     */
+    public const RESOURCE_VERBS = [
+        'work-order' => ['review', 'assign', 'submit', 'verify'],
+    ];
+
+    /**
+     * The full allowed verb list for a resource.
+     *
+     * @return list<string>
+     */
+    public static function allowedVerbs(string $resource): array
+    {
+        return [...self::BASE_VERBS, ...self::RESOURCE_VERBS[$resource] ?? []];
+    }
+
     public function run(): void
     {
+        $superAdminEmail = config('auth.super_admin_email');
+
+        if (empty($superAdminEmail)) {
+            throw new RuntimeException('config(auth.super_admin_email) is empty: refusing to seed a super admin user with a null email.');
+        }
+
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+        foreach ($this->catalogue() as $permission) {
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+        }
+
+        foreach ($this->roleDefaults() as $roleName => $permissions) {
+            $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
+
+            if ($role->wasRecentlyCreated) {
+                $role->syncPermissions($permissions);
+            }
+        }
+
+        Role::whereIn('name', self::SYSTEM_ROLES)->update(['is_system' => true]);
+
+        User::where('email', 'admin@example.com')->first()?->forceFill(['is_super_admin' => true])->save();
+
+        // Akun superadmin operasional. Akses lintas cabang datang dari flag
+        // is_super_admin (TenantAccess); peran super_admin sengaja nol izin —
+        // bypass di Gate adalah satu-satunya sumber kekuasaannya.
+        $superadmin = User::where('email', $superAdminEmail)->first()
+            ?? User::factory()->create([
+                'name' => 'Super Admin',
+                'email' => $superAdminEmail,
+            ]);
+        $superadmin->forceFill(['is_super_admin' => true])->save();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /**
+     * The full permission catalogue: resource.action, closed verb map.
+     *
+     * @return list<string>
+     */
+    protected function catalogue(): array
+    {
+        $masterDataPermissions = [
+            'division.create', 'division.read', 'division.update', 'division.delete',
+            'department.create', 'department.read', 'department.update', 'department.delete',
+            'employee.create', 'employee.read', 'employee.update', 'employee.delete',
+            'tenant.create', 'tenant.read', 'tenant.update', 'tenant.delete',
+        ];
+
+        $workOrderPermissions = [
+            'work-order.create', 'work-order.read', 'work-order.update', 'work-order.delete',
+            // PRD lifecycle verbs (work-order only): review → assign → submit → verify.
+            'work-order.review', 'work-order.assign', 'work-order.submit', 'work-order.verify',
+        ];
+
+        $workPlanningPermissions = [
+            'work-planning.create', 'work-planning.read', 'work-planning.update', 'work-planning.delete',
+        ];
+
+        $workDataPermissions = [
+            'work-data.create', 'work-data.read', 'work-data.update', 'work-data.delete',
+        ];
+
+        $dailyWorkPermissions = [
+            'daily-work.create', 'daily-work.read', 'daily-work.update',
+        ];
+
+        $hakAksesPermissions = [
+            'role.create', 'role.read', 'role.update', 'role.delete',
+            'permission.create', 'permission.read', 'permission.update', 'permission.delete',
+        ];
+
+        return [
+            ...$masterDataPermissions,
+            ...$workOrderPermissions,
+            ...$workPlanningPermissions,
+            ...$workDataPermissions,
+            ...$dailyWorkPermissions,
+            'dashboard.read',
+            'reports.read',
+            ...$hakAksesPermissions,
+        ];
+    }
+
+    /**
+     * Default permission sets, synced only when a role is first created.
+     * super_admin stays empty: its Gate bypass is the single source of power.
+     *
+     * @return array<string, list<string>>
+     */
+    protected function roleDefaults(): array
+    {
         $masterDataPermissions = [
             'division.create', 'division.read', 'division.update', 'division.delete',
             'department.create', 'department.read', 'department.update', 'department.delete',
@@ -38,119 +190,82 @@ class RoleAndPermissionSeeder extends Seeder
             'daily-work.create', 'daily-work.read', 'daily-work.update',
         ];
 
-        $systemPermissions = [
-            'rbac.manage', 'tenant.manage', 'dashboard.read', 'reports.read',
-        ];
-
-        $allPermissions = array_merge(
-            $masterDataPermissions,
-            $workOrderPermissions,
-            $workPlanningPermissions,
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            $systemPermissions,
-        );
-
-        foreach ($allPermissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-        }
-
         $readMasterData = fn (array $permissions) => array_map(
             fn (string $p) => str_replace(['.create', '.update', '.delete'], '.read', $p),
             $permissions,
         );
 
-        // Super Admin
-        $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
-        $superAdmin->syncPermissions($allPermissions);
-        User::where('email', 'admin@example.com')->first()?->forceFill(['is_super_admin' => true])->save();
+        return [
+            'super_admin' => [],
 
-        // Akun superadmin operasional. Akses lintas cabang datang dari flag
-        // is_super_admin (TenantAccess), bukan dari hardcode email. Saat RBAC
-        // dikembalikan, role super_admin di bawah akan menjadi sumbernya lagi.
-        $superadmin = User::where('email', config('auth.super_admin_email'))->first()
-            ?? User::factory()->create([
-                'name' => 'Super Admin',
-                'email' => config('auth.super_admin_email'),
-            ]);
-        $superadmin->forceFill(['is_super_admin' => true])->save();
+            'admin_tenant' => [
+                ...$masterDataPermissions,
+                ...$workOrderPermissions,
+                ...$workPlanningPermissions,
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read', 'reports.read',
+            ],
 
-        // Admin Tenant / Cabang
-        $adminTenant = Role::firstOrCreate(['name' => 'admin_tenant', 'guard_name' => 'web']);
-        $adminTenant->syncPermissions(array_merge(
-            $masterDataPermissions,
-            $workOrderPermissions,
-            $workPlanningPermissions,
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            ['dashboard.read', 'reports.read'],
-        ));
+            'general_manager' => [
+                ...$readMasterData($masterDataPermissions),
+                'work-order.read', 'work-order.review', 'work-order.verify',
+                ...$workPlanningPermissions,
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read', 'reports.read',
+            ],
 
-        // General Manager
-        $gm = Role::firstOrCreate(['name' => 'general_manager', 'guard_name' => 'web']);
-        $gm->syncPermissions(array_merge(
-            $readMasterData($masterDataPermissions),
-            ['work-order.read', 'work-order.review', 'work-order.verify'],
-            $workPlanningPermissions,
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            ['dashboard.read', 'reports.read'],
-        ));
+            'deputy_general_manager' => [
+                ...$readMasterData($masterDataPermissions),
+                'work-order.read', 'work-order.review', 'work-order.verify',
+                ...$workPlanningPermissions,
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read', 'reports.read',
+            ],
 
-        // Deputy General Manager
-        $dgm = Role::firstOrCreate(['name' => 'deputy_general_manager', 'guard_name' => 'web']);
-        $dgm->syncPermissions($gm->permissions->pluck('name')->toArray());
+            'hod' => [
+                'division.read', 'department.read', 'department.update', 'employee.read',
+                'work-order.read', 'work-order.review', 'work-order.assign', 'work-order.verify',
+                ...$workPlanningPermissions,
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read', 'reports.read',
+            ],
 
-        // Head of Department
-        $hod = Role::firstOrCreate(['name' => 'hod', 'guard_name' => 'web']);
-        $hod->syncPermissions(array_merge(
-            ['division.read', 'department.read', 'department.update', 'employee.read'],
-            ['work-order.read', 'work-order.review', 'work-order.assign', 'work-order.verify'],
-            $workPlanningPermissions,
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            ['dashboard.read', 'reports.read'],
-        ));
+            'team_leader' => [
+                'division.read', 'department.read', 'employee.read',
+                'work-order.read', 'work-order.review', 'work-order.assign',
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read',
+            ],
 
-        // Team Leader
-        $teamLeader = Role::firstOrCreate(['name' => 'team_leader', 'guard_name' => 'web']);
-        $teamLeader->syncPermissions(array_merge(
-            ['division.read', 'department.read', 'employee.read'],
-            ['work-order.read', 'work-order.review', 'work-order.assign'],
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            ['dashboard.read'],
-        ));
+            'karyawan' => [
+                'division.read', 'department.read', 'employee.read',
+                'work-order.create', 'work-order.read', 'work-order.submit',
+                ...$workDataPermissions,
+                'daily-work.read', 'daily-work.update',
+                'dashboard.read',
+            ],
 
-        // Karyawan (Requester capability — bukan role eksklusif)
-        $karyawan = Role::firstOrCreate(['name' => 'karyawan', 'guard_name' => 'web']);
-        $karyawan->syncPermissions(array_merge(
-            ['division.read', 'department.read', 'employee.read'],
-            ['work-order.create', 'work-order.read', 'work-order.submit'],
-            $workDataPermissions,
-            ['daily-work.read', 'daily-work.update'],
-            ['dashboard.read'],
-        ));
+            'field_staff' => [
+                'division.read', 'department.read', 'employee.read',
+                'work-order.read',
+                ...$workDataPermissions,
+                ...$dailyWorkPermissions,
+                'dashboard.read',
+            ],
 
-        // Field Staff (Karyawan Pelaksana)
-        $fieldStaff = Role::firstOrCreate(['name' => 'field_staff', 'guard_name' => 'web']);
-        $fieldStaff->syncPermissions(array_merge(
-            ['division.read', 'department.read', 'employee.read'],
-            ['work-order.read', 'work-order.submit'],
-            $workDataPermissions,
-            $dailyWorkPermissions,
-            ['dashboard.read'],
-        ));
-
-        // Viewer / Auditor
-        $viewer = Role::firstOrCreate(['name' => 'viewer', 'guard_name' => 'web']);
-        $viewer->syncPermissions(array_merge(
-            $readMasterData($masterDataPermissions),
-            $readMasterData($workOrderPermissions),
-            $readMasterData($workPlanningPermissions),
-            $readMasterData($workDataPermissions),
-            $readMasterData($dailyWorkPermissions),
-            ['dashboard.read', 'reports.read'],
-        ));
+            'viewer' => [
+                ...$readMasterData($masterDataPermissions),
+                ...$readMasterData($workOrderPermissions),
+                ...$readMasterData($workPlanningPermissions),
+                ...$readMasterData($workDataPermissions),
+                ...$readMasterData($dailyWorkPermissions),
+                'dashboard.read', 'reports.read',
+            ],
+        ];
     }
 }

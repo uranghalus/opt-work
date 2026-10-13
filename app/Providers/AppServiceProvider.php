@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -28,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureGate();
         $this->configureSaml2();
     }
 
@@ -65,6 +67,19 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('saml2', Provider::class);
+        });
+    }
+
+    /**
+     * Super admin bypasses every gate (ADR-0004). The single source of truth
+     * is User::isSuperAdmin() — the is_super_admin flag or the seeded
+     * super_admin role. Returning null lets Spatie's permission check decide
+     * for everyone else.
+     */
+    protected function configureGate(): void
+    {
+        Gate::before(function ($user, string $ability): ?bool {
+            return $user !== null && $user->isSuperAdmin() ? true : null;
         });
     }
 }

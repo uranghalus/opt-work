@@ -46,7 +46,7 @@ class HandleInertiaRequests extends Middleware
         try {
             $activeTenant = Tenant::current();
 
-            $isSuperAdmin = $user && ($user->hasRole('super-admin') || $user->is_super_admin);
+            $isSuperAdmin = $user?->isSuperAdmin() ?? false;
 
             if ($activeTenant) {
                 $currentTenant = $activeTenant->only(['id', 'name']);
@@ -64,7 +64,7 @@ class HandleInertiaRequests extends Middleware
             Log::warning('HandleInertiaRequests: '.$e->getMessage());
         }
 
-        $isSuperAdmin = $user !== null && ($user->hasRole('super-admin') || $user->is_super_admin);
+        $isSuperAdmin = $user?->isSuperAdmin() ?? false;
 
         $isImpersonating = $isSuperAdmin
             && $request->session()->get('is_impersonating', false)
@@ -77,10 +77,15 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user
                     ? array_merge($user->toArray(), [
                         'roles' => $user->getRoleNames()->toArray(),
-                        'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
                     ])
                     : null,
                 'isSuperAdmin' => $isSuperAdmin,
+                // Ability flags computed through the Gate (never the raw
+                // permission list): a super admin holds zero DB permissions
+                // by design, so flags must survive the bypass (ADR-0004).
+                'can' => [
+                    'role.read' => (bool) ($user?->can('role.read')),
+                ],
             ],
             'tenant' => $currentTenant,
             // The route identifier for {tenant} URLs — the code slug, not the

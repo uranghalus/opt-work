@@ -35,9 +35,9 @@ use Spatie\Permission\Traits\HasRoles;
  * Global model — not scoped to a tenant: authentication must survive cabang
  * switching. tenant_id records the user's home cabang.
  *
- * Authorization is tenant-level, not permission-level. Branch access is
- * answered by {@see TenantAccess}; the flags here are the only
- * identity distinctions that survive (spatie/laravel-permission is deferred).
+ * Branch access is answered by {@see TenantAccess}; feature authorization is
+ * answered by Spatie permissions (see ADR-0004). The super admin bypass has a
+ * single source of truth: {@see isSuperAdmin()}.
  */
 #[Fillable(['name', 'email', 'password', 'phone', 'employee_id', 'tenant_id', 'is_super_admin', 'is_hod'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -59,6 +59,16 @@ class User extends Authenticatable
             'is_super_admin' => 'boolean',
             'is_hod' => 'boolean',
         ];
+    }
+
+    /**
+     * The single source of truth for the super admin bypass (ADR-0004): the
+     * platform flag or the seeded super_admin role. Gate::before delegates
+     * here; nothing else should re-implement the two-source check.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->is_super_admin || $this->hasRole('super_admin');
     }
 
     /**

@@ -13,7 +13,7 @@ Primary users are:
 - HODs, such as Budi, who receive incoming Work Orders, decide whether to execute or schedule them, assign workers, monitor SLA risk, approve extensions, and verify results.
 - Field workers, such as Sari, who receive assignments, manage Daily Work, execute jobs, and submit notes and photo evidence from the field.
 
-Supporting role-based users are Team Leaders, DGM/GM, Super Admin, Admin Tenant/Cabang, and Viewer/Auditor, following the role set proven in the opti-work2 reference implementation. Requester is a capability available to every authenticated user, not an exclusive role; Direksi is deferred until a real need appears.
+Role-based users follow the nine-role set proven in the opti-work2 reference implementation: Super Admin, Admin Tenant/Cabang, General Manager, Deputy GM, HOD, Team Leader, Karyawan (the baseline role for general employees), Field Staff/Karyawan Pelaksana (the execution superset of Karyawan — a field worker holds both roles), and Viewer/Auditor. Requester is a capability available to every authenticated user, not an exclusive role; Direksi is deferred until a real need appears.
 
 ## Product Purpose
 

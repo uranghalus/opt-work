@@ -55,8 +55,12 @@ A named bundle of permissions deciding what a user may do; roles apply across al
 _Avoid_: level, jabatan (itu Position)
 
 **Permission**:
-A single named capability (read/create/update/delete/…) that routes and features gate access on.
-_Avoid_: hak (terlalu umum)
+A single named capability that routes and features gate access on, named `resource.action` and restricted to the verbs read, create, update, delete. UI label: Izin.
+_Avoid_: hak (terlalu umum), view/edit sebagai verb
+
+**System Role**:
+A role owned by the seeder; it cannot be deleted or renamed from Hak Akses, and super_admin additionally cannot have its permissions synced. The canonical set is nine roles: super_admin, admin_tenant, general_manager, deputy_general_manager, hod, team_leader, karyawan, field_staff, viewer. field_staff is the execution superset of karyawan: a field worker holds both roles, so the baseline permissions stay in karyawan. Roles created from Hak Akses are never system roles.
+_Avoid_: default role, role bawaan
 
 **Hak Akses**:
 The settings surface where roles are created, edited, deleted, and assigned permissions. Same concept as "RBAC management".

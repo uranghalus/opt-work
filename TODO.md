@@ -1,5 +1,39 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Next session — 2026-10-14 (RBAC v2: hak akses slices 1–5)
+
+### Done today
+
+- [x] RBAC v2 rebuild slices 1–5 green: `App\Models\Role` + is_system migration + config swap; seeder v2 (45 permissions, 9 system roles, idempotent, zero-perm super_admin, fail-loud on empty `auth.super_admin_email`); `User::isSuperAdmin()` + Gate::before + HandleInertiaRequests fix (hyphen→underscore, shared `can` flag, raw permission list removed); RoleController + PermissionController CRUD with server-side guards. Full suite: 264 tests, 256 passed, 8 skipped, 0 failed.
+- [x] Two-way permission consistency test: used ⊆ seeded, seeded ⊆ per-resource verb map (CRUD everywhere; review/assign/submit/verify on work-order only), unused ⊆ forward-looking allowlist, stale allowlist entries fail.
+- [x] Server-side guards shipped and tested: system roles no delete/rename, super_admin no permission sync, permission delete blocked while attached to a role, non-system roles with users cannot be deleted. Unique (name, guard_name) constraint confirmed present in the Spatie base migration.
+- [x] migrate:fresh --seed + second-run idempotency verified: customized hod permissions untouched, is_system only on the 9 canonical roles, super_admin 0 DB permissions, counts stable.
+- [x] Docs: ADR 0004 (v2) rewritten, CONTEXT.md/PRODUCT.md aligned to the 9-role list, issue file updated.
+
+### Continue tomorrow
+
+- [ ] Finish slices 6–8: frontend Peran page (table + dialogs + grouped tri-state Sheet), Izin page (table + batch dialog + group filter), nav "Hak Akses" entry gated by the `can('role.read')` shared flag — backend ships with placeholder pages only (S/M per page)
+- [ ] User↔role assignment on the Karyawan/Akun side — without it, created roles cannot be used; decide: field workers hold BOTH karyawan and field_staff (M)
+- [ ] Per-release "grant default permissions" step (migration or command) — seeder only syncs defaults on first role creation, so new catalogue permissions never reach existing roles (S)
+- [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
+- [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
+- [ ] Resolve PRD Open Questions blocking the WO flow: Team Leader modeling, Super Admin vs Direksi permissions, deadline ranges, extension count limits (M)
+
+### Deferred (do not start yet)
+
+- [ ] Page-access configuration (agreed: later phase, after CRUD)
+- [ ] Sidebar metadata permission-filtering (agreed: out of scope; single shared flag only)
+- [ ] Tenant (penyewa) CRUD (v2)
+- [ ] External notifications (WA/email gateway)
+- [ ] Advanced analytics/reporting
+
+### Known tradeoffs
+
+- [ ] Seeder re-creates permissions deleted via the UI (safe: delete is blocked while attached, so nothing re-attaches silently)
+- [ ] Seeder does not push new default permissions to existing roles — handled by the explicit per-release grant step above
+
+---
+
 ## Optigate sync — DONE 2026-10-10 (Phase 4 completion)
 
 **Full suite: 143 tests, 135 passed, 8 skipped, 0 failures.** Sync tests: 9/9 with `Http::fake`.

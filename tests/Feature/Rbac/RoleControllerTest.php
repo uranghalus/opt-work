@@ -18,28 +18,28 @@ function roleManager(array $permissions): User
 }
 
 it('redirects guests away from the roles index', function () {
-    $this->get('/settings/roles')->assertRedirect(route('saml.redirect'));
+    $this->get('/hak-akses')->assertRedirect(route('saml.redirect'));
 });
 
 it('denies the roles index without role.read', function () {
     $this->actingAs(createUser())
-        ->get('/settings/roles')
+        ->get('/hak-akses')
         ->assertForbidden();
 });
 
 it('renders the roles index for a user with role.read', function () {
     $this->actingAs(roleManager(['role.read']))
-        ->get('/settings/roles')
+        ->get('/hak-akses')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('settings/roles/index')
+            ->component('roles/index')
             ->has('roles.data')
             ->where('filters.search', ''));
 });
 
 it('renders the roles index for a super admin holding zero permissions', function () {
     $this->actingAs(makeSuperAdmin(createUser()))
-        ->get('/settings/roles')
+        ->get('/hak-akses')
         ->assertOk();
 });
 
@@ -47,7 +47,7 @@ it('searches roles by name', function () {
     Role::create(['name' => 'supervisor-gudang', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.read']))
-        ->get('/settings/roles?search=supervisor')
+        ->get('/hak-akses?search=supervisor')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('filters.search', 'supervisor')
@@ -56,7 +56,7 @@ it('searches roles by name', function () {
 
 it('stores a role for a user with role.create', function () {
     $this->actingAs(roleManager(['role.create']))
-        ->post('/settings/roles', ['name' => 'supervisor-gudang'])
+        ->post('/hak-akses', ['name' => 'supervisor-gudang'])
         ->assertRedirect();
 
     $role = Role::where('name', 'supervisor-gudang')->firstOrFail();
@@ -67,7 +67,7 @@ it('stores a role for a user with role.create', function () {
 
 it('stores a role together with its permissions', function () {
     $this->actingAs(roleManager(['role.create']))
-        ->post('/settings/roles', [
+        ->post('/hak-akses', [
             'name' => 'supervisor-gudang',
             'permissions' => ['work-order.read', 'dashboard.read'],
         ])
@@ -79,13 +79,13 @@ it('stores a role together with its permissions', function () {
 
 it('rejects a duplicate role name', function () {
     $this->actingAs(roleManager(['role.create']))
-        ->post('/settings/roles', ['name' => 'hod'])
+        ->post('/hak-akses', ['name' => 'hod'])
         ->assertSessionHasErrors('name');
 });
 
 it('rejects an unknown permission name with a validation error, not an exception', function () {
     $this->actingAs(roleManager(['role.create']))
-        ->post('/settings/roles', [
+        ->post('/hak-akses', [
             'name' => 'supervisor-gudang',
             'permissions' => ['nope.missing'],
         ])
@@ -96,7 +96,7 @@ it('renames a non-system role', function () {
     $role = Role::create(['name' => 'custom-role', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.update']))
-        ->patch('/settings/roles/'.$role->id, ['name' => 'renamed-role'])
+        ->patch('/hak-akses/'.$role->id, ['name' => 'renamed-role'])
         ->assertRedirect();
 
     expect($role->fresh()->name)->toBe('renamed-role');
@@ -106,7 +106,7 @@ it('refuses to rename a system role', function () {
     $hod = Role::findByName('hod');
 
     $this->actingAs(roleManager(['role.update']))
-        ->patch('/settings/roles/'.$hod->id, ['name' => 'kepala-bagian'])
+        ->patch('/hak-akses/'.$hod->id, ['name' => 'kepala-bagian'])
         ->assertSessionHasErrors('name');
 
     expect($hod->fresh()->name)->toBe('hod');
@@ -116,7 +116,7 @@ it('allows permission sync on a system role', function () {
     $hod = Role::findByName('hod');
 
     $this->actingAs(roleManager(['role.update']))
-        ->patch('/settings/roles/'.$hod->id, ['name' => 'hod', 'permissions' => ['work-order.read']])
+        ->patch('/hak-akses/'.$hod->id, ['name' => 'hod', 'permissions' => ['work-order.read']])
         ->assertRedirect();
 
     expect($hod->fresh()->permissions->pluck('name')->all())->toBe(['work-order.read']);
@@ -126,7 +126,7 @@ it('rejects renaming a role to an existing name', function () {
     $role = Role::create(['name' => 'custom-role', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.update']))
-        ->patch('/settings/roles/'.$role->id, ['name' => 'hod'])
+        ->patch('/hak-akses/'.$role->id, ['name' => 'hod'])
         ->assertSessionHasErrors('name');
 });
 
@@ -134,7 +134,7 @@ it('deletes a non-system role without users', function () {
     $role = Role::create(['name' => 'custom-role', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.delete']))
-        ->delete('/settings/roles/'.$role->id)
+        ->delete('/hak-akses/'.$role->id)
         ->assertRedirect();
 
     expect(Role::where('name', 'custom-role')->exists())->toBeFalse();
@@ -144,7 +144,7 @@ it('refuses to delete a system role', function () {
     $hod = Role::findByName('hod');
 
     $this->actingAs(roleManager(['role.delete']))
-        ->delete('/settings/roles/'.$hod->id)
+        ->delete('/hak-akses/'.$hod->id)
         ->assertSessionHasErrors('role');
 
     expect(Role::where('name', 'hod')->exists())->toBeTrue();
@@ -155,7 +155,7 @@ it('refuses to delete a role that still has users', function () {
     createUser()->assignRole($role);
 
     $this->actingAs(roleManager(['role.delete']))
-        ->delete('/settings/roles/'.$role->id)
+        ->delete('/hak-akses/'.$role->id)
         ->assertSessionHasErrors('role');
 
     expect(Role::where('name', 'custom-role')->exists())->toBeTrue();
@@ -165,7 +165,7 @@ it('syncs permissions through the dedicated endpoint', function () {
     $role = Role::create(['name' => 'custom-role', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.update']))
-        ->put('/settings/roles/'.$role->id.'/permissions', [
+        ->put('/hak-akses/'.$role->id.'/permissions', [
             'permissions' => ['work-order.read', 'dashboard.read'],
         ])
         ->assertRedirect();
@@ -178,7 +178,7 @@ it('refuses to sync permissions on the super_admin role', function () {
     $superAdmin = Role::findByName('super_admin');
 
     $this->actingAs(roleManager(['role.update']))
-        ->put('/settings/roles/'.$superAdmin->id.'/permissions', [
+        ->put('/hak-akses/'.$superAdmin->id.'/permissions', [
             'permissions' => ['dashboard.read'],
         ])
         ->assertSessionHasErrors('permissions');
@@ -190,7 +190,7 @@ it('rejects unknown permission names on the sync endpoint', function () {
     $role = Role::create(['name' => 'custom-role', 'guard_name' => 'web']);
 
     $this->actingAs(roleManager(['role.update']))
-        ->put('/settings/roles/'.$role->id.'/permissions', [
+        ->put('/hak-akses/'.$role->id.'/permissions', [
             'permissions' => ['nope.missing'],
         ])
         ->assertSessionHasErrors('permissions.0');

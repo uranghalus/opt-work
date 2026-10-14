@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\ProfileController;
-use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -35,16 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-// Hak Akses — global role management (ADR-0004). Deliberately outside the
-// {tenant} prefix: roles apply across all cabang. Every action is
-// permission-gated in the controller, not on the route.
-Route::middleware(['auth'])->prefix('settings/roles')->name('roles.')->group(function (): void {
-    Route::get('/', [RoleController::class, 'index'])->name('index');
-    Route::post('/', [RoleController::class, 'store'])->name('store');
-    Route::patch('{role}', [RoleController::class, 'update'])->name('update');
-    Route::delete('{role}', [RoleController::class, 'destroy'])->name('destroy');
-    Route::put('{role}/permissions', [RoleController::class, 'syncPermissions'])->name('permissions.sync');
-});
+// Hak Akses (roles) moved out of the settings section: see routes/hak-akses.php.
 
 Route::middleware(['auth'])->prefix('settings/permissions')->name('permissions.')->group(function (): void {
     Route::get('/', [PermissionController::class, 'index'])->name('index');

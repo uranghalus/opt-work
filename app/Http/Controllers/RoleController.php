@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Settings\StoreRoleRequest;
-use App\Http\Requests\Settings\UpdateRoleRequest;
+use App\Http\Requests\Role\StoreRoleRequest;
+use App\Http\Requests\Role\UpdateRoleRequest;
 use App\Models\Role;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -17,10 +16,10 @@ use Inertia\Response;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Hak Akses — Peran (roles). Global surface, outside the {tenant} prefix;
- * every action is permission-gated (ADR-0004). System roles cannot be renamed
- * or deleted, and the super_admin role's permissions are locked because its
- * Gate bypass makes them decorative.
+ * Hak Akses — Peran (roles). Global surface at /hak-akses, outside the
+ * {tenant} prefix; every action is permission-gated (ADR-0004). System roles
+ * cannot be renamed or deleted, and the super_admin role's permissions are
+ * locked because its Gate bypass makes them decorative.
  */
 class RoleController extends Controller
 {
@@ -46,7 +45,7 @@ class RoleController extends Controller
             ->paginate(min($request->integer('per_page', 10), 100))
             ->withQueryString();
 
-        return Inertia::render('settings/roles/index', [
+        return Inertia::render('roles/index', [
             'roles' => $roles,
             'filters' => [
                 'search' => $search,

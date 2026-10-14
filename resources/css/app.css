@@ -72,6 +72,17 @@
     --color-panel-ink-muted: var(--panel-ink-muted);
     --color-panel-ink-subtle: var(--panel-ink-subtle);
 
+    /* Hak Akses console stratum — deep pine-teal, panel-invariant */
+    --color-console: var(--console);
+    --color-console-raised: var(--console-raised);
+    --color-console-hover: var(--console-hover);
+    --color-console-active: var(--console-active);
+    --color-console-border: var(--console-border);
+    --color-console-ink: var(--console-ink);
+    --color-console-ink-muted: var(--console-ink-muted);
+    --color-console-ink-subtle: var(--console-ink-subtle);
+    --color-console-accent: var(--console-accent);
+
     /* Group/module identity hues — nav icon tints only, never status */
     --color-mod-ops: var(--mod-ops);
     --color-mod-master: var(--mod-master);
@@ -199,6 +210,20 @@
         #12262f 100%
     );
 
+    /* Console stratum (Hak Akses page) — a deep pine-teal ground instead of
+       neutral ink, so the page's dominant surface carries the brand hue and
+       black never dominates a content page. Panel-invariant like the nav
+       panel, tuned per app theme; mint accent for illumination. */
+    --console: #0c332d;
+    --console-raised: #11423a;
+    --console-hover: rgba(234, 246, 241, 0.06);
+    --console-active: rgba(62, 207, 166, 0.16);
+    --console-border: rgba(214, 245, 232, 0.11);
+    --console-ink: #eaf6f1;
+    --console-ink-muted: #9cc3b6;
+    --console-ink-subtle: #7aa89a;
+    --console-accent: #3ecfa6;
+
     /* Group identity hues (nav icon tints) */
     --mod-ops: #12a383; /* Stitch: mod-ops */
     --mod-master: #2f6fb5; /* Stitch: mod-master */
@@ -296,6 +321,14 @@
         #070d12 55%,
         #0a141c 100%
     );
+
+    /* Console stratum, after hours: a step deeper to sit against the darker
+       canvas; text scale and accent carry over unchanged. */
+    --console: #082521;
+    --console-raised: #0e352e;
+    --console-hover: rgba(234, 246, 241, 0.05);
+    --console-active: rgba(62, 207, 166, 0.18);
+    --console-border: rgba(214, 245, 232, 0.09);
 
     --mod-ops: #3ecfa6;
     --mod-master: #74acd8;
@@ -406,5 +439,31 @@
             transition-duration: 0.01ms !important;
             scroll-behavior: auto !important;
         }
+    }
+}
+
+/* Hak Akses console: one-shot commit sweep across the permission stage. */
+@keyframes console-sweep {
+    0% {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    40% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-3px);
+    }
+}
+
+.console-sweep {
+    animation: console-sweep 700ms var(--ease-standard) 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .console-sweep {
+        animation: none;
     }
 }

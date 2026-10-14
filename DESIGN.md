@@ -37,6 +37,15 @@ panel-border: "rgba(255, 255, 255, 0.09)"
 panel-ink: "#E7EFF4"
 panel-ink-muted: "#9DB0BC"
 panel-ink-subtle: "#6E8391"
+console: "#0C332D"
+console-raised: "#11423A"
+console-hover: "rgba(234, 246, 241, 0.06)"
+console-active: "rgba(62, 207, 166, 0.16)"
+console-border: "rgba(214, 245, 232, 0.11)"
+console-ink: "#EAF6F1"
+console-ink-muted: "#9CC3B6"
+console-ink-subtle: "#7AA89A"
+console-accent: "#3ECFA6"
 mod-ops: "#12A383"
 mod-master: "#2F6FB5"
 mod-system: "#8BA6B8"
@@ -244,6 +253,8 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 **The Twin-Tune Rule (dark mode).** Dark is authored, not inverted: teal and every signal colour are re-picked for their own contrast, `*-subtle` becomes an alpha tint over the card, and elevation shifts from hairline borders to deeper shadows. Both themes hold the same floors (body text ≥4.5:1).
 
 **The Group-Hue Rule.** `mod-ops`, `mod-master`, and `mod-system` tint navigation icons and the heading-band chip only. A group hue never encodes status, never fills a surface, and never appears without its label.
+
+**The Console Stratum Rule.** The Hak Akses console is a deep pine-teal stratum (`console` tokens, panel-invariant, tuned per theme) — the page's dominant surface carries the brand hue, and neutral black never dominates a content page. Each permission bank lights in its module's identity hue (icon chip, checked switches, coverage segments): hue is wayfinding ("which module"), never status. State keeps its own channel — mint (full), amber (partial), neutral (empty) — always paired with its word. super_admin's bypass seal wears brass, the caution metal, not mint.
 
 ## Typography
 

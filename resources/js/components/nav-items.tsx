@@ -244,6 +244,26 @@ export function navGroups({
             items: masterItems,
         },
         {
+            // Akses — first-class module, deliberately outside Sistem and the
+            // settings section (routes/hak-akses.php).
+            id: 'access',
+            label: 'Hak Akses',
+            tone: 'system',
+            items: [
+                ...(canReadRoles
+                    ? [
+                          {
+                              title: 'Peran',
+                              shortTitle: 'Peran',
+                              href: rolesIndex(),
+                              icon: ShieldCheck,
+                              tone: 'system',
+                          } satisfies OptiNavItem,
+                      ]
+                    : []),
+            ],
+        },
+        {
             id: 'system',
             label: 'Sistem',
             tone: 'system',
@@ -255,17 +275,6 @@ export function navGroups({
                               shortTitle: 'Atur',
                               href: tenants.index(),
                               icon: Settings,
-                              tone: 'system',
-                          } satisfies OptiNavItem,
-                      ]
-                    : []),
-                ...(canReadRoles
-                    ? [
-                          {
-                              title: 'Hak Akses',
-                              shortTitle: 'Akses',
-                              href: rolesIndex(),
-                              icon: ShieldCheck,
                               tone: 'system',
                           } satisfies OptiNavItem,
                       ]
@@ -284,10 +293,12 @@ export function navGroups({
 export function mainNavItems(context: NavContext): OptiNavItem[] {
     const groups = navGroups(context);
     const ops = groups.find((group) => group.id === 'ops');
+    const access = groups.find((group) => group.id === 'access');
     const system = groups.find((group) => group.id === 'system');
 
     return [
         ...(ops?.items ?? []),
+        ...(access?.items ?? []),
         ...(system?.items ?? []),
     ];
 }

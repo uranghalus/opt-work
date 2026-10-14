@@ -147,4 +147,5 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::resource('positions', PositionController::class)->names('positions');
 });
 
+require __DIR__.'/hak-akses.php';
 require __DIR__.'/settings.php';

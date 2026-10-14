@@ -103,10 +103,15 @@ class SyncTenants extends Command
         $maxAttempts = 3;
 
         for ($attempt = 1; ; $attempt++) {
+            $verifyConfig = config('services.optigate_portal.verify', true);
+            $verifyOption = (is_string($verifyConfig) && ! in_array(strtolower(trim($verifyConfig)), ['true', 'false', '1', '0'], true) && file_exists($verifyConfig))
+                ? $verifyConfig
+                : filter_var($verifyConfig, FILTER_VALIDATE_BOOLEAN);
+
             try {
                 $response = Http::withToken($token)
                     ->timeout(10)
-                    ->withOptions(['verify' => (bool) config('services.optigate_portal.verify', true)])
+                    ->withOptions(['verify' => $verifyOption])
                     ->get($url.'/api/companies', [
                         'paginate' => 'true',
                         'per_page' => self::PER_PAGE,

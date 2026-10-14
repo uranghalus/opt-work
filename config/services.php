@@ -19,7 +19,7 @@ return [
     'optigate_portal' => [
         'url' => env('WEB_PORTAL_URL'),
         'token' => env('WEB_PORTAL_TOKEN'),
-        'verify' => env('WEB_PORTAL_VERIFY_SSL', true),
+        'verify' => filter_var(env('WEB_PORTAL_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
     'saml2' => [

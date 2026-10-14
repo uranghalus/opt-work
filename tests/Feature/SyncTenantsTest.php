@@ -181,3 +181,20 @@ it('retries server errors before succeeding', function () {
     expect(Tenant::query()->count())->toBe(1)
         ->and(Http::recorded())->toHaveCount(2);
 });
+
+it('disables ssl verification when portal verify config is false or string false with whitespace', function () {
+    config(['services.optigate_portal.verify' => 'false ']);
+
+    $capturedVerify = null;
+    Http::fake(function ($request, array $options) use (&$capturedVerify) {
+        $capturedVerify = $options['verify'] ?? null;
+
+        return Http::response(optigateCompaniesResponse([
+            ['id' => 1, 'code' => 'TOP', 'name' => 'PT Tata Optima Property'],
+        ]));
+    });
+
+    $this->artisan('app:sync-tenants')->assertSuccessful();
+
+    expect($capturedVerify)->toBeFalse();
+});

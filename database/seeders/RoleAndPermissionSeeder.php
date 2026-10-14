@@ -18,8 +18,8 @@ use Spatie\Permission\PermissionRegistrar;
  *   unattached, so nothing silently re-attaches).
  * - Role defaults sync ONLY on first creation: re-runs never touch an existing
  *   role's permissions, so Hak Akses customizations survive.
- * - New permissions for existing roles are granted by an explicit per-release
- *   step (migration or command), never by making this seeder smarter.
+ * - New permissions for existing roles are granted by the per-release command
+ *   app:grant-default-permissions, never by making this seeder smarter.
  *
  * Verb map (enforced two-way by the consistency test): every resource carries
  * read/create/update/delete; work-order additionally carries the PRD lifecycle
@@ -80,11 +80,11 @@ class RoleAndPermissionSeeder extends Seeder
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        foreach ($this->catalogue() as $permission) {
+        foreach (self::catalogue() as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        foreach ($this->roleDefaults() as $roleName => $permissions) {
+        foreach (self::roleDefaults() as $roleName => $permissions) {
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
 
             if ($role->wasRecentlyCreated) {
@@ -112,9 +112,12 @@ class RoleAndPermissionSeeder extends Seeder
     /**
      * The full permission catalogue: resource.action, closed verb map.
      *
+     * Shared with app:grant-default-permissions — the per-release step reads
+     * the same catalogue and default map.
+     *
      * @return list<string>
      */
-    protected function catalogue(): array
+    public static function catalogue(): array
     {
         $masterDataPermissions = [
             'division.create', 'division.read', 'division.update', 'division.delete',
@@ -162,9 +165,12 @@ class RoleAndPermissionSeeder extends Seeder
      * Default permission sets, synced only when a role is first created.
      * super_admin stays empty: its Gate bypass is the single source of power.
      *
+     * Shared with app:grant-default-permissions — the per-release step grants
+     * any default missing from an existing role (additive-only).
+     *
      * @return array<string, list<string>>
      */
-    protected function roleDefaults(): array
+    public static function roleDefaults(): array
     {
         $masterDataPermissions = [
             'division.create', 'division.read', 'division.update', 'division.delete',

@@ -372,7 +372,7 @@ export default function Tenants({ tenants, filters, errors }: PageProps) {
                             </p>
                             <div className="flex items-center gap-2">
                                 {tenants.prev_page_url ? (
-                                    <Button variant="outline" size="sm" asChild>`n                                            className="h-11 md:h-8"
+                                    <Button variant="outline" size="sm" asChild className="h-11 md:h-8">
                                         <Link
                                             href={tenants.prev_page_url}
                                             preserveScroll
@@ -382,13 +382,13 @@ export default function Tenants({ tenants, filters, errors }: PageProps) {
                                         </Link>
                                     </Button>
                                 ) : (
-                                    <Button variant="outline" size="sm" disabled>`n                                            className="h-11 md:h-8"
+                                    <Button variant="outline" size="sm" disabled className="h-11 md:h-8">
                                         <ChevronLeft aria-hidden />
                                         Sebelumnya
                                     </Button>
                                 )}
                                 {tenants.next_page_url ? (
-                                    <Button variant="outline" size="sm" asChild>`n                                            className="h-11 md:h-8"
+                                    <Button variant="outline" size="sm" asChild className="h-11 md:h-8">
                                         <Link
                                             href={tenants.next_page_url}
                                             preserveScroll
@@ -398,7 +398,7 @@ export default function Tenants({ tenants, filters, errors }: PageProps) {
                                         </Link>
                                     </Button>
                                 ) : (
-                                    <Button variant="outline" size="sm" disabled>`n                                            className="h-11 md:h-8"
+                                    <Button variant="outline" size="sm" disabled className="h-11 md:h-8">
                                         Selanjutnya
                                         <ChevronRight aria-hidden />
                                     </Button>

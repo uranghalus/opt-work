@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +43,7 @@ export default function AppLogo({
     subtitle,
     className,
 }: Props) {
-    const { name } = usePage().props;
+    const { name } = usePage<InertiaConfig['sharedPageProps']>().props;
     const [head, tail] = splitBrand(name ?? '');
     const onPanel = variant === 'panel';
 

@@ -13,6 +13,14 @@ export type Auth = {
     user: User;
     /** Platform-level account: may access any unit bisnis (see SamlTenantResolver). */
     isSuperAdmin: boolean;
+    /**
+     * Gate-computed ability flags (ADR-0004) — never the raw permission list.
+     * A super admin holds zero DB permissions by design, so flags must
+     * survive the Gate bypass.
+     */
+    can?: {
+        'role.read': boolean;
+    };
 };
 
 /**

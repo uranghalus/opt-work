@@ -93,6 +93,7 @@ export function BottomNav() {
     const groups = navGroups({
         activeTenant,
         isSuperAdmin: auth?.isSuperAdmin,
+        canReadRoles: auth?.can?.['role.read'],
     });
 
     return (

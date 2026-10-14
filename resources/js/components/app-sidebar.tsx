@@ -234,6 +234,7 @@ export function AppSidebar() {
     const groups = navGroups({
         activeTenant,
         isSuperAdmin: auth?.isSuperAdmin,
+        canReadRoles: auth?.can?.['role.read'],
     });
     const unread = Number(unreadNotificationsCount ?? 0);
 

@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import { LifeBuoy, LogOut } from 'lucide-react';
 import {
     mainNavItems,
@@ -75,7 +76,8 @@ function RailLogout() {
 }
 
 export function IconRail() {
-    const { activeTenant, auth } = usePage().props;
+    const { activeTenant, auth } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
 
     return (
         <aside
@@ -92,6 +94,7 @@ export function IconRail() {
                 {mainNavItems({
                     activeTenant,
                     isSuperAdmin: auth?.isSuperAdmin,
+                    canReadRoles: auth?.can?.['role.read'],
                 }).map((item) => (
                     <RailLink key={item.title} item={item} />
                 ))}

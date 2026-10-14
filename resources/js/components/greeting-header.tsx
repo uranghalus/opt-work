@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import { greetingName, timeGreeting } from '@/lib/greeting';
 
 /*
@@ -12,7 +13,7 @@ export function GreetingHeader({
     subtitle?: string;
     className?: string;
 }) {
-    const { auth } = usePage().props;
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const name = greetingName(auth.user?.name);
 
     return (

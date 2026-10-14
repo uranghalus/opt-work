@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import { ChevronsUpDown, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -23,7 +24,7 @@ import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
     Avatar click opens the account dropdown. The former role line is gone with
     RBAC; the identity flag returns with it. */
 export function NavUser() {
-    const { auth } = usePage().props;
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const { state } = useSidebar();
     const isMobile = useIsMobile();
     const getInitials = useInitials();

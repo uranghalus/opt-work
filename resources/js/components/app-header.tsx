@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import { Bell, ChevronDown, Menu, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AppLogo from '@/components/app-logo';
@@ -122,7 +123,8 @@ function PillTab({ item }: { item: OptiNavItem }) {
 
 /** Tablet hamburger: opens the full navigation sheet. */
 function MobileMenu() {
-    const { activeTenant, auth } = usePage().props;
+    const { activeTenant, auth } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
 
     return (
         <Sheet>
@@ -155,6 +157,7 @@ function MobileMenu() {
                         {mainNavItems({
                             activeTenant,
                             isSuperAdmin: auth?.isSuperAdmin,
+                            canReadRoles: auth?.can?.['role.read'],
                         }).map((item) => (
                             <SheetNavLink key={item.title} item={item} />
                         ))}
@@ -219,7 +222,8 @@ function SheetNavLink({ item }: { item: OptiNavItem }) {
 }
 
 function NotificationButton() {
-    const { unreadNotificationsCount } = usePage().props;
+    const { unreadNotificationsCount } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
     const unread = Number(unreadNotificationsCount ?? 0);
     const label = unread > 99 ? '99+' : unread;
 
@@ -302,7 +306,7 @@ function AppearanceMenu() {
 }
 
 function UserMenu() {
-    const page = usePage();
+    const page = usePage<InertiaConfig['sharedPageProps']>();
     const { auth } = page.props;
     const getInitials = useInitials();
 
@@ -350,7 +354,7 @@ function UserMenu() {
 
 /** Logo orb plus the active cabang chip — cabang context stays operational truth. */
 function HeaderBrand() {
-    const { activeTenant } = usePage().props;
+    const { activeTenant } = usePage<InertiaConfig['sharedPageProps']>().props;
 
     return (
         <div className="flex min-w-0 items-center gap-2.5">
@@ -373,7 +377,8 @@ function HeaderBrand() {
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const scrolled = useScrolled();
-    const { activeTenant, auth } = usePage().props;
+    const { activeTenant, auth } =
+        usePage<InertiaConfig['sharedPageProps']>().props;
 
     return (
         <header
@@ -402,6 +407,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     items={mainNavItems({
                         activeTenant,
                         isSuperAdmin: auth?.isSuperAdmin,
+                        canReadRoles: auth?.can?.['role.read'],
                     })}
                 />
 

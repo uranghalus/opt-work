@@ -19,6 +19,7 @@ import departments from '@/routes/departments';
 import divisions from '@/routes/divisions';
 import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
+import { index as rolesIndex } from '@/routes/roles';
 import positions from '@/routes/positions';
 import { index as workOrdersIndex } from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
@@ -79,6 +80,11 @@ type NavContext = {
     activeTenant?: string | null;
     /** Unit Bisnis management is a platform-level, super-admin-only surface. */
     isSuperAdmin?: boolean;
+    /**
+     * Hak Akses surfaces are gated by the shared `can('role.read')` flag
+     * (ADR-0004), computed through the Gate — not the raw permission list.
+     */
+    canReadRoles?: boolean;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -130,6 +136,7 @@ function modulePending(
 export function navGroups({
     activeTenant = null,
     isSuperAdmin = false,
+    canReadRoles = false,
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
 
@@ -240,17 +247,30 @@ export function navGroups({
             id: 'system',
             label: 'Sistem',
             tone: 'system',
-            items: isSuperAdmin
-                ? [
-                      {
-                          title: 'Pengaturan',
-                          shortTitle: 'Atur',
-                          href: tenants.index(),
-                          icon: Settings,
-                          tone: 'system',
-                      } satisfies OptiNavItem,
-                  ]
-                : [],
+            items: [
+                ...(isSuperAdmin
+                    ? [
+                          {
+                              title: 'Pengaturan',
+                              shortTitle: 'Atur',
+                              href: tenants.index(),
+                              icon: Settings,
+                              tone: 'system',
+                          } satisfies OptiNavItem,
+                      ]
+                    : []),
+                ...(canReadRoles
+                    ? [
+                          {
+                              title: 'Hak Akses',
+                              shortTitle: 'Akses',
+                              href: rolesIndex(),
+                              icon: ShieldCheck,
+                              tone: 'system',
+                          } satisfies OptiNavItem,
+                      ]
+                    : []),
+            ],
         },
     ];
 

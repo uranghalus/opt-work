@@ -1,23 +1,29 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
-## Next session — 2026-10-14 (RBAC v2: hak akses slices 1–5)
+## Next session — 2026-10-14 (RBAC v2: hak akses slices 6–8 frontend)
 
 ### Done today
 
-- [x] RBAC v2 rebuild slices 1–5 green: `App\Models\Role` + is_system migration + config swap; seeder v2 (45 permissions, 9 system roles, idempotent, zero-perm super_admin, fail-loud on empty `auth.super_admin_email`); `User::isSuperAdmin()` + Gate::before + HandleInertiaRequests fix (hyphen→underscore, shared `can` flag, raw permission list removed); RoleController + PermissionController CRUD with server-side guards. Full suite: 264 tests, 256 passed, 8 skipped, 0 failed.
-- [x] Two-way permission consistency test: used ⊆ seeded, seeded ⊆ per-resource verb map (CRUD everywhere; review/assign/submit/verify on work-order only), unused ⊆ forward-looking allowlist, stale allowlist entries fail.
-- [x] Server-side guards shipped and tested: system roles no delete/rename, super_admin no permission sync, permission delete blocked while attached to a role, non-system roles with users cannot be deleted. Unique (name, guard_name) constraint confirmed present in the Spatie base migration.
-- [x] migrate:fresh --seed + second-run idempotency verified: customized hod permissions untouched, is_system only on the 9 canonical roles, super_admin 0 DB permissions, counts stable.
-- [x] Docs: ADR 0004 (v2) rewritten, CONTEXT.md/PRODUCT.md aligned to the 9-role list, issue file updated.
+- [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion).
+- [x] Full suite 265 tests: 257 passed, 8 skipped (2FA), 0 failed. `npm run build` hijau (wayfinder + tsc + vp build). Impeccable mechanical detector pada 6 file UI: 0 temuan.
+- [x] Root-cause fix baseline merah: `types:check` gagal 44 error di HEAD (7 file pakai `usePage()` tanpa generic `InertiaConfig['sharedPageProps']`) → semua ditambahkan generic, tsc kini EXIT=0 di seluruh codebase.
+- [x] Bugfix `settings/tenants/index.tsx`: 4 tombol paginasi mengandung artifact backtick-n (JSX text nyasar) yang membuat Radix Slot crash saat paginasi Unit Bisnis — diperbaiki.
 
 ### Continue tomorrow
 
-- [ ] Finish slices 6–8: frontend Peran page (table + dialogs + grouped tri-state Sheet), Izin page (table + batch dialog + group filter), nav "Hak Akses" entry gated by the `can('role.read')` shared flag — backend ships with placeholder pages only (S/M per page)
+- [ ] Verifikasi visual manual slices 6–8: buka /settings/roles dan /settings/permissions (login dengan user ber-role.read) — cek light+dark, Sheet tri-state, dialog error state; screenshot round impeccable belum bisa dijalankan (tidak ada browser tooling di harness)
 - [ ] User↔role assignment on the Karyawan/Akun side — without it, created roles cannot be used; decide: field workers hold BOTH karyawan and field_staff (M)
 - [ ] Per-release "grant default permissions" step (migration or command) — seeder only syncs defaults on first role creation, so new catalogue permissions never reach existing roles (S)
 - [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
+- [ ] Pertimbangkan: shared flag `can` tambahan (role.create/update/delete, permission.*) untuk menyembunyikan tombol aksi di Peran/Izin dari user tanpa izin — saat ini server yang menolak, UI masih menampilkan tombolnya
 - [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
 - [ ] Resolve PRD Open Questions blocking the WO flow: Team Leader modeling, Super Admin vs Direksi permissions, deadline ranges, extension count limits (M)
+
+### Catatan keputusan hari ini
+
+- Reactbits: CountUp/Counter dilewati (butuh dep baru `motion` — butuh approval); dipakai AnimatedContent (GSAP, sudah ada) + SpotlightCard (zero-dep). SplitText.jsx hasil vendor sesi sebelumnya tidak disentuh.
+- Heading-band actions = komponen self-contained yang memiliki dialognya sendiri (mengikuti pola SyncButton/Employees) — tidak perlu jembatan state page.
+- `form.post(store.url())` / `form.patch(update.url(args))`: useForm Inertia v3 hanya menerima string URL; `router.*` menerima RouteDefinition langsung.
 
 ### Deferred (do not start yet)
 

@@ -122,7 +122,7 @@ class RoleAndPermissionSeeder extends Seeder
         $masterDataPermissions = [
             'division.create', 'division.read', 'division.update', 'division.delete',
             'department.create', 'department.read', 'department.update', 'department.delete',
-            'employee.create', 'employee.read', 'employee.update', 'employee.delete',
+            'employee.read',
             'tenant.create', 'tenant.read', 'tenant.update', 'tenant.delete',
         ];
 
@@ -149,12 +149,19 @@ class RoleAndPermissionSeeder extends Seeder
             'permission.create', 'permission.read', 'permission.update', 'permission.delete',
         ];
 
+        // Akun — role assignment on the user record of a linked employee
+        // (ADR-0005). create/delete land with the Akun CRUD surface.
+        $akunPermissions = [
+            'akun.create', 'akun.read', 'akun.update', 'akun.delete',
+        ];
+
         return [
             ...$masterDataPermissions,
             ...$workOrderPermissions,
             ...$workPlanningPermissions,
             ...$workDataPermissions,
             ...$dailyWorkPermissions,
+            ...$akunPermissions,
             'dashboard.read',
             'reports.read',
             ...$hakAksesPermissions,
@@ -175,7 +182,7 @@ class RoleAndPermissionSeeder extends Seeder
         $masterDataPermissions = [
             'division.create', 'division.read', 'division.update', 'division.delete',
             'department.create', 'department.read', 'department.update', 'department.delete',
-            'employee.create', 'employee.read', 'employee.update', 'employee.delete',
+            'employee.read',
             'tenant.create', 'tenant.read', 'tenant.update', 'tenant.delete',
         ];
 
@@ -196,6 +203,12 @@ class RoleAndPermissionSeeder extends Seeder
             'daily-work.create', 'daily-work.read', 'daily-work.update',
         ];
 
+        // Akun — role assignment on the user record of a linked employee
+        // (ADR-0005). create/delete land with the Akun CRUD surface.
+        $akunPermissions = [
+            'akun.create', 'akun.read', 'akun.update', 'akun.delete',
+        ];
+
         $readMasterData = fn (array $permissions) => array_map(
             fn (string $p) => str_replace(['.create', '.update', '.delete'], '.read', $p),
             $permissions,
@@ -206,6 +219,7 @@ class RoleAndPermissionSeeder extends Seeder
 
             'admin_tenant' => [
                 ...$masterDataPermissions,
+                ...$akunPermissions,
                 ...$workOrderPermissions,
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,

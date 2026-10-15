@@ -4,6 +4,7 @@
 
 ### Done today
 
+- [x] **Role assignment ticket 01 (ADR-0005):** scope dippersempit via grill — assignment pada akun lewat halaman karyawan. Katalog `akun.*` + release grant ke admin_tenant; payload `akun` di `employees.show` ber-gate `akun.read` (resolusi manual mengikuti pola ban/WorkOrderController); section "Peran Akun" read-only. Ticket 02 (sync guarded) & 03 (can flags) siap di `.scratch/role-assignment/issues/`. Verifikasi: 277 tests (269 passed, 8 skipped), pint bersih, build exit 0. WIP sesi 11-10 (drop CRUD lokal karyawan) ikut di-commit.
 - [x] **Per-release grant command `app:grant-default-permissions`:** menutup gap seeder (default hanya disync saat role pertama dibuat → izin katalog baru tidak pernah sampai ke role existing). Additive-only (tidak pernah mencabut, kustomisasi Hak Akses selamat), membuat izin katalog yang hilang (firstOrCreate), provisioning 9 role kanonik + invarian `is_system`, tidak pernah memberi apa-apa ke super_admin (bypass gate), `--dry-run`, idempoten. Seeder `catalogue()`/`roleDefaults()` dipromosikan public static sebagai sumber kebenaran bersama. Verifikasi: 18/18 test (7 baru) + full suite 272 tests (264 passed, 8 skipped, 0 failed), pint bersih, dry-run live di DB dev = 0 perubahan. Commit `5071fec`.
 - [x] **Halaman Peran di-revamp total + keluar dari settings (Vault Console):** URL `/settings/roles` → `/hak-akses` (route names `roles.*` tetap), controller `Settings\RoleController` → `RoleController`, requests → `App\Http\Requests\Role\*`, routes dipindah ke `routes/hak-akses.php`, page `settings/roles/index.tsx` → `pages/roles/index.tsx` (AppLayout, bukan SettingsLayout), nav: grup baru "Hak Akses" (item "Peran") di antara Data Master dan Sistem. Desain baru: dark console stratum (panel tokens, gelap di kedua theme) — rail token peran (nama + mono id + mini coverage strip 12 segmen + count izin/pengguna, urutan hierarki PRD) + stage bank izin per resource (LED tri-state Penuh/Parsial/Kosong + count, master checkbox tri-state, verb chips ber-LED), super_admin = sealed plate tanpa switch, commit bar dirty-state + sweep animation, search debounce server-side + paginasi rail. Tabel dihapus. Verifikasi: `RoleControllerTest` 19/19, `npm run build` hijau, detector impeccable 0 temuan, screenshot Chrome headless (desktop/dirty/sealed/dark/mobile) via playwright-core --no-save (user sementara sudah dihapus). Bukti: `.impeccable/review/*.png`.
 - [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion). ← *desain Peran di atas sudah digantikan Vault Console; komponen vendor tetap dipakai di Izin.*
@@ -11,15 +12,32 @@
 - [x] Root-cause fix baseline merah: `types:check` gagal 44 error di HEAD (7 file pakai `usePage()` tanpa generic `InertiaConfig['sharedPageProps']`) → semua ditambahkan generic, tsc kini EXIT=0 di seluruh codebase.
 - [x] Bugfix `settings/tenants/index.tsx`: 4 tombol paginasi mengandung artifact backtick-n (JSX text nyasar) yang membuat Radix Slot crash saat paginasi Unit Bisnis — diperbaiki.
 
-### Continue tomorrow
+### Work plan — next session (role assignment: tickets 02–03)
 
-- [ ] Verifikasi visual manual sisa slice 8: buka /settings/permissions (login dengan user ber-role.read) — cek light+dark, dialog error state. Halaman Peran sudah terverifikasi via screenshot nyata (desktop + mobile + dark + dirty + sealed, lihat `.impeccable/review/`); URL-nya kini `/hak-akses`.
-- [ ] ADR-0004 masih menulis "Routes live at `/settings/roles`" — docs/ read-only, jadi catat di vault (Decisions/) bahwa route Peran kini `/hak-akses`; pertimbangkan memperbarui ADR saat sesi berikutnya mengubah hak akses lagi.
-- [ ] User↔role assignment on the Karyawan/Akun side — without it, created roles cannot be used; decide: field workers hold BOTH karyawan and field_staff (M)
+1. [ ] **Ticket 02 — Assign & revoke roles on the linked Akun, guarded (M):** role-sync endpoint (`akun.update`-gated, controller convention), dialog multi-select on karyawan page, `super_admin` rejected server-side, pair invariant field_staff⇄karyawan enforced, flags/department FKs untouched, fresh role effective on next request (pivot not cached — tested). Acceptance criteria: `.scratch/role-assignment/issues/02-assign-revoke-roles-guarded.md`
+2. [ ] **Ticket 03 — Hide Peran/Izin action buttons without rights (S):** shared `can` flags (`role.*`, `permission.*`) via Gate in `HandleInertiaRequests`, pages hide buttons. Acceptance criteria: `.scratch/role-assignment/issues/03-hide-peran-izin-action-buttons.md`
+3. [ ] Ticket 02 selesai → hapus entri allowlist `akun.update` ("gated when role-sync lands") dari `PermissionConsistencyTest` di commit yang sama (honesty test)
+4. [ ] Verifikasi visual manual sisa slice 8: buka `/settings/permissions` (login dengan user ber-role.read) — cek light+dark, dialog error state (sisa dari 2026-10-13)
+5. [ ] Vault sync: salin ADR-0005 + catatan route `/hak-akses` ke `Decisions/`, link dari `Index.md` (ADR-0004 sudah diperbaiki in-repo)
+6. [ ] Setelah 02+03 green: mulai **WO slice 1** (create → review → assign; UBA = tanpa opsi jadwal) — plan lama tersimpan di git history `.claude/plan/2026-10-14-work-plan.md`
+
+### References for tomorrow (read before starting)
+
+- `docs/adr/0005-user-role-assignment.md` — keputusan slice ini (JANGAN di-re-litigate)
+- `docs/adr/0004-hak-akses-surface.md` — baseline RBAC: verb map, allowlist, guards, bypass super admin
+- `.scratch/role-assignment/issues/02-assign-revoke-roles-guarded.md` + `03-hide-peran-izin-action-buttons.md` — acceptance criteria per ticket
+- `.claude/plan/2026-10-14-work-plan.md` — plan hasil grill (settled decisions Q1–Q10)
+- `CONTEXT.md` — glossary: Akun, Role Assignment, System Role, Hak Akses
+- `tests/Feature/Rbac/RoleControllerTest.php` — pola test (acting user, tenant, gate) yang ditiru; `tests/Feature/Rbac/EmployeeAkunRolesTest.php` = ticket 01
+- `Sessions/2026-10/16/0033-akun-role-read-surface.md` — log sesi pengerjaan ticket 01
+
+### Deferred
+
 - [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
-- [ ] Pertimbangkan: shared flag `can` tambahan (role.create/update/delete, permission.*) untuk menyembunyikan tombol aksi di Peran/Izin dari user tanpa izin — saat ini server yang menolak, UI masih menampilkan tombolnya
 - [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
-- [ ] Resolve PRD Open Questions blocking the WO flow: Team Leader modeling, Super Admin vs Direksi permissions, deadline ranges, extension count limits (M)
+- [ ] Akun CRUD surface (link/unlink login) — owns `akun.create`/`akun.delete`, currently allowlisted "gated when the Akun surface lands"
+
+Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.md (Team Leader = role Spatie; deadline urgent 3/normal 6; extend 3 hari/3 approved; Direksi ditunda).
 
 ### Catatan keputusan hari ini
 

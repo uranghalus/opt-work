@@ -121,10 +121,11 @@ function rbacForwardLookingPermissions(): array
         'department.read' => 'gated when master data moves to permissions',
         'department.update' => 'gated when master data moves to permissions',
         'department.delete' => 'gated when master data moves to permissions',
-        'employee.create' => 'gated when master data moves to permissions',
         'employee.read' => 'gated when master data moves to permissions',
-        'employee.update' => 'gated when master data moves to permissions',
-        'employee.delete' => 'gated when master data moves to permissions',
+        'tenant.create' => 'gated when master data moves to permissions',
+        'tenant.read' => 'gated when master data moves to permissions',
+        'tenant.update' => 'gated when master data moves to permissions',
+        'tenant.delete' => 'gated when master data moves to permissions',
         'tenant.create' => 'gated when master data moves to permissions',
         'tenant.read' => 'gated when master data moves to permissions',
         'tenant.update' => 'gated when master data moves to permissions',
@@ -142,6 +143,12 @@ function rbacForwardLookingPermissions(): array
         'daily-work.create' => 'gated when the module lands',
         'daily-work.read' => 'gated when the module lands',
         'daily-work.update' => 'gated when the module lands',
+
+        // akun — role assignment (ADR-0005); update gated when role-sync lands,
+        // create/delete gated when the Akun CRUD surface lands.
+        'akun.update' => 'gated when role-sync lands',
+        'akun.create' => 'gated when the Akun surface lands',
+        'akun.delete' => 'gated when the Akun surface lands',
 
         // Dashboard / reports — gated when reporting lands.
         'dashboard.read' => 'gated when reporting lands',

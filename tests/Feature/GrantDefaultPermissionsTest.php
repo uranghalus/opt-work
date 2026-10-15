@@ -72,6 +72,14 @@ it('dry-run reports the plan without writing', function () {
         ->and(Role::findByName('hod')->permissions->pluck('name')->all())->toBe(['work-order.read']);
 });
 
+it('grants the akun defaults to admin_tenant', function () {
+    Artisan::call('app:grant-default-permissions');
+
+    $names = Role::findByName('admin_tenant')->permissions->pluck('name')->all();
+
+    expect($names)->toContain('akun.read', 'akun.update', 'akun.create', 'akun.delete');
+});
+
 it('is self-sufficient on a database without the seeder', function () {
     // Fresh state: drop what the seeder created, keep the users table intact.
     foreach (Role::all() as $role) {

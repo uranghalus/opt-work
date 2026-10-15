@@ -5,10 +5,7 @@ namespace App\Http\Controllers\MasterData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
-use App\Models\Department;
-use App\Models\Division;
 use App\Models\Employee;
-use App\Models\Position;
 use App\Models\Tenant;
 use App\Queries\EmployeeQuery;
 use Illuminate\Console\Command;
@@ -16,7 +13,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -47,113 +43,40 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function create(): Response
+    /**
+     * The karyawan is resolved manually against the route's tenant: implicit
+     * binding runs before tenancy bootstraps, so the BelongsToTenant scope
+     * cannot be trusted at bind time (same reason ban/unban and
+     * WorkOrderController resolve their own models).
+     */
+    public function show(Request $request): Response
     {
-        return Inertia::render('employees/create', [
-            'divisions' => Division::query()->orderBy('nama_division')->get(['id', 'nama_division']),
-            'departments' => Department::query()->orderBy('kode_department')->get(['id', 'kode_department', 'nama_department']),
-            'positions' => Position::query()->orderBy('nama_position')->get(['id', 'nama_position']),
-        ]);
-    }
+        $employee = $this->resolveEmployeeFromRoute($request);
+        $employee->load(['department', 'position', 'division']);
 
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'nik_employee' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('employees', 'nik_employee')->where('tenant_id', tenant()?->getTenantKey()),
-            ],
-            'nama_employee' => ['required', 'string', 'max:255'],
-            'email' => [
-                'nullable',
-                'email',
-                'max:255',
-                Rule::unique('employees', 'email')->where('tenant_id', tenant()?->getTenantKey()),
-            ],
-            'number' => ['nullable', 'string', 'max:255'],
-            'photo_url' => ['nullable', 'string', 'max:2048'],
-            'department_id' => ['nullable', Rule::exists('departments', 'id')->where('tenant_id', tenant()?->getTenantKey())],
-            'position_id' => ['nullable', Rule::exists('positions', 'id')->where('tenant_id', tenant()?->getTenantKey())],
-            'division_id' => ['nullable', Rule::exists('divisions', 'id')->where('tenant_id', tenant()?->getTenantKey())],
-        ]);
+        $akun = null;
 
-        Employee::create($validated);
+        if ($request->user()?->can('akun.read')) {
+            $akunUser = $employee->user()->first();
 
-        return redirect()
-            ->route('employees.index', ['tenant' => tenant()?->code])
-            ->with('success', 'Karyawan berhasil dibuat.');
-    }
+            $akun = $akunUser === null
+                ? ['exists' => false]
+                : [
+                    'exists' => true,
+                    'email' => $akunUser->email,
+                    'roles' => $akunUser->getRoleNames()->toArray(),
+                ];
+        }
 
-    public function show(Employee $employee): Response
-    {
         return Inertia::render('employees/show', [
-            'employee' => $employee->load(['department', 'position', 'division']),
-        ]);
-    }
-
-    public function edit(Employee $employee): Response
-    {
-        return Inertia::render('employees/edit', [
             'employee' => $employee,
-            'divisions' => Division::query()->orderBy('nama_division')->get(['id', 'nama_division']),
-            'departments' => Department::query()->orderBy('kode_department')->get(['id', 'kode_department', 'nama_department']),
-            'positions' => Position::query()->orderBy('nama_position')->get(['id', 'nama_position']),
+            'akun' => $akun,
         ]);
-    }
-
-    public function update(Request $request, Employee $employee): RedirectResponse
-    {
-        $validated = $request->validate([
-            'nik_employee' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('employees', 'nik_employee')
-                    ->where('tenant_id', $employee->tenant_id)
-                    ->ignore($employee),
-            ],
-            'nama_employee' => ['required', 'string', 'max:255'],
-            'email' => [
-                'nullable',
-                'email',
-                'max:255',
-                Rule::unique('employees', 'email')
-                    ->where('tenant_id', $employee->tenant_id)
-                    ->ignore($employee),
-            ],
-            'number' => ['nullable', 'string', 'max:255'],
-            'photo_url' => ['nullable', 'string', 'max:2048'],
-            'department_id' => ['nullable', Rule::exists('departments', 'id')->where('tenant_id', $employee->tenant_id)],
-            'position_id' => ['nullable', Rule::exists('positions', 'id')->where('tenant_id', $employee->tenant_id)],
-            'division_id' => ['nullable', Rule::exists('divisions', 'id')->where('tenant_id', $employee->tenant_id)],
-        ]);
-
-        $employee->update($validated);
-
-        return redirect()
-            ->route('employees.show', ['tenant' => $employee->tenant->code, 'employee' => $employee])
-            ->with('success', 'Karyawan berhasil diperbarui.');
-    }
-
-    public function destroy(Employee $employee): RedirectResponse
-    {
-        $employee->delete();
-
-        return redirect()
-            ->route('employees.index', ['tenant' => tenant()?->code])
-            ->with('success', 'Karyawan berhasil dihapus.');
     }
 
     /**
      * Diblokir a karyawan (record-level block, superadmin only). The block
      * survives portal syncs; the linked akun, if any, is untouched.
-     *
-     * The karyawan is resolved manually against the route's tenant: implicit
-     * binding runs before tenancy bootstraps, so the BelongsToTenant scope
-     * cannot be trusted at bind time (same reason WorkOrderController does
-     * its own resolution).
      */
     public function ban(Request $request): RedirectResponse
     {
@@ -178,29 +101,6 @@ class EmployeeController extends Controller
         $employee->forceFill(['banned_at' => null])->save();
 
         return back()->with('success', "Blokir {$employee->nama_employee} dibatalkan.");
-    }
-
-    /**
-     * Resolve the {employee} of the {tenant} route, refusing any karyawan
-     * that does not belong to that cabang (no IDOR across cabang).
-     */
-    protected function resolveEmployeeFromRoute(Request $request): Employee
-    {
-        $tenant = Tenant::whereCode((string) $request->route('tenant'))->first();
-        abort_unless($tenant !== null, 404);
-
-        return Employee::withoutGlobalScope('tenant')
-            ->where('id', (string) $request->route('employee'))
-            ->where('tenant_id', $tenant->id)
-            ->firstOrFail();
-    }
-
-    /**
-     * Blokir management is a superadmin capability for now.
-     */
-    protected function authorizeBan(Request $request): void
-    {
-        abort_unless($request->user()?->is_super_admin, 403, 'Hanya superadmin yang dapat memblokir karyawan.');
     }
 
     /**
@@ -230,5 +130,28 @@ class EmployeeController extends Controller
             ->first(fn (string $line) => str_contains($line, 'Sinkronisasi selesai'));
 
         return back()->with('success', $summary ?? 'Sinkronisasi selesai.');
+    }
+
+    /**
+     * Resolve the {employee} of the {tenant} route, refusing any karyawan
+     * that does not belong to that cabang (no IDOR across cabang).
+     */
+    protected function resolveEmployeeFromRoute(Request $request): Employee
+    {
+        $tenant = Tenant::whereCode((string) $request->route('tenant'))->first();
+        abort_unless($tenant !== null, 404);
+
+        return Employee::withoutGlobalScope('tenant')
+            ->where('id', (string) $request->route('employee'))
+            ->where('tenant_id', $tenant->id)
+            ->firstOrFail();
+    }
+
+    /**
+     * Blokir management is a superadmin capability for now.
+     */
+    protected function authorizeBan(Request $request): void
+    {
+        abort_unless($request->user()?->is_super_admin, 403, 'Hanya superadmin yang dapat memblokir karyawan.');
     }
 }

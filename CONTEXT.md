@@ -67,8 +67,12 @@ The settings surface where roles are created, edited, deleted, and assigned perm
 _Avoid_: manajemen user (itu assign karyawan)
 
 **Akun**:
-The application login linked to a Karyawan. A Karyawan synced from the portal has no Akun until one is linked locally; having an Akun is visible state, never implied by the portal data.
+The application login linked to a Karyawan; Roles attach to the Akun, never to the Karyawan record. A Karyawan synced from the portal has no Akun until one is linked locally; having an Akun is visible state, never implied by the portal data.
 _Avoid_: user (untuk arti akun karyawan), status (untuk indikator keberadaan akun)
+
+**Role Assignment (Penugasan Peran)**:
+Granting or revoking Roles on an Akun. A Role says what a login may do; it never decides which department a person leads — that is the department's HOD designation. A field worker's field_staff Role always travels with karyawan.
+_Avoid_: manajemen user, set permission (itu mengubah Izin di dalam Role), angkat HOD (itu penunjukan di department)
 
 **Blokir**:
 A record-level block on a Karyawan. A diblokir Karyawan stays in the data (never deleted), and the portal sync never clears the block. Distinct from a unit usaha's status: blokir binds to the person, not the cabang.

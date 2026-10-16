@@ -20,6 +20,15 @@ export type Auth = {
      */
     can?: {
         'role.read': boolean;
+        'role.create': boolean;
+        'role.update': boolean;
+        'role.delete': boolean;
+        'permission.read': boolean;
+        'permission.create': boolean;
+        'permission.update': boolean;
+        'permission.delete': boolean;
+        'akun.read': boolean;
+        'akun.update': boolean;
     };
 };
 

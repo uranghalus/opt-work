@@ -31,13 +31,14 @@ class SamlTenantResolver
 
     /**
      * Platform-level bypass: this account may reach any unit bisnis without
-     * being tied to the company in the assertion. Kept in one place so it
-     * can be replaced by Spatie Permission later.
+     * being tied to the company in the assertion. Single source of truth is
+     * User::isSuperAdmin() (flag or super_admin role) — the configured email
+     * only identifies which account the seeder provisions, never the check
+     * itself (Task 3 / ADR-0004 rule 7).
      */
     public function canAccessAnyTenant(User $user): bool
     {
-        return $user->is_super_admin
-            || strcasecmp($user->email ?? '', (string) config('auth.super_admin_email', 'superadmin@appdutamall.com')) === 0;
+        return $user->isSuperAdmin();
     }
 
     /**

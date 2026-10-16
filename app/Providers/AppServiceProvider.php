@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\LoginResponse;
+use App\Services\LoginLanding;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Saml2\Provider;
 
@@ -20,7 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Password login lands through the same role-aware rule as SAML
+        // (LoginLanding) instead of the dead config('fortify.home') route.
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
     }
 
     /**

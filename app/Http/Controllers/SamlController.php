@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\LoginLanding;
 use App\Services\SamlTenantResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class SamlController extends Controller
 {
     public function __construct(
         protected SamlTenantResolver $tenantResolver,
+        protected LoginLanding $landing,
     ) {}
 
     /**
@@ -73,6 +75,13 @@ class SamlController extends Controller
         // A stale relay state from an abandoned SP-initiated flow must not
         // make a later IdP-initiated response look state-forged.
         request()->session()->forget('state');
+
+        // Role-aware landing (one rule for every login path): platform
+        // accounts are never denied; a login with no active role ends the
+        // session before any tenant resolution.
+        if (! $user->isSuperAdmin() && ! $user->roles()->exists()) {
+            return $this->landing->deny('no_role');
+        }
 
         $resolution = $this->tenantResolver->resolve($samlUser);
 

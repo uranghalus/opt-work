@@ -96,6 +96,8 @@ Route::prefix('saml')->group(function () {
             'no_match' => 'Perusahaan pada akun Anda belum terdaftar sebagai unit bisnis. Minta administrator menjalankan sinkronisasi.',
             'multiple_matches' => 'Data perusahaan Anda terdeteksi ganda pada sistem. Hubungi administrator untuk perbaikan.',
             'inactive' => 'Unit bisnis Anda sedang tidak aktif. Hubungi administrator untuk mengaktifkannya kembali.',
+            'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
+            'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
         ];
 
         $reason = session('saml.denial_reason');
@@ -138,6 +140,10 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
     Route::post('employees/sync', [EmployeeController::class, 'sync'])->name('employees.sync');
+    // Role assignment on the linked akun (ADR-0005): route ungated, the
+    // controller authorizes via Gate::authorize('akun.update').
+    Route::post('employees/{employee}/akun/roles', [EmployeeController::class, 'syncAkunRoles'])
+        ->name('employees.akun.roles.sync');
     // Record-level block on a karyawan (superadmin only); survives portal syncs.
     Route::post('employees/{employee}/ban', [EmployeeController::class, 'ban'])->name('employees.ban');
     Route::post('employees/{employee}/unban', [EmployeeController::class, 'unban'])->name('employees.unban');

@@ -1,11 +1,17 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
+use Spatie\Permission\Models\Role;
 
 test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+    // A role with a home tenant lands on that cabang's dashboard — the
+    // settled role-aware landing (Task 2), replacing the dead fortify.home.
+    $tenant = Tenant::factory()->create();
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole(Role::firstOrCreate(['name' => 'karyawan', 'guard_name' => 'web']));
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
@@ -13,10 +19,7 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    // Fortify redirects to the configured home. The proper landing flow for
-    // users without a home tenant is still open (see .scratch/superadmin-login
-    // /issues/04b), so this asserts the configured target, not a tenant route.
-    $response->assertRedirect(config('fortify.home'));
+    $response->assertRedirect(route('dashboard', ['tenant' => $tenant->code]));
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

@@ -1,17 +1,34 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     BadgeCheck,
+    Briefcase,
     Building2,
-    Calendar,
     Hash,
+    LoaderCircle,
+    Lock,
     Mail,
+    Pencil,
     Phone,
     ShieldCheck,
     User,
-    Briefcase,
 } from 'lucide-react';
+import { useState } from 'react';
+import { sync } from '@/routes/employees/akun/roles';
+import { useRequiredTenant } from '@/lib/tenant';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
     kode_department: string;
@@ -52,6 +69,21 @@ type PageProps = {
     akun?: Akun | null;
 };
 
+/**
+ * Assignable roles on this surface: the canonical system roles minus
+ * super_admin, which is never assignable (ADR-0005 decision 4).
+ */
+const ASSIGNABLE_ROLES = [
+    'admin_tenant',
+    'general_manager',
+    'deputy_general_manager',
+    'hod',
+    'team_leader',
+    'karyawan',
+    'field_staff',
+    'viewer',
+] as const;
+
 function getInitials(name: string) {
     return name
         .split(' ')
@@ -59,6 +91,119 @@ function getInitials(name: string) {
         .slice(0, 2)
         .join('')
         .toUpperCase();
+}
+
+/**
+ * Self-contained heading-band-style action (SyncButton pattern): owns its
+ * dialog, form state, and error surfacing. Hidden without `akun.update`.
+ */
+function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun }) {
+    const tenant = useRequiredTenant('employees.show');
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ roles: string[] }>({
+        roles: akun.roles ?? [],
+    });
+
+    // Hidden without akun.update; the server rejects regardless (ADR-0005).
+    if (!auth?.can?.['akun.update']) {
+        return null;
+    }
+
+    const close = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            form.clearErrors();
+        }
+    };
+
+    const toggle = (role: string, checked: boolean) => {
+        const current = form.data.roles;
+        form.setData(
+            'roles',
+            checked
+                ? [...new Set([...current, role])]
+                : current.filter(r => r !== role),
+        );
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.post(sync({ tenant, employee: employeeId }).url, {
+            preserveScroll: true,
+            onSuccess: () => close(false),
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={close}>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+                <Pencil aria-hidden className="size-3.5" />
+                Ubah Peran
+            </Button>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Ubah Peran Akun</DialogTitle>
+                    <DialogDescription>
+                        Peran pada akun {akun.email}. Perubahan berlaku pada
+                        request berikutnya tanpa login ulang.
+                    </DialogDescription>
+                </DialogHeader>
+                {form.errors.roles && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{form.errors.roles}</AlertDescription>
+                    </Alert>
+                )}
+                <form onSubmit={submit} className="space-y-4">
+                    <div className="space-y-2">
+                        {ASSIGNABLE_ROLES.map(role => (
+                            <div
+                                key={role}
+                                className="flex items-center justify-between rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800"
+                            >
+                                <Label
+                                    htmlFor={`akun-role-${role}`}
+                                    className="cursor-pointer font-mono text-sm"
+                                >
+                                    {role}
+                                </Label>
+                                <Checkbox
+                                    id={`akun-role-${role}`}
+                                    checked={form.data.roles.includes(role)}
+                                    onCheckedChange={checked =>
+                                        toggle(role, checked === true)
+                                    }
+                                />
+                            </div>
+                        ))}
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            field_staff selalu berpasangan dengan karyawan:
+                            memberikan field_staff otomatis menambahkan
+                            karyawan.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => close(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing && (
+                                <LoaderCircle
+                                    aria-hidden
+                                    className="animate-spin"
+                                />
+                            )}
+                            Simpan
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 export default function ShowEmployee({ employee, akun }: PageProps) {
@@ -104,6 +249,8 @@ export default function ShowEmployee({ employee, akun }: PageProps) {
             color: 'from-rose-500 to-red-500',
         },
     ];
+
+    const akunSealed = akun?.roles?.includes('super_admin') ?? false;
 
     return (
         <>
@@ -213,14 +360,36 @@ export default function ShowEmployee({ employee, akun }: PageProps) {
 
                     {akun != null && (
                         <div className="mt-10 rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
-                                <ShieldCheck className="size-5 text-violet-500" />
-                                Peran Akun
-                            </h2>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+                                    <ShieldCheck className="size-5 text-violet-500" />
+                                    Peran Akun
+                                </h2>
+                                {/* Not rendered at all when there is no linked
+                                    akun; read-only when the akun is sealed. */}
+                                {akun.exists && !akunSealed && (
+                                    <UbahPeranAction
+                                        key={(akun.roles ?? []).join('|')}
+                                        employeeId={employee.id}
+                                        akun={akun}
+                                    />
+                                )}
+                            </div>
                             {!akun.exists ? (
                                 <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
                                     Belum ada akun yang terhubung untuk karyawan ini.
                                 </p>
+                            ) : akunSealed ? (
+                                <div className="mt-3 rounded-xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                                    <p className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+                                        <Lock aria-hidden className="size-3.5" />
+                                        Akun super admin
+                                    </p>
+                                    <p className="mt-1 text-sm text-amber-700/90 dark:text-amber-300/80">
+                                        Akun ini melewati semua gate, sehingga
+                                        perannya tidak dapat diubah di sini.
+                                    </p>
+                                </div>
                             ) : (
                                 <div className="mt-3 space-y-3">
                                     <p className="text-sm text-slate-600 dark:text-slate-400">{akun.email}</p>

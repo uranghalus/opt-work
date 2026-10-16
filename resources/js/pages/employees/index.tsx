@@ -610,12 +610,6 @@ export default function Employees({ employees, filters, errors }: PageProps) {
         );
     }, [appliedFilters, tenant]);
 
-    // Re-align toolbar when paginating server-side
-    useEffect(() => {
-        setSearchTerm(filters.search);
-        setAppliedFilters(filters);
-    }, [employees.current_page]);
-
     const clearFilters = () => {
         setSearchTerm("");
         setAppliedFilters({

@@ -6,6 +6,7 @@ use App\Services\SamlTenantResolver;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
+use Spatie\Permission\Models\Role;
 use Tests\Support\FakeIdentityProvider;
 
 beforeEach(function () {
@@ -39,8 +40,22 @@ function loginWithAssertion(array $options = [])
         ->get(FakeIdentityProvider::assertionResponseUrl($options));
 }
 
+/**
+ * A role-holding akun for the assertion's email. Logins without any active
+ * role are denied (Task 2), so every test exercising tenant-resolution
+ * mechanics acts as a user the role-assignment surface has already provisioned.
+ */
+function assertionUserWithRole(): User
+{
+    $user = User::factory()->create(['email' => FakeIdentityProvider::EMAIL]);
+    $user->assignRole(Role::firstOrCreate(['name' => 'karyawan', 'guard_name' => 'web']));
+
+    return $user;
+}
+
 it('matches the assertion company by name and lands on the tenant dashboard', function () {
     $tenant = matchingTenant();
+    assertionUserWithRole();
 
     loginWithAssertion()
         ->assertRedirect(route('dashboard', ['tenant' => 'test-co'], absolute: false));
@@ -54,6 +69,7 @@ it('matches the assertion company by name and lands on the tenant dashboard', fu
 
 it('matches case-insensitively and after trimming whitespace', function () {
     $tenant = matchingTenant(['name' => 'PT Optigate Test']);
+    assertionUserWithRole();
 
     // A real assertion may carry stray surrounding whitespace or different
     // casing; matching stays exact after trim + case folding, nothing fuzzy.
@@ -65,6 +81,7 @@ it('matches case-insensitively and after trimming whitespace', function () {
 
 it('never matches partially or fuzzily', function () {
     matchingTenant(['name' => 'PT Optigate Test Banjarmasin']);
+    assertionUserWithRole();
 
     loginWithAssertion(['company' => 'PT Optigate'])
         ->assertRedirect(route('saml.denied', absolute: false));
@@ -73,6 +90,8 @@ it('never matches partially or fuzzily', function () {
 });
 
 it('denies access when no tenant matches and never auto-creates one', function () {
+    assertionUserWithRole();
+
     loginWithAssertion(['company' => 'Perusahaan Tak Terdaftar'])
         ->assertRedirect(route('saml.denied', absolute: false));
 
@@ -82,6 +101,7 @@ it('denies access when no tenant matches and never auto-creates one', function (
 
 it('logs a warning with the assertion identifiers when no tenant matches', function () {
     Log::spy();
+    assertionUserWithRole();
 
     loginWithAssertion(['company' => 'Perusahaan Tak Terdaftar']);
 
@@ -96,6 +116,7 @@ it('denies access when more than one tenant matches and never picks one', functi
     // repeat — a duplicate name must deny, not guess.
     matchingTenant(['code' => 'first']);
     matchingTenant(['code' => 'second', 'optigate_company_id' => 99]);
+    assertionUserWithRole();
 
     loginWithAssertion()
         ->assertRedirect(route('saml.denied', absolute: false));
@@ -108,6 +129,7 @@ it('logs an error when multiple tenants match', function () {
 
     matchingTenant(['code' => 'first']);
     matchingTenant(['code' => 'second', 'optigate_company_id' => 99]);
+    assertionUserWithRole();
 
     loginWithAssertion();
 
@@ -117,6 +139,7 @@ it('logs an error when multiple tenants match', function () {
 
 it('denies access when the matching tenant is inactive', function () {
     matchingTenant(['is_active' => false]);
+    assertionUserWithRole();
 
     loginWithAssertion()
         ->assertRedirect(route('saml.denied', absolute: false));
@@ -126,6 +149,7 @@ it('denies access when the matching tenant is inactive', function () {
 
 it('denies access when the matching tenant was deactivated by the sync', function () {
     matchingTenant(['deactivated_at' => now()]);
+    assertionUserWithRole();
 
     loginWithAssertion()
         ->assertRedirect(route('saml.denied', absolute: false));
@@ -134,6 +158,8 @@ it('denies access when the matching tenant was deactivated by the sync', functio
 });
 
 it('denies access when the assertion carries no company data', function () {
+    assertionUserWithRole();
+
     loginWithAssertion(['company' => null])
         ->assertRedirect(route('saml.denied', absolute: false));
 
@@ -142,6 +168,7 @@ it('denies access when the assertion carries no company data', function () {
 
 it('logs a warning with the assertion identifiers when the assertion carries no company data', function () {
     Log::spy();
+    assertionUserWithRole();
 
     loginWithAssertion(['company' => null]);
 
@@ -151,6 +178,8 @@ it('logs a warning with the assertion identifiers when the assertion carries no 
 });
 
 it('sends the denied user to an error page that explains the reason', function () {
+    assertionUserWithRole();
+
     loginWithAssertion(['company' => 'Perusahaan Tak Terdaftar']);
 
     $this->get(route('saml.denied'))
@@ -179,14 +208,17 @@ it('lands a super admin straight on the assertion company dashboard', function (
         ->and(Tenant::current()?->is($tenant))->toBeTrue();
 });
 
-it('lets the configured super admin email bypass a non-matching company', function () {
+it('lets the seeded super admin account bypass a non-matching company', function () {
     $user = User::factory()->create([
         'email' => 'superadmin@appdutamall.com',
         'is_super_admin' => false,
     ]);
 
-    // The assertion must name the super admin account itself; the flag-less
-    // bypass keys off the configured email, not off any local attribute.
+    // The seeder provisions this account with the super_admin role (Task 3);
+    // the bypass runs through the role + Gate::before, never through the
+    // configured email.
+    $user->assignRole(Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']));
+
     loginWithAssertion([
         'company' => 'Perusahaan Tak Terdaftar',
         'email' => 'superadmin@appdutamall.com',

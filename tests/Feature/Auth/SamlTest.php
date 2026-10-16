@@ -7,6 +7,7 @@ use Laravel\Socialite\Facades\Socialite;
 use LightSaml\SamlConstants;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Saml2\Provider;
+use Spatie\Permission\Models\Role;
 use Tests\Support\FakeIdentityProvider;
 
 use function Pest\Laravel\actingAs;
@@ -60,9 +61,10 @@ test('the redirect route remembers the relay state in the session', function () 
 });
 
 test('a signed response completes login and creates the user', function () {
-    // The assertion's company resolves to this unit bisnis, so the ACS
-    // handler activates it and lands the user on its dashboard.
-    $tenant = Tenant::factory()->create([
+    // The assertion's company resolves to this unit bisnis, but a first-time
+    // SAML user holds no role yet, so the role-aware login gate denies the
+    // session (Task 2) — the account itself is still created.
+    Tenant::factory()->create([
         'name' => FakeIdentityProvider::COMPANY,
         'code' => 'test-co',
     ]);
@@ -70,18 +72,29 @@ test('a signed response completes login and creates the user', function () {
     $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl());
 
-    $response->assertRedirect(route('dashboard', ['tenant' => 'test-co'], absolute: false));
+    // A first-time SAML user holds no role yet, so the role-aware login
+    // gate denies the session (Task 2) — but the account itself is created.
+    $response->assertRedirect(route('saml.denied', absolute: false))
+        ->assertSessionHas('saml.denial_reason', 'no_role');
 
     $user = User::query()->sole();
 
     expect($user->email)->toBe(FakeIdentityProvider::EMAIL)
         ->and($user->name)->toBe(FakeIdentityProvider::NAME)
-        ->and($user->fresh()->tenant_id)->toBe($tenant->id)
-        ->and($this->app['auth']->guard()->user()?->is($user))->toBeTrue();
+        // No role means no tenant resolution: the home tenant stays unset
+        // until the akun is provisioned and the next login lands it.
+        ->and($user->fresh()->tenant_id)->toBeNull()
+        ->and($this->app['auth']->guard()->check())->toBeFalse();
 });
 
 test('a signed response logs an existing user back in without duplicating the account', function () {
+    Tenant::factory()->create([
+        'name' => FakeIdentityProvider::COMPANY,
+        'code' => 'test-co',
+    ]);
+
     $user = User::factory()->create(['email' => FakeIdentityProvider::EMAIL]);
+    $user->assignRole(Role::firstOrCreate(['name' => 'karyawan', 'guard_name' => 'web']));
 
     $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl());
@@ -93,6 +106,14 @@ test('a signed response logs an existing user back in without duplicating the ac
 test('an idp initiated response without sp initiated state is accepted as stateless', function () {
     // No "state" in the session: the identity provider started the flow
     // (IdP-initiated SSO), which never carries our relay state.
+    Tenant::factory()->create([
+        'name' => FakeIdentityProvider::COMPANY,
+        'code' => 'test-co',
+    ]);
+
+    $user = User::factory()->create(['email' => FakeIdentityProvider::EMAIL]);
+    $user->assignRole(Role::firstOrCreate(['name' => 'karyawan', 'guard_name' => 'web']));
+
     $this->get(FakeIdentityProvider::assertionResponseUrl());
 
     expect($this->app['auth']->guard()->check())->toBeTrue();

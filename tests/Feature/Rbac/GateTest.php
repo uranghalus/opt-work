@@ -56,6 +56,79 @@ it('gives a user with role.read the shared flag and denies users without it', fu
     expect((new HandleInertiaRequests)->share(requestForUser($denied))['auth']['can']['role.read'])->toBeFalse();
 });
 
+it('shares the full hak-akses flag set with a user holding them', function () {
+    (new RoleAndPermissionSeeder)->run();
+
+    $manager = createUser();
+    $manager->givePermissionTo([
+        'role.read',
+        'role.create',
+        'role.update',
+        'role.delete',
+        'permission.read',
+        'permission.create',
+        'permission.update',
+        'permission.delete',
+    ]);
+
+    $can = (new HandleInertiaRequests)->share(requestForUser($manager))['auth']['can'];
+
+    expect($can)->toBe([
+        'role.read' => true,
+        'role.create' => true,
+        'role.update' => true,
+        'role.delete' => true,
+        'permission.read' => true,
+        'permission.create' => true,
+        'permission.update' => true,
+        'permission.delete' => true,
+        'akun.read' => false,
+        'akun.update' => false,
+    ]);
+});
+
+it('shares only role.read with a read-only viewer', function () {
+    (new RoleAndPermissionSeeder)->run();
+
+    $viewer = createUser();
+    $viewer->givePermissionTo('role.read');
+
+    $can = (new HandleInertiaRequests)->share(requestForUser($viewer))['auth']['can'];
+
+    expect($can)->toBe([
+        'role.read' => true,
+        'role.create' => false,
+        'role.update' => false,
+        'role.delete' => false,
+        'permission.read' => false,
+        'permission.create' => false,
+        'permission.update' => false,
+        'permission.delete' => false,
+        'akun.read' => false,
+        'akun.update' => false,
+    ]);
+});
+
+it('shares the full hak-akses flag set with a super admin holding zero permissions', function () {
+    (new RoleAndPermissionSeeder)->run();
+    $admin = makeSuperAdmin(createUser());
+
+    $can = (new HandleInertiaRequests)->share(requestForUser($admin))['auth']['can'];
+
+    expect($can)->toBe([
+        'role.read' => true,
+        'role.create' => true,
+        'role.update' => true,
+        'role.delete' => true,
+        'permission.read' => true,
+        'permission.create' => true,
+        'permission.update' => true,
+        'permission.delete' => true,
+        'akun.read' => true,
+        'akun.update' => true,
+    ]);
+});
+
 it('does not expose the raw permission list in shared props', function () {
     (new RoleAndPermissionSeeder)->run();
 

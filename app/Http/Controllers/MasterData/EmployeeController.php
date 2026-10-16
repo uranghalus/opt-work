@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Employee\SyncAkunRolesRequest;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -145,6 +148,48 @@ class EmployeeController extends Controller
             ->where('id', (string) $request->route('employee'))
             ->where('tenant_id', $tenant->id)
             ->firstOrFail();
+    }
+
+    /**
+     * Sinkronisasi peran akun karyawan (ADR-0005). The submitted set replaces
+     * the current set inside one transaction; the pair invariant and the
+     * super_admin seal are guarded before any write, and the write touches
+     * only Spatie roles — never identity flags or department links.
+     */
+    public function syncAkunRoles(SyncAkunRolesRequest $request): RedirectResponse
+    {
+        Gate::authorize('akun.update');
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+        $akun = $employee->user()->first();
+
+        abort_unless($akun !== null, 403, 'Karyawan ini tidak memiliki akun pengguna.');
+
+        if ($akun->hasRole('super_admin')) {
+            return back()->withErrors(['roles' => 'Peran akun super admin tidak dapat diubah di sini.']);
+        }
+
+        $requested = $request->validated('roles');
+
+        // Pair invariant (ADR-0005 decision 5): dropping karyawan while the
+        // submission keeps field_staff would silently break the pair — reject
+        // it instead of re-adding the role behind the editor's back.
+        if (in_array('field_staff', $requested, true) && ! in_array('karyawan', $requested, true) && $akun->hasRole('field_staff')) {
+            return back()->withErrors(['roles' => 'field_staff selalu berpasangan dengan karyawan. Lepaskan field_staff terlebih dahulu, atau tetap sertakan karyawan.']);
+        }
+
+        // Granting field_staff auto-attaches karyawan (the execution superset
+        // keeps its baseline role); revoking field_staff leaves karyawan.
+        $final = $requested;
+        if (in_array('field_staff', $final, true) && ! in_array('karyawan', $final, true)) {
+            $final[] = 'karyawan';
+        }
+
+        DB::transaction(function () use ($akun, $final): void {
+            $akun->syncRoles($final);
+        });
+
+        return back()->with('success', "Peran akun {$employee->nama_employee} diperbarui.");
     }
 
     /**

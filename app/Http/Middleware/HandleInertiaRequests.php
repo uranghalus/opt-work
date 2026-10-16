@@ -85,6 +85,15 @@ class HandleInertiaRequests extends Middleware
                 // by design, so flags must survive the bypass (ADR-0004).
                 'can' => [
                     'role.read' => (bool) ($user?->can('role.read')),
+                    'role.create' => (bool) ($user?->can('role.create')),
+                    'role.update' => (bool) ($user?->can('role.update')),
+                    'role.delete' => (bool) ($user?->can('role.delete')),
+                    'permission.read' => (bool) ($user?->can('permission.read')),
+                    'permission.create' => (bool) ($user?->can('permission.create')),
+                    'permission.update' => (bool) ($user?->can('permission.update')),
+                    'permission.delete' => (bool) ($user?->can('permission.delete')),
+                    'akun.read' => (bool) ($user?->can('akun.read')),
+                    'akun.update' => (bool) ($user?->can('akun.update')),
                 ],
             ],
             'tenant' => $currentTenant,

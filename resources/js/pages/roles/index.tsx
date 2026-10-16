@@ -1,10 +1,4 @@
-import {
-    Head,
-    Link,
-    router,
-    usePage,
-    useForm,
-} from '@inertiajs/react';
+import { Head, Link, router, usePage, useForm } from '@inertiajs/react';
 import {
     BarChart3,
     Boxes,
@@ -32,12 +26,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-    destroy,
-    index,
-    store,
-    update,
-} from '@/routes/roles';
+import { destroy, index, store, update } from '@/routes/roles';
 import { sync as syncRolePermissions } from '@/routes/roles/permissions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -240,7 +229,7 @@ function BankLed({ state }: { state: BankState }) {
                 className={cn(
                     'size-2 rounded-full transition-colors duration-200',
                     state === 'full' &&
-                    'bg-console-accent shadow-[0_0_6px_rgba(62,207,166,0.6)]',
+                        'bg-console-accent shadow-[0_0_6px_rgba(62,207,166,0.6)]',
                     state === 'partial' && AMBER.dot,
                     state === 'empty' && 'bg-console-border',
                 )}
@@ -349,8 +338,14 @@ function GateBypassBadge() {
  * instantiates layout actions with no props, so this component owns its dialog.
  */
 function CreateRoleAction() {
+    const { auth } = usePage<FlashProps>().props;
     const [open, setOpen] = useState(false);
     const form = useForm({ name: '' });
+
+    // Hidden without role.create; the server rejects regardless.
+    if (!auth?.can?.['role.create']) {
+        return null;
+    }
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
@@ -637,16 +632,19 @@ function VerbChip({
     permission,
     checked,
     onToggle,
+    disabled = false,
 }: {
     permission: PermissionRef;
     checked: boolean;
     onToggle: () => void;
+    disabled?: boolean;
 }) {
     return (
         <Label
             htmlFor={`perm-${permission.id}`}
             className={cn(
-                'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 transition-colors duration-200',
+                'flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 transition-colors duration-200',
+                disabled ? 'cursor-default' : 'cursor-pointer',
                 checked
                     ? 'border-[var(--bank-hue-ring)] bg-[var(--bank-hue-soft)]'
                     : 'border-console-border/80 hover:border-console-ink-subtle/50',
@@ -656,6 +654,7 @@ function VerbChip({
                 id={`perm-${permission.id}`}
                 checked={checked}
                 onCheckedChange={onToggle}
+                disabled={disabled}
                 className={cn(
                     'size-3.5 shrink-0 rounded-full transition-all duration-200 [&_svg]:size-2.5',
                     checked
@@ -688,11 +687,13 @@ function PermissionBank({
     pending,
     onToggleOne,
     onToggleGroup,
+    readOnly = false,
 }: {
     group: PermissionGroup;
     pending: Set<string>;
     onToggleOne: (name: string) => void;
     onToggleGroup: (group: PermissionGroup, checkAll: boolean) => void;
+    readOnly?: boolean;
 }) {
     const total = group.permissions.length;
     const selected = group.permissions.filter((permission) =>
@@ -748,12 +749,16 @@ function PermissionBank({
                             checked === true || checked === 'indeterminate',
                         )
                     }
+                    disabled={readOnly}
                     aria-label={`Semua izin ${groupLabel(group.group)}`}
                     className="border-console-ink-subtle/60 bg-transparent data-[state=checked]:border-[var(--bank-hue)] data-[state=checked]:bg-[var(--bank-hue)] data-[state=checked]:text-console data-[state=indeterminate]:border-[var(--bank-hue)] data-[state=indeterminate]:bg-[var(--bank-hue)] data-[state=indeterminate]:text-console"
                 />
                 <Label
                     htmlFor={`group-${group.group}`}
-                    className="cursor-pointer text-xs font-medium text-console-ink-muted"
+                    className={cn(
+                        'text-xs font-medium text-console-ink-muted',
+                        readOnly ? 'cursor-default' : 'cursor-pointer',
+                    )}
                 >
                     Semua izin grup
                 </Label>
@@ -766,6 +771,7 @@ function PermissionBank({
                         permission={permission}
                         checked={pending.has(permission.name)}
                         onToggle={() => onToggleOne(permission.name)}
+                        disabled={readOnly}
                     />
                 ))}
             </div>
@@ -787,7 +793,7 @@ function SealedPlate({ className }: { className?: string }) {
         >
             <span
                 aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:repeating-linear-gradient(45deg,transparent_0_10px,rgba(255,255,255,0.7)_10px_11px)]"
+                className="pointer-events-none absolute inset-0 [background-image:repeating-linear-gradient(45deg,transparent_0_10px,rgba(255,255,255,0.7)_10px_11px)] opacity-[0.05]"
             />
             <span
                 aria-hidden
@@ -799,8 +805,8 @@ function SealedPlate({ className }: { className?: string }) {
                 Izin super_admin terkunci
             </p>
             <p className="relative max-w-md text-sm leading-relaxed text-console-ink-muted">
-                Peran ini melewati semua gate, sehingga izin pada database
-                tidak berpengaruh dan tidak dapat diubah.
+                Peran ini melewati semua gate, sehingga izin pada database tidak
+                berpengaruh dan tidak dapat diubah.
             </p>
             <p className="relative font-mono text-xs text-console-ink-muted">
                 0 izin tersimpan di database
@@ -811,15 +817,24 @@ function SealedPlate({ className }: { className?: string }) {
 
 function RoleStageMenu({
     role,
+    canUpdate,
+    canDelete,
     onRename,
     onDelete,
 }: {
     role: RoleRow;
+    canUpdate: boolean;
+    canDelete: boolean;
     onRename: () => void;
     onDelete: () => void;
 }) {
     const renameBlocked = role.is_system;
     const deleteBlocked = role.is_system || role.users_count > 0;
+
+    // No actionable entry without update or delete rights.
+    if (!canUpdate && !canDelete) {
+        return null;
+    }
 
     return (
         <DropdownMenu>
@@ -834,34 +849,38 @@ function RoleStageMenu({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem
-                    disabled={renameBlocked}
-                    onSelect={() => !renameBlocked && onRename()}
-                >
-                    <Pencil aria-hidden />
-                    Ubah nama
-                    {renameBlocked && (
-                        <span className="block text-xs font-normal text-ink-muted">
-                            Peran sistem tidak dapat diubah namanya.
-                        </span>
-                    )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                    variant="destructive"
-                    disabled={deleteBlocked}
-                    onSelect={() => !deleteBlocked && onDelete()}
-                >
-                    <Trash2 aria-hidden />
-                    Hapus
-                    {deleteBlocked && (
-                        <span className="block text-xs font-normal text-ink-muted">
-                            {role.is_system
-                                ? 'Peran sistem tidak dapat dihapus.'
-                                : 'Peran masih dipakai oleh pengguna.'}
-                        </span>
-                    )}
-                </DropdownMenuItem>
+                {canUpdate && (
+                    <DropdownMenuItem
+                        disabled={renameBlocked}
+                        onSelect={() => !renameBlocked && onRename()}
+                    >
+                        <Pencil aria-hidden />
+                        Ubah nama
+                        {renameBlocked && (
+                            <span className="block text-xs font-normal text-ink-muted">
+                                Peran sistem tidak dapat diubah namanya.
+                            </span>
+                        )}
+                    </DropdownMenuItem>
+                )}
+                {canUpdate && canDelete && <DropdownMenuSeparator />}
+                {canDelete && (
+                    <DropdownMenuItem
+                        variant="destructive"
+                        disabled={deleteBlocked}
+                        onSelect={() => !deleteBlocked && onDelete()}
+                    >
+                        <Trash2 aria-hidden />
+                        Hapus
+                        {deleteBlocked && (
+                            <span className="block text-xs font-normal text-ink-muted">
+                                {role.is_system
+                                    ? 'Peran sistem tidak dapat dihapus.'
+                                    : 'Peran masih dipakai oleh pengguna.'}
+                            </span>
+                        )}
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -875,11 +894,15 @@ function RoleStageMenu({
 function RoleStage({
     role,
     permissionGroups,
+    canUpdate,
+    canDelete,
     onRename,
     onDelete,
 }: {
     role: RoleRow;
     permissionGroups: PermissionGroup[];
+    canUpdate: boolean;
+    canDelete: boolean;
     onRename: () => void;
     onDelete: () => void;
 }) {
@@ -966,7 +989,7 @@ function RoleStage({
     };
 
     return (
-        <div className="animate-in fade-in flex min-w-0 flex-1 flex-col duration-200">
+        <div className="flex min-w-0 flex-1 animate-in flex-col duration-200 fade-in">
             <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5 pb-4">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -993,6 +1016,8 @@ function RoleStage({
                 </div>
                 <RoleStageMenu
                     role={role}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
                     onRename={onRename}
                     onDelete={onDelete}
                 />
@@ -1022,6 +1047,7 @@ function RoleStage({
                                     pending={pending}
                                     onToggleOne={toggleOne}
                                     onToggleGroup={toggleGroup}
+                                    readOnly={!canUpdate}
                                 />
                             </div>
                         ))}
@@ -1029,7 +1055,7 @@ function RoleStage({
                 )}
             </div>
 
-            {!isSuperAdmin && permissionGroups.length > 0 && (
+            {!isSuperAdmin && permissionGroups.length > 0 && canUpdate && (
                 <footer className="relative mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-console-border bg-console-raised/50 px-5 py-3">
                     {sweepKey > 0 && (
                         <span
@@ -1043,9 +1069,7 @@ function RoleStage({
                         className={cn(
                             'flex items-center gap-2 text-sm',
                             saving && 'text-console-ink-muted',
-                            !saving &&
-                                dirty &&
-                                `${AMBER.text} font-medium`,
+                            !saving && dirty && `${AMBER.text} font-medium`,
                             !saving && !dirty && 'text-console-ink-muted',
                         )}
                     >
@@ -1108,9 +1132,7 @@ function StagePlaceholder({ filtered }: { filtered: boolean }) {
                 />
             )}
             <p className="text-sm font-semibold text-console-ink">
-                {filtered
-                    ? 'Tidak ada peran yang cocok.'
-                    : 'Belum ada peran.'}
+                {filtered ? 'Tidak ada peran yang cocok.' : 'Belum ada peran.'}
             </p>
             <p className="max-w-sm text-sm text-console-ink-muted">
                 {filtered
@@ -1127,7 +1149,10 @@ export default function Roles({
     permissionGroups,
     errors,
 }: PageProps) {
-    const { flash } = usePage<FlashProps>().props;
+    const { flash, auth } = usePage<FlashProps>().props;
+
+    const canUpdateRoles = Boolean(auth?.can?.['role.update']);
+    const canDeleteRoles = Boolean(auth?.can?.['role.delete']);
 
     const [searchTerm, setSearchTerm] = useState(filters.search);
     const [applied, setApplied] = useState(filters.search);
@@ -1188,8 +1213,7 @@ export default function Roles({
     // first visible token when it disappears (filter, delete, page change).
     useEffect(() => {
         setSelectedId((current) =>
-            current !== null &&
-            sortedRoles.some((role) => role.id === current)
+            current !== null && sortedRoles.some((role) => role.id === current)
                 ? current
                 : (sortedRoles[0]?.id ?? null),
         );
@@ -1293,7 +1317,7 @@ export default function Roles({
                                 <>
                                     <nav
                                         aria-label="Pilih peran"
-                                        className="flex gap-2 overflow-x-auto p-3 md:flex-col md:overflow-y-auto md:overflow-x-visible"
+                                        className="flex gap-2 overflow-x-auto p-3 md:flex-col md:overflow-x-visible md:overflow-y-auto"
                                     >
                                         {sortedRoles.map((role) => (
                                             <RoleToken
@@ -1398,6 +1422,8 @@ export default function Roles({
                                     key={selected.id}
                                     role={selected}
                                     permissionGroups={permissionGroups}
+                                    canUpdate={canUpdateRoles}
+                                    canDelete={canDeleteRoles}
                                     onRename={() => setRenameTarget(selected)}
                                     onDelete={() => setDeleteTarget(selected)}
                                 />

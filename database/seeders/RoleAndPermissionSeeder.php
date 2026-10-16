@@ -96,15 +96,17 @@ class RoleAndPermissionSeeder extends Seeder
 
         User::where('email', 'admin@example.com')->first()?->forceFill(['is_super_admin' => true])->save();
 
-        // Akun superadmin operasional. Akses lintas cabang datang dari flag
-        // is_super_admin (TenantAccess); peran super_admin sengaja nol izin —
-        // bypass di Gate adalah satu-satunya sumber kekuasaannya.
+        // Akun superadmin operasional (superadmin@appdutamall.com). Access is
+        // enforced by two cooperating mechanisms, never by the email itself:
+        // the is_super_admin flag (TenantAccess / platform surfaces) AND the
+        // super_admin Spatie role feeding the Gate::before bypass (ADR-0004).
         $superadmin = User::where('email', $superAdminEmail)->first()
             ?? User::factory()->create([
                 'name' => 'Super Admin',
                 'email' => $superAdminEmail,
             ]);
         $superadmin->forceFill(['is_super_admin' => true])->save();
+        $superadmin->assignRole('super_admin');
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

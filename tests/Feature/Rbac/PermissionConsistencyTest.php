@@ -144,9 +144,10 @@ function rbacForwardLookingPermissions(): array
         'daily-work.read' => 'gated when the module lands',
         'daily-work.update' => 'gated when the module lands',
 
-        // akun — role assignment (ADR-0005); update gated when role-sync lands,
-        // create/delete gated when the Akun CRUD surface lands.
-        'akun.update' => 'gated when role-sync lands',
+        // akun — role assignment (ADR-0005); update gated in
+        // HandleInertiaRequests + EmployeeController, so it is no longer
+        // forward-looking. create/delete stay gated when the Akun CRUD
+        // surface lands.
         'akun.create' => 'gated when the Akun surface lands',
         'akun.delete' => 'gated when the Akun surface lands',
 

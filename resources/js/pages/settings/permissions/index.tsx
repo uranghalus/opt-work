@@ -10,12 +10,7 @@ import {
     Pencil,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import {
-    destroy,
-    index,
-    store,
-    update,
-} from '@/routes/permissions';
+import { destroy, index, store, update } from '@/routes/permissions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -103,11 +98,17 @@ function resourceName(name: string): string {
  * Batch-creates a resource's CRUD permissions in one transaction (server-side).
  */
 function CreatePermissionAction() {
+    const { auth } = usePage<FlashProps>().props;
     const [open, setOpen] = useState(false);
     const form = useForm<{ resource: string; actions: string[] }>({
         resource: '',
         actions: ['read'],
     });
+
+    // Hidden without permission.create; the server rejects regardless.
+    if (!auth?.can?.['permission.create']) {
+        return null;
+    }
 
     const toggleAction = (action: string, checked: boolean) => {
         const current = form.data.actions;
@@ -293,8 +294,10 @@ function RenameDialog({
                             </p>
                         )}
                         <p className="text-xs text-ink-muted">
-                            Format <span className="font-mono">resource.tindakan</span>
-                            , contoh: <span className="font-mono">division.read</span>.
+                            Format{' '}
+                            <span className="font-mono">resource.tindakan</span>
+                            , contoh:{' '}
+                            <span className="font-mono">division.read</span>.
                         </p>
                     </div>
                     <DialogFooter>
@@ -394,7 +397,12 @@ function EmptyState({
                 <p className="text-sm text-ink-muted">
                     Coba kata kunci lain atau bersihkan filter.
                 </p>
-                <Button variant="outline" size="sm" onClick={onClear} className="mt-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onClear}
+                    className="mt-2"
+                >
                     Bersihkan filter
                 </Button>
             </div>
@@ -438,7 +446,10 @@ export default function Permissions({
     groups,
     errors,
 }: PageProps) {
-    const { flash } = usePage<FlashProps>().props;
+    const { flash, auth } = usePage<FlashProps>().props;
+
+    const canUpdatePermissions = Boolean(auth?.can?.['permission.update']);
+    const canDeletePermissions = Boolean(auth?.can?.['permission.delete']);
 
     const [searchTerm, setSearchTerm] = useState(filters.search);
     const [groupTerm, setGroupTerm] = useState(filters.group);
@@ -519,9 +530,7 @@ export default function Permissions({
 
                 {errors?.permission && (
                     <Alert variant="destructive" role="alert">
-                        <AlertDescription>
-                            {errors.permission}
-                        </AlertDescription>
+                        <AlertDescription>{errors.permission}</AlertDescription>
                     </Alert>
                 )}
 
@@ -563,9 +572,7 @@ export default function Permissions({
                                 <SelectValue placeholder="Semua grup" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">
-                                    Semua grup
-                                </SelectItem>
+                                <SelectItem value="all">Semua grup</SelectItem>
                                 {groups.map((group) => (
                                     <SelectItem
                                         key={group.name}
@@ -633,48 +640,61 @@ export default function Permissions({
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="py-3 text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="size-9"
-                                                                aria-label={`Aksi untuk izin ${permission.name}`}
+                                                    {(canUpdatePermissions ||
+                                                        canDeletePermissions) && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger
+                                                                asChild
                                                             >
-                                                                <Pencil
-                                                                    aria-hidden
-                                                                />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem
-                                                                onSelect={() =>
-                                                                    setRenameTarget(
-                                                                        permission,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Pencil
-                                                                    aria-hidden
-                                                                />
-                                                                Ubah nama
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                variant="destructive"
-                                                                onSelect={() =>
-                                                                    setDeleteTarget(
-                                                                        permission,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Trash2
-                                                                    aria-hidden
-                                                                />
-                                                                Hapus
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="size-9"
+                                                                    aria-label={`Aksi untuk izin ${permission.name}`}
+                                                                >
+                                                                    <Pencil
+                                                                        aria-hidden
+                                                                    />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                {canUpdatePermissions && (
+                                                                    <DropdownMenuItem
+                                                                        onSelect={() =>
+                                                                            setRenameTarget(
+                                                                                permission,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Pencil
+                                                                            aria-hidden
+                                                                        />
+                                                                        Ubah
+                                                                        nama
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {canUpdatePermissions &&
+                                                                    canDeletePermissions && (
+                                                                        <DropdownMenuSeparator />
+                                                                    )}
+                                                                {canDeletePermissions && (
+                                                                    <DropdownMenuItem
+                                                                        variant="destructive"
+                                                                        onSelect={() =>
+                                                                            setDeleteTarget(
+                                                                                permission,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Trash2
+                                                                            aria-hidden
+                                                                        />
+                                                                        Hapus
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))}

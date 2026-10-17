@@ -38,4 +38,13 @@ enum WorkOrderCategory: string
     {
         return $this !== self::Accident;
     }
+
+    /**
+     * Urgent categories (Accident, Owner) carry the 3-business-day SLA;
+     * Normal carries 6 (FR-2.1).
+     */
+    public function isUrgent(): bool
+    {
+        return $this !== self::Normal;
+    }
 }

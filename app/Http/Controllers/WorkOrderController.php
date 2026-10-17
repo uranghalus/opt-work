@@ -96,8 +96,11 @@ class WorkOrderController extends Controller
     public function show(Request $request): Response
     {
         $workOrderId = $request->route('workOrder');
-        
-        $workOrderModel = \App\Models\WorkOrder::withoutGlobalScope('tenant')
+
+        // The tenant global scope must apply here: the work order has to
+        // belong to the tenant the URL (and tenant.access) resolved to —
+        // withoutGlobalScope() would serve another branch's WO by id.
+        $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
             ->firstOrFail();
 
@@ -119,7 +122,10 @@ class WorkOrderController extends Controller
     public function attachment(Request $request, string $index): StreamedResponse
     {
         $workOrderId = $request->route('workOrder');
-        $workOrderModel = \App\Models\WorkOrder::withoutGlobalScope('tenant')
+
+        // Same rule as show(): the tenant scope keeps another branch's WO
+        // (and its attachments) invisible even when the id is known.
+        $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
             ->firstOrFail();
         $path = $workOrderModel->attachments[(int) $index] ?? null;

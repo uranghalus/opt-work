@@ -287,7 +287,7 @@ it('shows a work order to any user in the owning branch', function () {
     expect($found->tenant_id)->toBe($hq->id);
 
     // Test the exact query the controller uses
-    $controllerQuery = \App\Models\WorkOrder::withoutGlobalScope('tenant')
+    $controllerQuery = WorkOrder::withoutGlobalScope('tenant')
         ->where('id', $workOrder->getKey())
         ->first();
     expect($controllerQuery)->not->toBeNull();
@@ -331,6 +331,44 @@ it('hides a work order from users of another branch', function () {
         ->actingAs($outsider)
         ->get("/hq/work-orders/{$workOrder->getKey()}")
         ->assertForbidden();
+});
+
+it('does not serve another tenant\'s work order by id inside a member branch', function () {
+    // A plant-1 member passes tenant.access for /plant-1 — the tenant scope
+    // is the only thing that must keep another branch's work order (known
+    // id) invisible. withoutGlobalScope() in show()/attachment() used to
+    // defeat exactly that.
+    initTenant('hq');
+    $hq = Tenant::where('code', 'hq')->first();
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $requester = createUser(['tenant_id' => $hq->id]);
+
+    $workOrder = WorkOrder::create([
+        'nomor_wo' => 'WO-TEST-'.fake()->unique()->numerify('####'),
+        'requester_user_id' => $requester->getKey(),
+        'target_department_id' => $department->getKey(),
+        'category' => WorkOrderCategory::Normal,
+        'title' => 'WO dari cabang lain',
+        'description' => 'Tidak boleh terlihat dari plant-1',
+        'status' => WorkOrderStatus::WaitingHod,
+    ]);
+
+    $plant1 = Tenant::where('code', 'plant-1')->first();
+    $plantMember = createUser(['tenant_id' => $plant1->id]);
+
+    $this
+        ->actingAs($plantMember)
+        ->get("/plant-1/work-orders/{$workOrder->getKey()}")
+        ->assertNotFound();
+
+    $this
+        ->actingAs($plantMember)
+        ->get("/plant-1/work-orders/{$workOrder->getKey()}/attachments/0")
+        ->assertNotFound();
+});
+
+it('defines hod_approved as the reviewed-but-unassigned state', function () {
+    expect(WorkOrderStatus::from('hod_approved')->label())->toBe('Disetujui HOD');
 });
 
 it('serves an attachment only to users of the owning branch', function () {

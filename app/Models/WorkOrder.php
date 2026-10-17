@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
 use Database\Factories\WorkOrderFactory;
@@ -11,7 +12,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
-use App\Models\Concerns\BelongsToTenant;
 
 /**
  * @property string $id
@@ -25,6 +25,10 @@ use App\Models\Concerns\BelongsToTenant;
  * @property array<int, string>|null $attachments
  * @property WorkOrderStatus $status
  * @property Carbon|null $requested_schedule_date
+ * @property string|null $hod_action
+ * @property Carbon|null $scheduled_date
+ * @property Carbon|null $assigned_at
+ * @property string|null $hod_notes
  * @property Carbon|null $deadline_date
  * @property Carbon|null $escalation_h3_sent_at
  * @property Carbon|null $escalation_h5_sent_at
@@ -46,6 +50,10 @@ use App\Models\Concerns\BelongsToTenant;
     'attachments',
     'status',
     'requested_schedule_date',
+    'hod_action',
+    'scheduled_date',
+    'assigned_at',
+    'hod_notes',
     'deadline_date',
     'escalation_h3_sent_at',
     'escalation_h5_sent_at',
@@ -72,6 +80,8 @@ class WorkOrder extends Model
             'status' => WorkOrderStatus::class,
             'attachments' => 'array',
             'requested_schedule_date' => 'date',
+            'scheduled_date' => 'date',
+            'assigned_at' => 'datetime',
             'deadline_date' => 'date',
             'escalation_h3_sent_at' => 'datetime',
             'escalation_h5_sent_at' => 'datetime',

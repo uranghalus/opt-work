@@ -8,6 +8,8 @@ enum WorkOrderStatus: string
 
     case WaitingHod = 'waiting_hod';
 
+    case HodApproved = 'hod_approved';
+
     case Scheduled = 'scheduled';
 
     case Assigned = 'assigned';
@@ -36,6 +38,7 @@ enum WorkOrderStatus: string
         return match ($this) {
             self::Draft => 'Draf',
             self::WaitingHod => 'Menunggu HOD',
+            self::HodApproved => 'Disetujui HOD',
             self::Scheduled => 'Terjadwal',
             self::Assigned => 'Ditugaskan',
             self::InProgress => 'Dikerjakan',

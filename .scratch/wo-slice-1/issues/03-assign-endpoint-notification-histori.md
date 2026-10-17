@@ -5,19 +5,16 @@ set `assigned_at`, hitung deadline, notifikasi assignee, entri histori.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done 2026-10-17 (commit `937a474`)
 
-- [ ] Route + controller action gated `work-order.assign` via `Gate::authorize`; entri allowlist
+- [x] Route + controller action gated `work-order.assign` via `Gate::authorize`; entri allowlist
       `work-order.assign` dikeluarkan di commit yang sama
-- [ ] FormRequest: `employees` required array min 1 (id karyawan hasil sync, wajib di department
-      target WO), `assignment_notes` nullable
-- [ ] Efek: status → `assigned`, `assigned_at = now()` hanya sekali (pertama), deadline dihitung
-      dari `assigned_at` (urgent 3 / normal 6 hari kerja, libur dari config) dan disimpan ke
-      `deadline_date`; revisi penugasan (panggil ulang) diperbolehkan
-- [ ] Notifikasi `WorkOrderAssigned` (database + broadcast, type `work_order.assigned`, pola
-      `WorkOrderCreated`) ke `Employee::user`; karyawan tanpa akun link → assign tetap sah,
-      tercatat di meta event + log
-- [ ] Entri histori `assigned` (siapa, kapan, daftar assignee, from/to status)
-- [ ] Test: sukses assign (status/assigned_at/deadline), deadline urgent vs normal + lintas libur,
-      assign karyawan luar department ditolak, tanpa permission 403, notif terkirim ke akun link
-      dan skip yang tanpa akun, histori tercatat
+- [x] FormRequest: `employees` required array min 1 (exists + distinct; pengecekan department target
+      di service — butuh WO), `assignment_notes` nullable
+- [x] Efek: status → `assigned`; `assigned_at` + `deadline_date` hanya sekali (assign pertama);
+      revisi penugasan mengganti orang tanpa menggeser SLA; 409 bila assign sebelum review
+- [x] Notifikasi `WorkOrderAssigned` (database + broadcast) hanya ke akun link; tanpa akun →
+      tetap ter-assign, tercatat di meta event + log warning (gap opti-work2 ditutup)
+- [x] Entri histori `assigned` (employee_ids/notified/unlinked meta)
+- [x] Test: AssignWorkOrderTest 7/7 (urgent vs normal deadline, revisi, luar department, 403,
+      409 pre-review, notif terkirim/skip)

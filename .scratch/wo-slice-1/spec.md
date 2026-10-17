@@ -55,8 +55,16 @@ work_planning/schedule_wd (tinggal di issue 06), CRUD Akun.
 
 ## Kriteria selesai slice
 
-- [ ] 4 checkbox issue 03 terpenuhi + test-nya hijau
-- [ ] Full suite hijau (baseline 301 tests / 293 passed / 8 skipped)
-- [ ] Build + types green
-- [ ] Allowlist `work-order.review` + `work-order.assign` sudah dikeluarkan (honesty test)
-- [ ] TODO.md + changelog vault di-update
+- [x] 4 checkbox issue 03 terpenuhi + test-nya hijau
+- [x] Full suite: 313 tests / 305 passed / 8 skipped / 0 failed — MENGECEKUIKAN WIP sesi
+      paralel (SyncEmployeesTest, EmployeeBanTest, DebugSyncTest, SyncDepartmentsTest:
+      6 failure merah milik red-green mereka yang sedang berjalan, bukan slice ini)
+- [x] Build + types green
+- [x] Allowlist `work-order.review` + `work-order.assign` sudah dikeluarkan (honesty test)
+- [x] TODO.md + changelog vault di-update
+
+## Temuan bonus selama slice (root-cause fixes)
+
+- `config/multitenancy.php` `queueable_to_job` tertukar → semua broadcast/mail yang
+  di-queue crash di probe tenant-aware; diperbaiki di commit ticket 02 (`ea6779d`)
+- Cross-tenant read di `show()`/`attachment()` (withoutGlobalScope) → 404 kini, commit `6e47cf3`

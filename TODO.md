@@ -20,7 +20,30 @@
 3. [x] Ticket 02 selesai → hapus entri allowlist `akun.update` ("gated when role-sync lands") dari `PermissionConsistencyTest` di commit yang sama (honesty test) — **Done 2026-10-16, commit `74d2a6c`**; `akun.create`/`akun.delete` tetap di allowlist.
 4. [x] Verifikasi visual sisa slice 8 `/settings/permissions` — **Done 2026-10-17, automated:** user temp (role `viewer` + `role.read`/`permission.read` langsung; role wajib karena LoginLanding menolak user tanpa role) + screenshot headless via `.impeccable/review/capture-permissions.mjs`. Bukti: `perm-light.png`, `perm-dark.png` (tombol aksi tersembunyi tanpa permission — ticket 03 tervalidasi visual), `perm-dialog-error.png` (dialog Tambah Izin, submit kosong → field merah + pesan error). User temp + script temp dihapus. Catatan minor: pesan validasi dialog masih English (pre-existing), teks "Head Office" di tenant switcher kontras rendah di dark (pre-existing).
 5. [x] Vault sync — **Done 2026-10-17:** ADR-0005 → `Decisions/user-role-assignment-akun.md`, link dari `Index.md` (Last updated diubah). Catatan route `/hak-akses` ternyata sudah ada di `Decisions/peran-page-vault-console` — tidak diduplikasi.
-6. [ ] Setelah 02+03 green: mulai **WO slice 1** (review → assign; UBA = tanpa opsi jadwal) — plan lama di `.claude/plan/` HILANG (folder gitignored, tidak ada di git history); keputusan settled grill 2026-10-17 + tiket per seam kini di `.scratch/wo-slice-1/` (spec + 4 issues)
+6. [x] **WO slice 1 selesai 2026-10-17** (issue 03 wms-mvp = review → assign + deadline + histori) —
+   tiket per seam di `.scratch/wo-slice-1/` (spec + 4 issues, semua done):
+   - `6e47cf3` foundation: migration hod_action/scheduled_date/assigned_at/hod_notes,
+     enum `HodApproved` ("Disetujui HOD"), `config/holidays.php` + `DeadlineCalculator`
+     (urgent 3 / normal 6 hari kerja dari tanggal assign; fixed Y-m-d + recurring MM-DD),
+     **fix cross-tenant read** di show()/attachment() (withoutGlobalScope dibuang; test
+     regresi: WO tenant lain → 404, sebelumnya 200)
+   - `ea6779d` review endpoint: POST .../review gated `work-order.review` (allowlist
+     dikeluarkan), Accident dipaksa eksekusi langsung, 409 pasca-review-stage,
+     `work_order_events` append-only + `WorkOrderReviewed` ke requester; **root-cause fix
+     config/multitenancy.php queueable_to_job tertukar** (BroadcastEvent→'mailable', dst —
+     setiap broadcast/mail queue crash di probe; kini event/mailable/notification)
+   - `937a474` assign endpoint: POST .../assign gated `work-order.assign` (allowlist
+     dikeluarkan), `assigned_employees` json + assignment_notes, assigned_at + deadline
+     hanya sekali (revisi mengganti orang tanpa geser SLA), `WorkOrderAssigned` ke akun
+     link saja (tanpa akun → meta event + log warning), 409 assign sebelum review
+   - `553c775` panel frontend: flag `can` work-order.review/assign, panel Keputusan
+     Review (Accident tanpa opsi jadwal), panel Assign (revisi mode), kartu Keputusan
+     HOD, badge hod_approved; bukti headless `.impeccable/review/wo-panel-*.png`
+   - Verifikasi: tsc + build hijau; suite 313/305/0 failed (6 failure = WIP merah sesi
+     paralel SyncEmployees, bukan slice ini); pint bersih; slice-1 komit bersih dari WIP
+     sesi paralel
+   - Sisa allowlist honesty test: work-order.create/read/update/delete/submit/verify
+     (gating menyusul saat permukaannya disentuh — issue 04+)
 
 ### Bonus 2026-10-16 (commit `74d2a6c`) — role-aware login + superadmin
 

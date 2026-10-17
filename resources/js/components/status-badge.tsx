@@ -3,6 +3,7 @@ import {
     CalendarClock,
     CircleCheck,
     CircleDashed,
+    ClipboardCheck,
     Eye,
     Hammer,
     Inbox,
@@ -20,6 +21,7 @@ import {
 export type WoStatus =
     | 'draft'
     | 'waiting_hod'
+    | 'hod_approved'
     | 'scheduled'
     | 'assigned'
     | 'in_progress'
@@ -41,6 +43,11 @@ const statusSpec: Record<
     waiting_hod: {
         label: 'Menunggu Keputusan HOD',
         icon: Inbox,
+        className: 'bg-info/10 text-info border-info/30',
+    },
+    hod_approved: {
+        label: 'Disetujui HOD',
+        icon: ClipboardCheck,
         className: 'bg-info/10 text-info border-info/30',
     },
     scheduled: {

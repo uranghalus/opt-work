@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\WorkOrder;
 use App\Services\WorkOrderService;
 use App\WorkOrderCategory;
@@ -141,8 +142,31 @@ class WorkOrderController extends Controller
             ->where('id', $workOrderId)
             ->firstOrFail();
 
+        $workOrderModel->load(['requester', 'targetDepartment']);
+
+        // The assign dialog lists karyawan pelaksana of the target department
+        // only for users who may assign; assignee names hydrate for everyone
+        // (read-only display of who is on the job).
+        $canAssign = $request->user()?->can('work-order.assign') ?? false;
+
+        $employees = $canAssign
+            ? Employee::query()
+                ->where('department_id', $workOrderModel->target_department_id)
+                ->orderBy('nama_employee')
+                ->get(['id', 'nama_employee'])
+            : collect();
+
+        $assignees = $workOrderModel->assigned_employees !== null
+            ? Employee::query()
+                ->whereIn('id', $workOrderModel->assigned_employees)
+                ->orderBy('nama_employee')
+                ->get(['id', 'nama_employee'])
+            : collect();
+
         return Inertia::render('work-orders/show', [
-            'workOrder' => $workOrderModel->load(['requester', 'targetDepartment']),
+            'workOrder' => $workOrderModel,
+            'employees' => $employees,
+            'assignees' => $assignees,
         ]);
     }
 

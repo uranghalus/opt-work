@@ -94,6 +94,9 @@ class HandleInertiaRequests extends Middleware
                     'permission.delete' => (bool) ($user?->can('permission.delete')),
                     'akun.read' => (bool) ($user?->can('akun.read')),
                     'akun.update' => (bool) ($user?->can('akun.update')),
+                    // WO slice 1: HOD review/assign actions on the show page.
+                    'work-order.review' => (bool) ($user?->can('work-order.review')),
+                    'work-order.assign' => (bool) ($user?->can('work-order.assign')),
                 ],
             ],
             'tenant' => $currentTenant,

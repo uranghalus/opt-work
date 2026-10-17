@@ -29,6 +29,8 @@ export type Auth = {
         'permission.delete': boolean;
         'akun.read': boolean;
         'akun.update': boolean;
+        'work-order.review': boolean;
+        'work-order.assign': boolean;
     };
 };
 

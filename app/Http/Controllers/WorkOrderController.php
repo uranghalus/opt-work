@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
 use App\Models\WorkOrder;
@@ -110,6 +111,23 @@ class WorkOrderController extends Controller
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
             ->with('success', 'Keputusan review WO '.$workOrder->nomor_wo.' tersimpan.');
+    }
+
+    public function assign(AssignWorkOrderRequest $request): RedirectResponse
+    {
+        Gate::authorize('work-order.assign');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->workOrderService->assign($request->user(), $workOrder, $request->validated());
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Penugasan WO '.$workOrder->nomor_wo.' tersimpan.');
     }
 
     public function show(Request $request): Response

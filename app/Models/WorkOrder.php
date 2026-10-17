@@ -29,6 +29,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $scheduled_date
  * @property Carbon|null $assigned_at
  * @property string|null $hod_notes
+ * @property list<int>|null $assigned_employees
+ * @property string|null $assignment_notes
  * @property Carbon|null $deadline_date
  * @property Carbon|null $escalation_h3_sent_at
  * @property Carbon|null $escalation_h5_sent_at
@@ -54,6 +56,8 @@ use Illuminate\Support\Carbon;
     'scheduled_date',
     'assigned_at',
     'hod_notes',
+    'assigned_employees',
+    'assignment_notes',
     'deadline_date',
     'escalation_h3_sent_at',
     'escalation_h5_sent_at',
@@ -82,6 +86,7 @@ class WorkOrder extends Model
             'requested_schedule_date' => 'date',
             'scheduled_date' => 'date',
             'assigned_at' => 'datetime',
+            'assigned_employees' => 'array',
             'deadline_date' => 'date',
             'escalation_h3_sent_at' => 'datetime',
             'escalation_h5_sent_at' => 'datetime',

@@ -134,6 +134,8 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
+    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
+        ->name('work-orders.assign');
     Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
     Route::resource('divisions', DivisionController::class)->names('divisions');

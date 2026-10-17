@@ -107,9 +107,8 @@ function rbacForwardLookingPermissions(): array
         'work-order.update' => 'gated when the WO flow lands',
         'work-order.delete' => 'gated when the WO flow lands',
         // work-order workflow verbs — review/assign gated as the WO flow
-        // slices land (review: WorkOrderController, wo-slice-1); submit and
-        // verify stay forward-looking until issue 04 gates them.
-        'work-order.assign' => 'gated when the WO flow lands',
+        // slices land (review + assign: WorkOrderController, wo-slice-1);
+        // submit and verify stay forward-looking until issue 04 gates them.
         'work-order.submit' => 'gated when the WO flow lands',
         'work-order.verify' => 'gated when the WO flow lands',
 

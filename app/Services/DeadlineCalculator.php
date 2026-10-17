@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\WorkOrderCategory;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 /**
@@ -21,7 +22,7 @@ class DeadlineCalculator
      * @param  list<string>|null  $holidays  overrides config('holidays') —
      *                                       lets tests pin the calendar
      */
-    public function calculate(WorkOrderCategory $category, Carbon $assignedAt, ?array $holidays = null): Carbon
+    public function calculate(WorkOrderCategory $category, CarbonInterface $assignedAt, ?array $holidays = null): Carbon
     {
         $remaining = $category->isUrgent()
             ? self::URGENT_BUSINESS_DAYS
@@ -29,7 +30,8 @@ class DeadlineCalculator
 
         $holidayLookup = array_flip($holidays ?? config('holidays', []));
 
-        $cursor = $assignedAt->copy()->startOfDay();
+        // The app runs CarbonImmutable dates; normalize to a mutable cursor.
+        $cursor = Carbon::instance($assignedAt)->startOfDay();
 
         while ($remaining > 0) {
             $cursor->addDay();

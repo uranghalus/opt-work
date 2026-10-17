@@ -1,5 +1,27 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Guest role + akun platform (2026-10-17) — spec `.scratch/guest-role/`, commits `7e5fe00` + `0a34c48`
+
+- [x] Root cause akun superadmin: role SUDAH ada; yang hilang link `users.employee_id` (0 dari 127
+      employee tertaut) → kartu "Peran Akun" menampilkan "Belum ada akun yang terhubung"
+- [x] `guest` = system role ke-10, nol permission (seeder idempoten; CONTEXT.md + ADR-0006)
+- [x] Auto-assign `guest` di SSO (`LoginProvisioningService`, sebelum Auth::login, dalam transaksi,
+      idempoten; guard state-based fail-closed: nol role + nol link)
+- [x] Akun platform self-heal saat login: role `super_admin` + flag `is_super_admin` + tautan
+      karyawan by email (config `auth.super_admin_email`, tanpa email literal; pola Spatie v8)
+- [x] Perintah one-off `app:grant-super-admin-role` (idempoten, additive-only, `--dry-run`)
+- [x] Test: GuestProvisioningTest 7 + SuperadminAccountTest 5 + SyncAkunRolesTest evict-guest;
+      suite 328/320/0 (WIP SyncEmployees sesi paralel dikecualikan); pint + tsc + vp check hijau
+- [ ] **OPEN (menunggu keputusan user):** guest tetap bisa membuka halaman tenant yang belum di-gate
+      (daftar Karyawan, WO index miliknya, dashboard) — hanya hak-akses/akun/review/assign yang
+      di-gate hari ini. Guest lebih dulu DENIED di login (Task 2), jadi secara NET akses guest
+      bertambah. Opsi: (a) terima + alasankan, dengan issue gating master data terpisah;
+      (b) guest tidak dapat tenant sama sekali → mendarat di halaman "menunggu provisioning"
+      (permukaan baru). Perintah tulis `app:grant-super-admin-role` juga menunggu persetujuan —
+      DB dev sudah compliant (dry-run all-green).
+- [ ] Nanti: gate `work-order.create/read` + master data (employee/department/division/position)
+      agar "guest tidak bisa sentuh tenant data" terpenuhi harfiah (allowlist honesty test)
+
 ## Next session — 2026-10-14 (RBAC v2: hak akses slices 6–8 frontend)
 
 ### Done today

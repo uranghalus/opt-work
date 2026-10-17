@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-progress 2026-10-17 — dikerjakan sebagai slice 1 di `.scratch/wo-slice-1/` (spec + 4 tiket per seam; keputusan settled dari grill 2026-10-17)
 
 - [ ] Keputusan HOD: eksekusi langsung / jadwalkan sesuai aturan kategori
 - [ ] Assign 1+ karyawan + notifikasi ke assignee

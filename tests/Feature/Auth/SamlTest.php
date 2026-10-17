@@ -2,6 +2,7 @@
 
 use App\Models\Tenant;
 use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 use LightSaml\SamlConstants;
@@ -60,9 +61,34 @@ test('the redirect route remembers the relay state in the session', function () 
         );
 });
 
-test('a signed response completes login and creates the user', function () {
-    // The assertion's company resolves to this unit bisnis, but a first-time
-    // SAML user holds no role yet, so the role-aware login gate denies the
+test('a signed response completes login and provisions the account', function () {
+    // Seeded RBAC catalogue: the role-aware login gate + the `guest`
+    // provisioning (`.scratch/guest-role`) both assume a seeded catalogue.
+    (new RoleAndPermissionSeeder)->run();
+
+    Tenant::factory()->create([
+        'name' => FakeIdentityProvider::COMPANY,
+        'code' => 'test-co',
+    ]);
+
+    $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
+        ->get(FakeIdentityProvider::assertionResponseUrl());
+
+    $response->assertRedirect(route('dashboard', ['tenant' => 'test-co'], absolute: false));
+
+    $user = User::query()->where('email', FakeIdentityProvider::EMAIL)->sole();
+
+    expect($user->name)->toBe(FakeIdentityProvider::NAME)
+        // A first-time unlinked account gets the zero-permission guest role,
+        // so the session continues into the (gated) tenant shell.
+        ->and($user->getRoleNames()->all())->toBe(['guest'])
+        ->and($user->tenant_id)->not->toBeNull()
+        ->and($this->app['auth']->guard()->check())->toBeTrue();
+});
+
+test('a signed response without the guest role in the catalogue denies a first-time user', function () {
+    // No RoleAndPermissionSeeder here: the catalogue has no `guest` role,
+    // so provisioning cannot assign it and the role-aware gate denies the
     // session (Task 2) — the account itself is still created.
     Tenant::factory()->create([
         'name' => FakeIdentityProvider::COMPANY,
@@ -72,17 +98,12 @@ test('a signed response completes login and creates the user', function () {
     $response = $this->withSession(['state' => FakeIdentityProvider::STATE])
         ->get(FakeIdentityProvider::assertionResponseUrl());
 
-    // A first-time SAML user holds no role yet, so the role-aware login
-    // gate denies the session (Task 2) — but the account itself is created.
     $response->assertRedirect(route('saml.denied', absolute: false))
         ->assertSessionHas('saml.denial_reason', 'no_role');
 
-    $user = User::query()->sole();
+    $user = User::query()->where('email', FakeIdentityProvider::EMAIL)->sole();
 
-    expect($user->email)->toBe(FakeIdentityProvider::EMAIL)
-        ->and($user->name)->toBe(FakeIdentityProvider::NAME)
-        // No role means no tenant resolution: the home tenant stays unset
-        // until the akun is provisioned and the next login lands it.
+    expect($user->getRoleNames())->toBeEmpty()
         ->and($user->fresh()->tenant_id)->toBeNull()
         ->and($this->app['auth']->guard()->check())->toBeFalse();
 });

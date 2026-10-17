@@ -26,11 +26,11 @@ it('does not seed the removed manage permissions', function () {
     expect(Permission::where('name', 'tenant.manage')->exists())->toBeFalse();
 });
 
-it('creates exactly the nine canonical system roles', function () {
+it('creates exactly the ten canonical system roles', function () {
     (new RoleAndPermissionSeeder)->run();
 
     expect(Role::where('is_system', true)->pluck('name')->sort()->values()->all())->toBe(
-        collect(['super_admin', 'admin_tenant', 'general_manager', 'deputy_general_manager', 'hod', 'team_leader', 'karyawan', 'field_staff', 'viewer'])
+        collect(['super_admin', 'admin_tenant', 'general_manager', 'deputy_general_manager', 'hod', 'team_leader', 'karyawan', 'field_staff', 'viewer', 'guest'])
             ->sort()
             ->values()
             ->all()
@@ -41,6 +41,15 @@ it('leaves super_admin with zero database permissions', function () {
     (new RoleAndPermissionSeeder)->run();
 
     expect(Role::findByName('super_admin')->permissions)->toHaveCount(0);
+});
+
+it('creates guest as a system role with zero permissions', function () {
+    (new RoleAndPermissionSeeder)->run();
+
+    $guest = Role::findByName('guest');
+
+    expect($guest->is_system)->toBeTruthy()
+        ->and($guest->permissions)->toHaveCount(0);
 });
 
 it('gives karyawan the submit default but not field_staff', function () {

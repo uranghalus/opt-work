@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\LoginLanding;
+use App\Services\LoginProvisioningService;
 use App\Services\SamlTenantResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class SamlController extends Controller
     public function __construct(
         protected SamlTenantResolver $tenantResolver,
         protected LoginLanding $landing,
+        protected LoginProvisioningService $provisioning,
     ) {}
 
     /**
@@ -260,6 +262,13 @@ class SamlController extends Controller
                 'email_verified_at' => now(),
             ])->save();
         }
+
+        // Role bootstrap: the platform account is self-healed (super_admin
+        // role + flag + karyawan link) and every other role-less, unlinked
+        // account gets the zero-permission guest role — before the login, so
+        // the role-aware landing gate below sees the provisioned state
+        // (`.scratch/guest-role`).
+        $this->provisioning->provision($user, $email);
 
         Auth::login($user);
 

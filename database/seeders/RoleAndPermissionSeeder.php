@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use RuntimeException;
@@ -42,6 +43,10 @@ class RoleAndPermissionSeeder extends Seeder
         'karyawan',
         'field_staff',
         'viewer',
+        // Pre-provisioning role: assigned at first SSO login to any account
+        // with no role and no linked karyawan (`.scratch/guest-role`). Zero
+        // permissions by design — a state marker, not access.
+        'guest',
     ];
 
     /**
@@ -107,6 +112,21 @@ class RoleAndPermissionSeeder extends Seeder
             ]);
         $superadmin->forceFill(['is_super_admin' => true])->save();
         $superadmin->assignRole('super_admin');
+
+        // Link the account to the karyawan record carrying the same email
+        // (only when unlinked — a conflicting link is never overwritten).
+        // The lookup deliberately ignores the tenant scope: seeding runs
+        // without a current tenant, and the platform account is not
+        // tenant-scoped by definition.
+        if ($superadmin->employee_id === null) {
+            $employee = Employee::withoutGlobalScope('tenant')
+                ->where('email', $superAdminEmail)
+                ->first();
+
+            if ($employee) {
+                $superadmin->forceFill(['employee_id' => $employee->getKey()])->save();
+            }
+        }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
@@ -288,6 +308,11 @@ class RoleAndPermissionSeeder extends Seeder
                 ...$readMasterData($dailyWorkPermissions),
                 'dashboard.read', 'reports.read',
             ],
+
+            // A brand-new SSO account with no roles and no linked karyawan
+            // gets `guest` at first login (LoginProvisioningService). Zero
+            // permissions: the super admin grants real roles afterwards.
+            'guest' => [],
         ];
     }
 }

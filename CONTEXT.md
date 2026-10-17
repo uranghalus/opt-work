@@ -47,8 +47,11 @@ Deputy General Manager / General Manager; final escalation recipients and mandat
 _Avoid_: manajemen
 
 **Super Admin**:
-System-level configuration owner (RBAC, master data); a Super Admin holds unrestricted access to every feature. Not Direksi.
+System-level configuration owner (RBAC, master data); a Super Admin holds unrestricted access to every feature and is the only one who grants real roles to other accounts. Not Direksi.
 _Avoid_: admin
+
+**Guest**:
+The pre-provisioning state of an Akun that has signed in but is not yet linked to any Karyawan and holds no other role. A Guest can do nothing — access is granted only when the Super Admin assigns real roles. Syncing real roles (Role Assignment) replaces guest.
 
 **Role**:
 A named bundle of permissions deciding what a user may do; roles apply across all cabang, not per cabang.
@@ -59,7 +62,7 @@ A single named capability that routes and features gate access on, named `resour
 _Avoid_: hak (terlalu umum), view/edit sebagai verb
 
 **System Role**:
-A role owned by the seeder; it cannot be deleted or renamed from Hak Akses, and super_admin additionally cannot have its permissions synced. The canonical set is nine roles: super_admin, admin_tenant, general_manager, deputy_general_manager, hod, team_leader, karyawan, field_staff, viewer. field_staff is the execution superset of karyawan: a field worker holds both roles, so the baseline permissions stay in karyawan. Roles created from Hak Akses are never system roles.
+A role owned by the seeder; it cannot be deleted or renamed from Hak Akses, and super_admin additionally cannot have its permissions synced. The canonical set is ten roles: super_admin, admin_tenant, general_manager, deputy_general_manager, hod, team_leader, karyawan, field_staff, viewer, guest. field_staff is the execution superset of karyawan: a field worker holds both roles, so the baseline permissions stay in karyawan. Roles created from Hak Akses are never system roles.
 _Avoid_: default role, role bawaan
 
 **Hak Akses**:

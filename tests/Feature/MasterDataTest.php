@@ -151,12 +151,7 @@ it('seeds the baseline roles and permissions', function () {
 
     $seeder->run();
 
-    $expectedRoles = [
-        'super_admin', 'admin_tenant', 'general_manager', 'deputy_general_manager',
-        'hod', 'team_leader', 'karyawan', 'field_staff', 'viewer',
-    ];
-
-    foreach ($expectedRoles as $role) {
+    foreach (RoleAndPermissionSeeder::SYSTEM_ROLES as $role) {
         expect(Role::query()->where('name', $role)->exists())->toBeTrue($role.' missing');
     }
 

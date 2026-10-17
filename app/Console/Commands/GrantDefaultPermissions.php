@@ -18,7 +18,7 @@ use Throwable;
  *
  * - Creates any catalogue permission that is missing (same firstOrCreate
  *   semantics as the seeder — never renames, never deletes).
- * - Provisions the nine canonical roles if absent and keeps their is_system
+ * - Provisions the ten canonical roles if absent and keeps their is_system
  *   invariant (same as the seeder).
  * - Grants each system role the defaults it is missing — additive-only:
  *   Hak Akses customizations are preserved and nothing is ever detached.

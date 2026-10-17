@@ -3,11 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -115,13 +115,8 @@ class RoleAndPermissionSeeder extends Seeder
 
         // Link the account to the karyawan record carrying the same email
         // (only when unlinked — a conflicting link is never overwritten).
-        // The lookup deliberately ignores the tenant scope: seeding runs
-        // without a current tenant, and the platform account is not
-        // tenant-scoped by definition.
         if ($superadmin->employee_id === null) {
-            $employee = Employee::withoutGlobalScope('tenant')
-                ->where('email', $superAdminEmail)
-                ->first();
+            $employee = Employee::withEmailAnyTenant($superAdminEmail);
 
             if ($employee) {
                 $superadmin->forceFill(['employee_id' => $employee->getKey()])->save();

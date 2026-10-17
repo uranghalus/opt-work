@@ -40,6 +40,21 @@ class Employee extends Model
     ];
 
     /**
+     * Find a karyawan by email across all branches, case-insensitively.
+     *
+     * Platform provisioning (RoleAndPermissionSeeder,
+     * app:grant-super-admin-role, LoginProvisioningService) runs before any
+     * tenant exists, so the tenant scope is deliberately bypassed — the
+     * platform account is not tenant-scoped by definition (ADR-0006).
+     */
+    public static function withEmailAnyTenant(string $email): ?self
+    {
+        return static::withoutGlobalScope('tenant')
+            ->whereRaw('LOWER(email) = LOWER(?)', [$email])
+            ->first();
+    }
+
+    /**
      * Whether this karyawan is currently diblokir (record-level block).
      * The portal sync never touches banned_at, so a ban survives syncs.
      */

@@ -42,8 +42,8 @@ class Role extends SpatieRole
     }
 
     /**
-     * Roles owned by the seeder (see ADR-0004): the nine canonical business
-     * roles, protected from delete/rename in Hak Akses.
+     * Roles owned by the seeder (see ADR-0004): the ten canonical roles,
+     * protected from delete/rename in Hak Akses.
      */
     public function scopeSystem(Builder $query): Builder
     {

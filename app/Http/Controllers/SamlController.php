@@ -268,7 +268,7 @@ class SamlController extends Controller
         // account gets the zero-permission guest role — before the login, so
         // the role-aware landing gate below sees the provisioned state
         // (`.scratch/guest-role`).
-        $this->provisioning->provision($user, $email);
+        $this->provisioning->provision($user);
 
         Auth::login($user);
 

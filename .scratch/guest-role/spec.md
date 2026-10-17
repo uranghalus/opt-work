@@ -41,7 +41,10 @@ Tanggal: 2026-10-17. Sumber: Phase-1 grill (Q1–Q6 terjawab user) + diagnosis P
   `! $user->isSuperAdmin() && $user->employee_id === null &&
   ! $user->roles()->exists()` → `assignRole('guest')` dalam `DB::transaction`
   (idempoten: setelah ada role, syarat tidak berlaku lagi; `assignRole`
-  Spatie tidak duplikasi pivot).
+  Spatie tidak duplikasi pivot). Guard **berbasis state, bukan
+  berbasis-created** (fail-closed): akun yang role-nya habis dihapus
+  Role Assignment kembali menjadi `guest` di login berikutnya, bukan
+  ditolak.
 - **Exclusion guest = `isSuperAdmin()`** (flag ATAU role — ADR-0004 rule 7;
   tidak ada email di logic guest).
 - **Auto-assign super admin = config `auth.super_admin_email`** (env
@@ -71,6 +74,8 @@ Tanggal: 2026-10-17. Sumber: Phase-1 grill (Q1–Q6 terjawab user) + diagnosis P
   tersentuh; linked user (`employee_id` terisi) → no guest;
   superadmin first login → dapat `super_admin`, tidak dapat `guest`;
   guest ditolak di gated route (`/hak-kses` 403, review/assign WO 403).
+- `tests/Feature/Rbac/SyncAkunRolesTest.php`: sync role nyata meng-evict
+  `guest` (ADR-0006 §5 — replace, bukan add).
 - `tests/Feature/Rbac/SuperadminAccountTest.php`: setelah seeding akun
   platform punya flag + role + tertaut ke employee ber-email sama, dan
   bisa reach gated route (regresi symptom UI "Peran Akun").

@@ -3,53 +3,56 @@
 namespace App\Console\Commands;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Spatie\Permission\Models\Role;
 
 /**
- * One-off, idempotent repair for existing databases (`.scratch/guest-role`
- * issue 03). The diagnosis: the platform account had its `super_admin` role
- * but was never linked to its karyawan record, so the Karyawan page reported
+ * Per-release repair step for the platform account (ADR-0006). The
+ * diagnosis behind this command: the account had its `super_admin` role but
+ * was never linked to its karyawan record, so the Karyawan page reported
  * "Belum ada akun yang terhubung".
  *
- * Guarantees: additive only — no deletes, no truncates, never touches
- * tenant_id, never overwrites an existing (or conflicting) employee link.
- * `--dry-run` prints the plan and writes nothing.
+ * - Additive only: no deletes, no truncates, never touches tenant_id, never
+ *   overwrites an existing (or conflicting) employee link.
+ * - Idempotent: safe to run any time; a second run changes nothing.
+ * - --dry-run prints the plan without writing.
  */
+#[Signature('app:grant-super-admin-role {--dry-run : Tampilkan rencana tanpa mengubah data.}')]
+#[Description('Pastikan akun platform memiliki peran super_admin, flag is_super_admin, dan tautan karyawan (idempoten, hanya menambah).')]
 class GrantSuperAdminRole extends Command
 {
-    protected $signature = 'app:grant-super-admin-role {--dry-run : Show the plan without writing}';
-
-    protected $description = 'Ensure the platform account has the super_admin role, the is_super_admin flag, and a karyawan link (idempotent)';
-
     public function handle(): int
     {
         $email = config('auth.super_admin_email');
 
         if (! is_string($email) || $email === '') {
-            $this->error('config(auth.super_admin_email) is empty: nothing to repair.');
+            $this->error('config(auth.super_admin_email) kosong: tidak ada akun untuk diperbaiki.');
 
             return self::FAILURE;
         }
 
         $dryRun = (bool) $this->option('dry-run');
-        $this->line($dryRun ? "[dry-run] {$email}" : "Repairing {$email}");
+        $this->line($dryRun ? "[dry-run] {$email}" : "Memperbaiki {$email}");
 
-        $user = User::where('email', $email)->first()
-            ?? User::factory()->create([
-                'name' => 'Super Admin',
-                'email' => $email,
-            ]);
+        $user = User::where('email', $email)->first();
 
-        $this->line('  account: '.$user->email.' (id '.$user->getKey().')');
+        if ($user === null) {
+            $this->error('Akun platform belum ada: jalankan db:seed lebih dulu.');
+
+            return self::FAILURE;
+        }
+
+        $this->line('  akun: '.$user->email.' (id '.$user->getKey().')');
 
         $this->ensureRole($user, $dryRun);
         $this->ensureFlag($user, $dryRun);
         $this->ensureEmployeeLink($user, $dryRun);
 
         if ($dryRun) {
-            $this->line('[dry-run] nothing was written.');
+            $this->line('[dry-run] tidak ada data yang diubah.');
         }
 
         return self::SUCCESS;
@@ -58,67 +61,63 @@ class GrantSuperAdminRole extends Command
     private function ensureRole(User $user, bool $dryRun): void
     {
         if ($user->roles()->where('name', 'super_admin')->exists()) {
-            $this->line('  role: super_admin already assigned');
+            $this->line('  peran: super_admin sudah ada');
 
             return;
         }
 
         if ($dryRun) {
-            $this->line('  role: would assign super_admin');
+            $this->line('  peran: akan memberikan super_admin');
 
             return;
         }
 
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $user->assignRole('super_admin');
-        $this->line('  role: assigned super_admin');
+        $this->line('  peran: super_admin diberikan');
     }
 
     private function ensureFlag(User $user, bool $dryRun): void
     {
         if ($user->is_super_admin) {
-            $this->line('  flag: is_super_admin already set');
+            $this->line('  flag: is_super_admin sudah aktif');
 
             return;
         }
 
         if ($dryRun) {
-            $this->line('  flag: would set is_super_admin');
+            $this->line('  flag: akan mengaktifkan is_super_admin');
 
             return;
         }
 
         $user->forceFill(['is_super_admin' => true])->save();
-        $this->line('  flag: set is_super_admin');
+        $this->line('  flag: is_super_admin diaktifkan');
     }
 
     private function ensureEmployeeLink(User $user, bool $dryRun): void
     {
         if ($user->employee_id !== null) {
-            $this->line('  link: already linked to employee '.$user->employee_id);
+            $this->line('  tautan: sudah tertaut ke karyawan '.$user->employee_id);
 
             return;
         }
 
-        // WithoutGlobalScope: the command runs without a current tenant and
-        // the platform account is not tenant-scoped by definition.
-        $employee = Employee::withoutGlobalScope('tenant')
-            ->where('email', $user->email)
-            ->first();
+        $employee = Employee::withEmailAnyTenant($user->email);
 
         if ($employee === null) {
-            $this->warn('  link: no karyawan record with this email — skipped');
+            $this->warn('  tautan: tidak ada karyawan dengan email ini — dilewati');
 
             return;
         }
 
         if ($dryRun) {
-            $this->line('  link: would link employee '.$employee->getKey());
+            $this->line('  tautan: akan menautkan karyawan '.$employee->getKey());
 
             return;
         }
 
         $user->forceFill(['employee_id' => $employee->getKey()])->save();
-        $this->line('  link: linked employee '.$employee->getKey());
+        $this->line('  tautan: karyawan '.$employee->getKey().' ditautkan');
     }
 }

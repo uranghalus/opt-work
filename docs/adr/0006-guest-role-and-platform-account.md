@@ -25,7 +25,10 @@ reported "Belum ada akun yang terhubung"). We close both at the login seam.
    `Auth::login`, because the role-aware landing gate runs right after — a
    guest must exist before the gate sees the account. Password login is not
    provisioned: those accounts pre-exist; the seeder and the one-off command
-   cover them.
+   cover them. The guest guard is **state-based, not creation-based** ("no
+   role, no link"), deliberately fail-closed: an account whose roles were
+   all wiped (Role Assignment replaces the set) re-lands as `guest` on its
+   next login instead of being denied outright.
 3. **Exclusion of the platform account uses the configured email
    (`config('auth.super_admin_email')`, env-fed, never an email literal in
    code) plus `User::isSuperAdmin()` (flag OR role — ADR-0004 rule 7, the

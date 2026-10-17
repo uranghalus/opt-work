@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WorkOrder;
+use App\WorkOrderStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -141,8 +144,45 @@ it('self-heals the platform account and never gives it guest', function () {
 it('denies a guest on gated routes', function () {
     samlLogin();
 
-    $this->actingAs(samlUser())
+    $guest = samlUser();
+
+    $this->actingAs($guest)
         ->get('/hak-akses')
+        ->assertForbidden();
+
+    // WO review/assign are gated by the shared work-order verbs; a guest
+    // holds none of them. The employee id must exist so the FormRequest
+    // passes and the controller's Gate::authorize is what denies.
+    $department = Department::create([
+        'kode_department' => 'DEP-GUEST',
+        'nama_department' => 'Dept Guest',
+    ]);
+    $employee = Employee::create([
+        'nik_employee' => 'NIK-GUEST',
+        'nama_employee' => 'Dewi Guest',
+        'email' => 'dewi.guest@optigate.test',
+        'department_id' => $department->getKey(),
+    ]);
+    $workOrder = WorkOrder::create([
+        'nomor_wo' => 'WO-GUEST-0001',
+        'requester_user_id' => $guest->getKey(),
+        'target_department_id' => $department->getKey(),
+        'category' => 'normal',
+        'title' => 'WO untuk guest',
+        'description' => 'Tidak boleh direview oleh guest',
+        'status' => WorkOrderStatus::HodApproved,
+    ]);
+
+    $this->actingAs($guest)
+        ->post("/test-co/work-orders/{$workOrder->getKey()}/review", [
+            'action' => 'execute_immediately',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($guest)
+        ->post("/test-co/work-orders/{$workOrder->getKey()}/assign", [
+            'employees' => [$employee->getKey()],
+        ])
         ->assertForbidden();
 });
 
@@ -154,6 +194,9 @@ it('shares no can flags for a guest', function () {
     $request->setUserResolver(fn (): User => samlUser());
 
     $props = (new HandleInertiaRequests)->share($request);
+
+    // Guard against a vacuous pass: the flag set must exist and be all false.
+    expect($props['auth']['can'])->not->toBeEmpty();
 
     foreach ($props['auth']['can'] as $ability => $value) {
         expect($value)->toBeFalse();

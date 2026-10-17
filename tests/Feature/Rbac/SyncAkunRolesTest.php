@@ -55,6 +55,19 @@ it('rejects the role sync without akun.update', function () {
     expect($employee->user()->first()->hasRole('hod'))->toBeFalse();
 });
 
+it('evicts the guest role when real roles are synced', function () {
+    // ADR-0006 §5: the sync replaces the entire role set, so granting real
+    // roles is what removes the zero-permission guest marker.
+    [$employee, $akun] = akunPair();
+    $akun->assignRole('guest');
+
+    $this->actingAs(akunEditor(['akun.update']))
+        ->post(syncAkunRolesRoute($employee), ['roles' => ['karyawan']])
+        ->assertRedirect();
+
+    expect($akun->fresh()->getRoleNames()->toArray())->toBe(['karyawan']);
+});
+
 it('syncs roles for a super admin holding zero permissions', function () {
     [$employee, $akun] = akunPair();
 

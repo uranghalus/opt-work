@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Spatie\Permission\Models\Role;
 
 /**
- * Role bootstrap at SSO login (`.scratch/guest-role`).
+ * Role bootstrap at SSO login (ADR-0006).
  *
  * Two rules, in this order, both inside one transaction and both idempotent:
  *
@@ -22,7 +22,9 @@ use Spatie\Permission\Models\Role;
  * 2. Any other account with no role at all and no linked karyawan (Akun)
  *    gets the zero-permission `guest` role exactly once. Until the super
  *    admin grants real roles through Hak Akses → Peran Akun, such an account
- *    can do nothing.
+ *    can do nothing. The guard is state-based ("no role, no link"), not
+ *    creation-based: it is fail-closed — an account whose roles were all
+ *    wiped re-lands as guest rather than being denied at login.
  *
  * The platform check runs first: a brand-new platform account has neither
  * flag nor role yet, so a role-based check alone would leak `guest` onto it.
@@ -33,19 +35,19 @@ class LoginProvisioningService
 
     private const GUEST_ROLE = 'guest';
 
-    public function provision(User $user, string $email): void
+    public function provision(User $user): void
     {
-        DB::transaction(function () use ($user, $email): void {
-            $this->ensurePlatformSuperAdmin($user, $email);
+        DB::transaction(function () use ($user): void {
+            $this->ensurePlatformSuperAdmin($user);
             $this->ensureGuestRole($user);
         });
 
         $user->refresh();
     }
 
-    private function ensurePlatformSuperAdmin(User $user, string $email): void
+    private function ensurePlatformSuperAdmin(User $user): void
     {
-        if (! $this->isPlatformAccount($email)) {
+        if (! $this->isPlatformAccount($user->email)) {
             return;
         }
 
@@ -64,17 +66,11 @@ class LoginProvisioningService
             return;
         }
 
-        // Deliberately withoutGlobalScope: login provisioning runs before the
-        // tenant is identified, and the platform account is not tenant-scoped.
-        $employee = Employee::withoutGlobalScope('tenant')
-            ->where('email', $email)
-            ->first();
+        $employee = Employee::withEmailAnyTenant($user->email);
 
-        if ($employee === null) {
-            return;
+        if ($employee !== null) {
+            $user->forceFill(['employee_id' => $employee->getKey()])->save();
         }
-
-        $user->forceFill(['employee_id' => $employee->getKey()])->save();
     }
 
     private function ensureGuestRole(User $user): void

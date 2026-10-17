@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\User;
@@ -121,4 +122,59 @@ it('fails gracefully when the portal is unreachable', function () {
     Http::fake(['*/api/users*' => Http::response(null, 500)]);
 
     $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertFailed();
+});
+
+it('maps the portal department_id to the local department on each employee', function () {
+    Tenant::forgetCurrent();
+
+    $department = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '2',
+        'kode_department' => 'IT',
+        'nama_department' => 'Information Technology',
+    ]);
+    $department->tenant_id = $this->hq->id;
+    $department->save();
+
+    fakePortalUsers([
+        ['id' => 'emp-1', 'name' => 'Sari', 'department_id' => 2],
+        ['id' => 'emp-2', 'name' => 'Tanpa Dept'],
+        ['id' => 'emp-3', 'name' => 'Dept Tak Dikenal', 'department_id' => 42],
+    ]);
+
+    $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $known = Employee::withoutGlobalScopes()->where('optigate_user_id', 'emp-1')->first();
+    $blank = Employee::withoutGlobalScopes()->where('optigate_user_id', 'emp-2')->first();
+    $unknown = Employee::withoutGlobalScopes()->where('optigate_user_id', 'emp-3')->first();
+
+    expect($known->department_id)->toBe($department->id)
+        ->and($blank->department_id)->toBeNull()
+        // department portal yang belum ikut sync department tidak menggantung.
+        ->and($unknown->department_id)->toBeNull()
+        ->and(Department::withoutGlobalScopes()->find($known->department_id)->is($department))->toBeTrue();
+});
+
+it('clears department_id when the portal no longer assigns a department', function () {
+    Tenant::forgetCurrent();
+
+    $department = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '2',
+        'kode_department' => 'IT',
+    ]);
+    $department->tenant_id = $this->hq->id;
+    $department->save();
+
+    $employee = Employee::withoutGlobalScopes()->make(['nama_employee' => 'Sari']);
+    $employee->tenant_id = $this->hq->id;
+    $employee->optigate_user_id = 'emp-1';
+    $employee->department_id = $department->id;
+    $employee->save();
+
+    fakePortalUsers([
+        ['id' => 'emp-1', 'name' => 'Sari'],
+    ]);
+
+    $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect($employee->refresh()->department_id)->toBeNull();
 });

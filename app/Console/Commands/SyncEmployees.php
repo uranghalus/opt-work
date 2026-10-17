@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
@@ -69,6 +70,15 @@ class SyncEmployees extends Command
             $employees = $response->json('data') ?? $response->json();
             $count = 0;
 
+            // Peta department portal -> department lokal untuk relasi
+            // karyawan -> department (department_id portal tidak sama dengan
+            // uuid lokal; jembatannya optigate_department_id).
+            $departmentsByPortalId = Department::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->whereNotNull('optigate_department_id')
+                ->get()
+                ->keyBy('optigate_department_id');
+
             foreach ($employees as $employee) {
                 if (blank($employee['id'] ?? null)) {
                     continue;
@@ -92,6 +102,12 @@ class SyncEmployees extends Command
                     'number' => $employee['whatsapp_number'] ?? null,
                     'photo_url' => $employee['photo_url'] ?? null,
                     'last_login_ip' => $employee['last_login_ip'] ?? null,
+                    // Portal mengirim department_id (ID department portal);
+                    // petakan ke department lokal lewat optigate_department_id
+                    // agar relasi karyawan -> department terisi.
+                    'department_id' => filled($employee['department_id'] ?? null)
+                        ? $departmentsByPortalId->get((string) $employee['department_id'])?->getKey()
+                        : null,
                 ])->save();
                 $count++;
             }

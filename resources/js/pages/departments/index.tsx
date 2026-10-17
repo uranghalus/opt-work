@@ -1,7 +1,9 @@
-import { Head, Link } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { create, edit, index, show } from '@/routes/departments';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { create, edit, index, show, sync } from '@/routes/departments';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Table,
     TableBody,
@@ -11,6 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useRequiredTenant } from '@/lib/tenant';
+import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
     id: string;
@@ -26,18 +29,62 @@ type PageProps = {
     departments: { data: Department[] };
 };
 
-/** Primary action of this page, rendered in the shell's heading band. */
+type FlashProps = InertiaConfig['sharedPageProps'] & {
+    flash?: { success?: string | null; error?: string | null };
+};
+
+/** Primary actions of this page, rendered in the shell's heading band. */
 function DepartmentActions() {
     const tenant = useRequiredTenant('departments.create');
+    const [syncing, setSyncing] = useState(false);
+
+    const runSync = useCallback(() => {
+        if (syncing) return;
+        setSyncing(true);
+        router.post(
+            sync({ tenant }),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSyncing(false),
+            },
+        );
+    }, [tenant, syncing]);
+
     return (
-        <Button asChild size="lg">
-            <Link href={create({ tenant })}>
-                <Plus aria-hidden />
-                Tambah Department
-            </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button
+                onClick={runSync}
+                disabled={syncing}
+                variant="outline"
+                size="lg"
+            >
+                {syncing ? (
+                    <>
+                        <LoaderCircle
+                            aria-hidden
+                            className="animate-spin"
+                        />
+                        Menyinkronkan…
+                    </>
+                ) : (
+                    <>
+                        <RefreshCw aria-hidden />
+                        Sinkronkan
+                    </>
+                )}
+            </Button>
+            <Button asChild size="lg">
+                <Link href={create({ tenant })}>
+                    <Plus aria-hidden />
+                    Tambah Department
+                </Link>
+            </Button>
+        </div>
     );
 }
+
+DepartmentActions.displayName = 'DepartmentActions';
 
 Departments.layout = {
     breadcrumbs: [{ title: 'Data Master' }, { title: 'Department' }],
@@ -50,12 +97,25 @@ Departments.layout = {
 export default function Departments(props: PageProps) {
     const { departments } = props;
     const tenant = useRequiredTenant('departments.index');
+    const { flash } = usePage<FlashProps>().props;
 
     return (
         <>
             <Head title="Department" />
 
             <div className="space-y-6">
+                {flash?.success && (
+                    <Alert role="status">
+                        <AlertDescription>{flash.success}</AlertDescription>
+                    </Alert>
+                )}
+
+                {flash?.error && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{flash.error}</AlertDescription>
+                    </Alert>
+                )}
+
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>

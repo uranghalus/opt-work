@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\DepartmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -10,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use App\Models\Concerns\BelongsToTenant;
 
 /**
  * @property string $id
@@ -20,10 +20,11 @@ use App\Models\Concerns\BelongsToTenant;
  * @property int|null $hod_user_id
  * @property int|null $manager_user_id
  * @property string|null $division_id
+ * @property string|null $optigate_department_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'manager_user_id', 'division_id'])]
+#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'manager_user_id', 'division_id', 'optigate_department_id'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */

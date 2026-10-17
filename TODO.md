@@ -1,5 +1,21 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Department/HOD sync relations (2026-10-17) — DONE, commit `b0be63f`
+
+- [x] **Relasi department ↔ karyawan ↔ HOD lewat sync Optigate:** `SyncDepartments` fetch
+      `with=hod` → portal hod UUID dipetakan ke `hod_user_id` lokal via jembatan
+      `employees.optigate_user_id` → `users.employee_id` (peta dibangun sekali per tenant;
+      hanya employee dengan optigate_user_id non-null + akun tertaut; HOD portal yang belum
+      ter-sync dibiarkan null, HOD lama dikosongkan bila portal tak lagi mencantumkan).
+      `SyncEmployees` kini mengisi `employees.department_id` dari `department_id` portal via
+      `optigate_department_id` (null-safe; dept tak dikenal dibiarkan null). Migrasi
+      `optigate_department_id` + unique(tenant_id, optigate_department_id) + tombol
+      "Sinkronkan" + flash alert di halaman departments. Verifikasi: sync tests 16/16,
+      full suite 335 (327 passed, 8 skipped, 0 failed), pint + `npm run build` + tsc hijau.
+- [ ] Follow-up (opsional): jalankan `app:sync-departments` lalu `app:sync-employees` di dev
+      DB untuk mengisi relasi live; map HOD portal belum tertaut sampai karyawan+akun ikut
+      disync (urutan: departments → employees).
+
 ## Guest role + akun platform (2026-10-17) — spec `.scratch/guest-role/`, commits `7e5fe00` + `0a34c48`
 
 - [x] Root cause akun superadmin: role SUDAH ada; yang hilang link `users.employee_id` (0 dari 127

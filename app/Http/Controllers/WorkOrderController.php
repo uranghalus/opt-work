@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
 use App\Models\WorkOrder;
 use App\Services\WorkOrderService;
 use App\WorkOrderCategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -91,6 +93,23 @@ class WorkOrderController extends Controller
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
             ->with('success', 'Work Order '.$workOrder->nomor_wo.' berhasil dibuat.');
+    }
+
+    public function review(ReviewWorkOrderRequest $request): RedirectResponse
+    {
+        Gate::authorize('work-order.review');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->workOrderService->review($request->user(), $workOrder, $request->validated());
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Keputusan review WO '.$workOrder->nomor_wo.' tersimpan.');
     }
 
     public function show(Request $request): Response

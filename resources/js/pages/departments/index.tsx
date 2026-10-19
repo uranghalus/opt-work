@@ -31,8 +31,8 @@ type PageProps = {
     last_synced_at: string | null;
 };
 
-type FlashProps = {
-    flash?: { success?: string; error?: string };
+type FlashProps = PageProps & InertiaConfig['sharedPageProps'] & {
+    flash?: { success?: string | null; error?: string | null };
 };
 
 /** Primary actions of this page, rendered in the shell's heading band. */
@@ -99,7 +99,7 @@ Departments.layout = {
 export default function Departments(props: PageProps) {
     const { departments } = props;
     const tenant = useRequiredTenant('departments.index');
-    const { flash, last_synced_at } = usePage<FlashProps>().props;
+    const { flash, last_synced_at } = usePage<FlashProps>().props as FlashProps;
 
     return (
         <>
@@ -108,7 +108,7 @@ export default function Departments(props: PageProps) {
             <div className="space-y-6">
                 {flash?.success && (
                     <Alert role="status">
-                        <AlertDescription key="success">{String(flash.success)}</AlertDescription>
+                        <AlertDescription>{String(flash.success)}</AlertDescription>
                     </Alert>
                 )}
 

@@ -1,5 +1,25 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Unit Bisnis page revamp + URL move (2026-10-19) — DONE
+
+- [x] **Move `/settings/tenants` → `/tenants`:** routes/web.php (prefix `tenants`, names
+      unchanged), controller moved `app/Http/Controllers/TenantController.php` (namespace
+      `App\Http\Controllers`), Inertia components moved `resources/js/pages/tenants/`,
+      tests moved `tests/Feature/TenantManagementTest.php` (URLs updated), Wayfinder
+      regenerated. Sidebar/settings-nav links auto-updated via route functions.
+      Verifikasi: `php artisan route:list --path=tenants`, tenant tests 7/7, full suite
+      350 (342 passed, 8 skipped), pint + tsc + `npm run build` hijau.
+- [x] **White/light redesign Unit Bisnis (index + show):** rebuilt both pages on the
+      light Stitch tokens (bg-card, brand tints, ink scale) — no slate-950 dark theme.
+      Index: filter bar (debounced search + status segmented control), card grid,
+      loading overlay, empty states, pagination. Show: identity card, detail rows,
+      usage bars, Optigate info note. Both wrapped by `app-sidebar-layout` via
+      `.layout` metadata (breadcrumbs, title, description, actions).
+      Verifikasi: impeccable detect clean, tsc + build hijau.
+- [ ] Visual check in browser by user (light + dark mode toggle) — pages are token-based
+      so dark mode stays readable by design.
+
+
 ## Department/HOD sync relations (2026-10-17) — DONE, commit `b0be63f`
 
 - [x] **Relasi department ↔ karyawan ↔ HOD lewat sync Optigate:** `SyncDepartments` fetch

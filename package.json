@@ -53,7 +53,7 @@
         "@rolldown/plugin-babel": "^0.2.3",
         "@types/node": "^22.13.5",
         "babel-plugin-react-compiler": "^1.0.0",
-        "shadcn": "^4.21.4",
+        "shadcn": "^4.22.1",
         "vite-plus": "0.3.0"
     },
     "optionalDependencies": {

@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+ï»¿import { Head, Link, router, usePage } from '@inertiajs/react';
 import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { index, show, sync } from '@/routes/divisions';
@@ -63,7 +63,7 @@ function DivisionActions() {
                             aria-hidden
                             className="animate-spin"
                         />
-                        Sinkronisasi…
+                        Sinkronisasiï¿½
                     </>
                 ) : (
                     <>
@@ -142,7 +142,7 @@ export default function Divisions(props: PageProps) {
                                 divisions.data.map((division) => (
                                     <TableRow key={division.id}>
                                         <TableCell className="font-mono text-sm">
-                                            {division.kode_division ?? '—'}
+                                            {division.kode_division ?? 'ï¿½'}
                                         </TableCell>
                                         <TableCell className="font-semibold">
                                             <Link
@@ -176,3 +176,4 @@ export default function Divisions(props: PageProps) {
         </>
     );
 }
+

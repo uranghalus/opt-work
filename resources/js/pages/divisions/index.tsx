@@ -1,7 +1,9 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { create, edit, index, show } from '@/routes/divisions';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { LoaderCircle, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { index, show, sync } from '@/routes/divisions';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Table,
     TableBody,
@@ -10,8 +12,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import type { InertiaConfig } from '@inertiajs/core';
 import { useRequiredTenant } from '@/lib/tenant';
+import type { InertiaConfig } from '@inertiajs/core';
 
 type Division = {
     id: string;
@@ -21,38 +23,100 @@ type Division = {
 };
 
 type PageProps = {
-    divisions: { data: Division[] };
+    divisions: { data: Division[]; links?: { next: string | null } };
+    last_synced_at: string | null;
+};
+
+type FlashProps = InertiaConfig['sharedPageProps'] & {
+    flash?: { success?: string | null; error?: string | null };
 };
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function DivisionActions() {
-    const tenant = useRequiredTenant('divisions.create');
+    const tenant = useRequiredTenant('divisions.index');
+    const [syncing, setSyncing] = useState(false);
+
+    const runSync = useCallback(() => {
+        if (syncing) return;
+        setSyncing(true);
+        router.post(
+            sync({ tenant }),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSyncing(false),
+            },
+        );
+    }, [tenant, syncing]);
+
     return (
-        <Button asChild size="lg">
-            <Link href={create({ tenant })}>
-                <Plus aria-hidden />
-                Tambah Divisi
-            </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button
+                onClick={runSync}
+                disabled={syncing}
+                variant="outline"
+                size="lg"
+            >
+                {syncing ? (
+                    <>
+                        <LoaderCircle
+                            aria-hidden
+                            className="animate-spin"
+                        />
+                        Sinkronisasi…
+                    </>
+                ) : (
+                    <>
+                        <RefreshCw aria-hidden className="size-4" />
+                        Sync Divisi
+                    </>
+                )}
+            </Button>
+        </div>
     );
 }
+
+DivisionActions.displayName = 'DivisionActions';
 
 Divisions.layout = {
     breadcrumbs: [{ title: 'Data Master' }, { title: 'Divisi' }],
     title: 'Divisi',
-    description: 'Kelompok divisi perusahaan dalam cabang aktif',
+    description: 'Daftar divisi perusahaan dalam cabang aktif (hanya sync)',
     actions: DivisionActions,
 };
 
 export default function Divisions(props: PageProps) {
-    const { divisions } = props;
+    const { divisions, last_synced_at } = props;
     const tenant = useRequiredTenant('divisions.index');
+    const { flash } = usePage<FlashProps>().props;
 
     return (
         <>
             <Head title="Divisi" />
 
             <div className="space-y-6">
+                {flash?.success && (
+                    <Alert role="status">
+                        <AlertDescription>{flash.success}</AlertDescription>
+                    </Alert>
+                )}
+
+                {last_synced_at && (
+                    <p className="text-sm text-muted-foreground">
+                        Last synced:{' '}
+                        {new Date(last_synced_at).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                        })}
+                    </p>
+                )}
+
+                {flash?.error && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{flash.error}</AlertDescription>
+                    </Alert>
+                )}
+
                 <div className="overflow-hidden rounded-lg border bg-card">
                     <Table>
                         <TableHeader>
@@ -62,26 +126,23 @@ export default function Divisions(props: PageProps) {
                                 <TableHead className="text-right">
                                     Department
                                 </TableHead>
-                                <TableHead className="w-24">
-                                    <span className="sr-only">Aksi</span>
-                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {divisions.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={4}
+                                        colSpan={3}
                                         className="h-24 text-center text-ink-muted"
                                     >
-                                        Belum ada divisi.
+                                        Belum ada divisi. Klik "Sync Divisi" untuk menarik dari portal.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 divisions.data.map((division) => (
                                     <TableRow key={division.id}>
                                         <TableCell className="font-mono text-sm">
-                                            {division.kode_division ?? 'â€”'}
+                                            {division.kode_division ?? '—'}
                                         </TableCell>
                                         <TableCell className="font-semibold">
                                             <Link
@@ -97,27 +158,20 @@ export default function Divisions(props: PageProps) {
                                         <TableCell className="text-right tabular-nums">
                                             {division.departments_count}
                                         </TableCell>
-                                        <TableCell>
-                                            <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={edit({
-                                                            tenant,
-                                                            division: division.id,
-                                                        })}
-                                                    >
-                                                        Edit
-                                                    </Link></Button>
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
                         </TableBody>
                     </Table>
                 </div>
+
+                {typeof divisions.links?.next === 'string' && (
+                    <div className="flex justify-end">
+                        <Button asChild variant="outline">
+                            <Link href={divisions.links.next}>Selanjutnya</Link>
+                        </Button>
+                    </div>
+                )}
             </div>
         </>
     );

@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import type { ReactNode } from 'react';
 import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { create, edit, index, show, sync } from '@/routes/departments';
@@ -30,8 +31,8 @@ type PageProps = {
     last_synced_at: string | null;
 };
 
-type FlashProps = InertiaConfig['sharedPageProps'] & {
-    flash?: { success?: string | null; error?: string | null };
+type FlashProps = {
+    flash?: { success?: string; error?: string };
 };
 
 /** Primary actions of this page, rendered in the shell's heading band. */
@@ -107,11 +108,11 @@ export default function Departments(props: PageProps) {
             <div className="space-y-6">
                 {flash?.success && (
                     <Alert role="status">
-                        <AlertDescription>{flash.success}</AlertDescription>
+                        <AlertDescription key="success">{String(flash.success)}</AlertDescription>
                     </Alert>
                 )}
 
-                {last_synced_at && (
+                {last_synced_at && typeof last_synced_at === 'string' && (
                     <p className="text-sm text-muted-foreground">
                         Last synced:{' '}
                         {new Date(last_synced_at).toLocaleString(undefined, {

@@ -7,7 +7,7 @@ use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
-use App\Http\Controllers\Settings\TenantController;
+use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkOrderController;
 use App\Models\Tenant;
@@ -70,10 +70,11 @@ Route::middleware(['auth', 'ensure.platform.tenant.access'])->prefix('admin')->n
 
 // Unit Bisnis (cabang) — platform level, super admin only.
 // Tenants are synced from the Optigate API; there is no manual CRUD.
-Route::middleware(['auth', 'ensure.platform.tenant.access'])->group(function () {
-    Route::get('settings/tenants', [TenantController::class, 'index'])->name('tenants.index');
-    Route::post('settings/tenants/sync', [TenantController::class, 'sync'])->name('tenants.sync');
-    Route::get('settings/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
+// Lives at its own /tenants root, not under the user's settings section.
+Route::middleware(['auth', 'ensure.platform.tenant.access'])->prefix('tenants')->name('tenants.')->group(function () {
+    Route::get('/', [TenantController::class, 'index'])->name('index');
+    Route::post('sync', [TenantController::class, 'sync'])->name('sync');
+    Route::get('{tenant}', [TenantController::class, 'show'])->name('show');
 });
 
 Route::prefix('saml')->group(function () {
@@ -138,7 +139,8 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('work-orders.assign');
     Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
-    Route::resource('divisions', DivisionController::class)->names('divisions');
+    Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
+    Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');
     Route::post('divisions/sync', [DivisionController::class, 'sync'])->name('divisions.sync');
 
     Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');

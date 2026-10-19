@@ -21,9 +21,13 @@ return new class extends Migration
             $table->string('tenant_id');
             $table->string('kode_division')->nullable();
             $table->string('nama_division');
+            $table->string('optigate_division_id', 36)->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->unique(['tenant_id', 'optigate_division_id']);
+            $table->index('is_active');
         });
 
         Schema::create('departments', function (Blueprint $table) {

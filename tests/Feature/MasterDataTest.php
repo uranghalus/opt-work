@@ -24,24 +24,30 @@ afterEach(function () {
     Tenant::forgetCurrent();
 });
 
-it('creates a division scoped to the active cabang', function () {
+it('divisions are read-only (sync-only): create returns 405', function () {
     $admin = makeSuperAdmin(createUser());
     $hq = Tenant::where('code', 'hq')->first();
 
-    $response = $this
+    $this
         ->actingAs($admin)
         ->post('/hq/divisions', [
             'kode_division' => 'DIV-OPS',
             'nama_division' => 'Operasional',
-        ]);
+        ])
+        ->assertMethodNotAllowed();
+});
 
-    $response->assertRedirect();
+it('divisions are read-only (sync-only): no role can create a division', function () {
+    $hq = Tenant::where('code', 'hq')->first();
+    $user = createUser(['tenant_id' => $hq->id]);
 
-    $this->assertDatabaseHas('divisions', [
-        'kode_division' => 'DIV-OPS',
-        'nama_division' => 'Operasional',
-        'tenant_id' => $hq->id,
-    ]);
+    $this
+        ->actingAs($user)
+        ->post('/hq/divisions', [
+            'kode_division' => 'DIV-OPS',
+            'nama_division' => 'Operasional',
+        ])
+        ->assertMethodNotAllowed();
 });
 
 it('isolates master data per cabang', function () {
@@ -98,19 +104,22 @@ it('allows reading cabang pages with tenant linkage alone', function () {
         ->assertOk();
 });
 
-it('allows creating a division without any role', function () {
+it('allows super admin to view divisions on any branch', function () {
+    $admin = makeSuperAdmin(createUser());
     $hq = Tenant::where('code', 'hq')->first();
-    $user = createUser(['tenant_id' => $hq->id]);
+    $plant1 = Tenant::where('code', 'plant-1')->first();
+
+    expect($admin->tenant_id)->toBeNull();
 
     $this
-        ->actingAs($user)
-        ->post('/hq/divisions', [
-            'kode_division' => 'DIV-OPS',
-            'nama_division' => 'Operasional',
-        ])
-        ->assertRedirect();
+        ->actingAs($admin)
+        ->get('/hq/divisions')
+        ->assertOk();
 
-    $this->assertDatabaseHas('divisions', ['kode_division' => 'DIV-OPS']);
+    $this
+        ->actingAs($admin)
+        ->get('/plant-1/divisions')
+        ->assertOk();
 });
 
 it('rejects duplicate department code within the same cabang', function () {

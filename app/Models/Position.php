@@ -18,10 +18,11 @@ use App\Models\Concerns\BelongsToTenant;
  * @property string $nama_position
  * @property string|null $department_id
  * @property string|null $division_id
+ * @property string|null $optigate_position_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['nama_position', 'department_id', 'division_id'])]
+#[Fillable(['nama_position', 'department_id', 'division_id', 'optigate_position_id'])]
 class Position extends Model
 {
     /** @use HasFactory<PositionFactory> */

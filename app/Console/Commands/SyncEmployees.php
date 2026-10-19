@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -79,6 +80,13 @@ class SyncEmployees extends Command
                 ->get()
                 ->keyBy('optigate_department_id');
 
+            // Peta position portal -> position lokal untuk relasi
+            // karyawan -> position (position_id portal adalah UUID).
+            $positionsByPortalId = Position::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->get()
+                ->keyBy(fn (Position $p) => (string) $p->optigate_position_id);
+
             foreach ($employees as $employee) {
                 if (blank($employee['id'] ?? null)) {
                     continue;
@@ -107,6 +115,14 @@ class SyncEmployees extends Command
                     // agar relasi karyawan -> department terisi.
                     'department_id' => filled($employee['department_id'] ?? null)
                         ? $departmentsByPortalId->get((string) $employee['department_id'])?->getKey()
+                        : null,
+                    // Position: portal position UUID -> local position UUID.
+                    'position_id' => filled($employee['position_id'] ?? null)
+                        ? $positionsByPortalId->get((string) $employee['position_id'])?->getKey()
+                        : null,
+                    // Division: resolved from position's division if available.
+                    'division_id' => filled($employee['position_id'] ?? null)
+                        ? $positionsByPortalId->get((string) $employee['position_id'])?->division_id
                         : null,
                 ])->save();
                 $count++;

@@ -2,6 +2,7 @@
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -152,6 +153,39 @@ it('maps the portal department_id to the local department on each employee', fun
         // department portal yang belum ikut sync department tidak menggantung.
         ->and($unknown->department_id)->toBeNull()
         ->and(Department::withoutGlobalScopes()->find($known->department_id)->is($department))->toBeTrue();
+});
+
+it('maps portal position_id to local position and resolves division from position', function () {
+    Tenant::forgetCurrent();
+
+    // Create a division first.
+    $division = \App\Models\Division::withoutGlobalScopes()->make([
+        'optigate_division_id' => 'div-1',
+        'kode_division' => 'IT-DEV',
+        'nama_division' => 'Software Engineering',
+    ]);
+    $division->tenant_id = $this->hq->id;
+    $division->save();
+
+    // Create a position linked to that division.
+    $position = Position::withoutGlobalScopes()->make([
+        'optigate_position_id' => 'pos-1',
+        'nama_position' => 'Staff Programmer',
+        'division_id' => $division->id,
+    ]);
+    $position->tenant_id = $this->hq->id;
+    $position->save();
+
+    fakePortalUsers([
+        ['id' => 'emp-1', 'name' => 'Sari', 'position_id' => 'pos-1'],
+    ]);
+
+    $this->artisan('app:sync-employees', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $employee = Employee::withoutGlobalScopes()->where('optigate_user_id', 'emp-1')->first();
+
+    expect($employee->position_id)->toBe($position->id)
+        ->and($employee->division_id)->toBe($division->id);
 });
 
 it('clears department_id when the portal no longer assigns a department', function () {

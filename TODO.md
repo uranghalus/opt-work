@@ -19,6 +19,22 @@
 - [ ] Visual check in browser by user (light + dark mode toggle) — pages are token-based
       so dark mode stays readable by design.
 
+## Sprint A — commit slicing + review fixes (2026-10-19) — DONE, commits `47014af`…`8b80440`
+
+- [x] **Sync endpoint tests** (`tests/Feature/TenantManagementTest.php`): super admin
+      `POST /tenants/sync` → success flash "Sinkronisasi selesai", branch admin → 403,
+      500 portal → error flash + data untouched (suite 10/10).
+- [x] **Review fixes**: `optigate_company_id: string | null` (model cast string),
+      show.tsx link ke work-orders via Wayfinder `workOrderIndex({ tenant: code })`.
+- [x] **Commit slicing** (sebagian besar sudah di-commit sesi paralel: `3d8c9c1`
+      divisions read-only, `abed8f9`, `402bbc4`, `5c33d0d`; sisa):
+      `47014af` tenants move+redesign, `22f743e` orphaned division create/edit pages,
+      `bb2cf6a` deps (log-viewer, shadcn, public/vendor assets), `8b80440` stale skill file.
+      `pnpm-lock.yaml` dihapus (project pakai npm). Working tree bersih.
+- [x] Verifikasi akhir: full suite 369 (361 passed, 8 skipped, 0 failed), pint, tsc,
+      `npm run build` hijau, push ke origin/main.
+
+
 
 ## Department/HOD sync relations (2026-10-17) — DONE, commit `b0be63f`
 

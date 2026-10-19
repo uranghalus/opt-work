@@ -25,6 +25,7 @@ class Tenant extends SpatieTenant
         'name',
         'is_active',
         'deactivated_at',
+        'last_department_synced_at',
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class Tenant extends SpatieTenant
         'optigate_company_id' => 'string',
         'is_active' => 'boolean',
         'deactivated_at' => 'datetime',
+        'last_department_synced_at' => 'datetime',
     ];
 
     public function getTenantKey(): string

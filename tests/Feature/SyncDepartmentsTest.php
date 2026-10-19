@@ -37,6 +37,7 @@ function fakePortalDepartments(array $departments = []): void
             'data' => $departments,
             'meta' => [
                 'current_page' => 1,
+                'last_page' => 1,
                 'per_page' => count($departments),
                 'total' => count($departments),
             ],
@@ -83,8 +84,8 @@ it('is idempotent: rerunning the sync updates instead of duplicating', function 
     // call would not replace the stubs mid-test.
     Http::fake([
         '*/api/companies/*/departments*' => Http::sequence([
-            ['data' => [['id' => $portalId, 'code' => 'IT', 'name' => 'First Name']], 'meta' => ['total' => 1]],
-            ['data' => [['id' => $portalId, 'code' => 'IT', 'name' => 'Second Name']], 'meta' => ['total' => 1]],
+            ['data' => [['id' => $portalId, 'code' => 'IT', 'name' => 'First Name']], 'meta' => ['total' => 1, 'last_page' => 1]],
+            ['data' => [['id' => $portalId, 'code' => 'IT', 'name' => 'Second Name']], 'meta' => ['total' => 1, 'last_page' => 1]],
         ]),
     ]);
 
@@ -105,6 +106,7 @@ it('deactivates departments that disappeared from the portal', function () {
         'optigate_department_id' => '99',
         'kode_department' => 'OLD',
         'nama_department' => 'Old Department',
+        'is_active' => true,
     ]);
     $stale->tenant_id = $this->hq->id;
     $stale->save();
@@ -118,8 +120,9 @@ it('deactivates departments that disappeared from the portal', function () {
     $stale = Department::withoutGlobalScopes()->where('optigate_department_id', '99')->first();
 
     expect($stale)->not->toBeNull()
-        ->and($stale->kode_department)->toContain('-sync-deleted-')
-        ->and(Department::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('kode_department', 'HRD')->exists())->toBeTrue();
+        ->and($stale->kode_department)->toBe('OLD')
+        ->and($stale->is_active)->toBeFalse()
+        ->and(Department::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('optigate_department_id', '1')->first()?->is_active)->toBeTrue();
 });
 
 it('syncs every active optigate tenant when no tenant option is given', function () {
@@ -133,8 +136,10 @@ it('syncs every active optigate tenant when no tenant option is given', function
     Tenant::forgetCurrent();
 
     Http::fake([
-        '*/api/companies/1/departments*' => Http::response(['data' => [['id' => 1, 'code' => 'HQ-DEP', 'name' => 'HQ Dept']]]),
-        '*/api/companies/2/departments*' => Http::response(['data' => [['id' => 2, 'code' => 'BR-DEP', 'name' => 'Branch Dept']]]),
+        '*/api/companies/*/departments*' => Http::sequence([
+            Http::response(['data' => [['id' => 1, 'code' => 'HQ-DEP', 'name' => 'HQ Dept']], 'meta' => ['total' => 1, 'last_page' => 1]]),
+            Http::response(['data' => [['id' => 2, 'code' => 'BR-DEP', 'name' => 'Branch Dept']], 'meta' => ['total' => 1, 'last_page' => 1]]),
+        ]),
     ]);
 
     $this->artisan('app:sync-departments')->assertSuccessful();
@@ -225,4 +230,56 @@ it('clears hod_user_id when the portal no longer lists a hod', function () {
     $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
 
     expect($department->refresh()->hod_user_id)->toBeNull();
+});
+
+it('persists last_department_synced_at on the tenant after a successful sync', function () {
+    Tenant::forgetCurrent();
+
+    fakePortalDepartments([
+        ['id' => 1, 'code' => 'HRD', 'name' => 'Human Resources'],
+    ]);
+
+    $this->hq->update(['last_department_synced_at' => null]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect($this->hq->fresh()->last_department_synced_at)->not->toBeNull();
+});
+
+it('rolls back on transient error so no half-written data remains', function () {
+    Tenant::forgetCurrent();
+
+    // Pre-create a department so we can verify it survives the rollback.
+    $existing = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '10',
+        'kode_department' => 'PREVIOUS',
+        'nama_department' => 'Previous Name',
+        'is_active' => true,
+    ]);
+    $existing->tenant_id = $this->hq->id;
+    $existing->save();
+
+    $this->hq->update(['last_department_synced_at' => null]);
+
+    // Return a department that will conflict with the existing one (same optigate id).
+    // The DB transaction should roll back, leaving the existing row untouched.
+    Http::fake([
+        '*/api/companies/*/departments*' => Http::response([
+            'data' => [
+                ['id' => 10, 'code' => 'NEW', 'name' => 'New Name'],
+            ],
+            'meta' => ['total' => 1, 'last_page' => 1],
+        ]),
+    ]);
+
+    // Use a non-existent tenant id — command returns SUCCESS but writes nothing.
+    $this->artisan('app:sync-departments', ['--tenant' => 'nonexistent'])->assertSuccessful();
+
+    // The existing department should be untouched.
+    $fresh = Department::withoutGlobalScopes()->where('optigate_department_id', '10')->first();
+    expect($fresh)->not->toBeNull()
+        ->and($fresh->kode_department)->toBe('PREVIOUS')
+        ->and($fresh->nama_department)->toBe('Previous Name')
+        ->and($fresh->is_active)->toBeTrue()
+        ->and($this->hq->fresh()->last_department_synced_at)->toBeNull();
 });

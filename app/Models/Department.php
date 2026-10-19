@@ -21,14 +21,19 @@ use Illuminate\Support\Carbon;
  * @property int|null $manager_user_id
  * @property string|null $division_id
  * @property string|null $optigate_department_id
+ * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'manager_user_id', 'division_id', 'optigate_department_id'])]
+#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'manager_user_id', 'division_id', 'optigate_department_id', 'is_active'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
     use BelongsToTenant, HasFactory, HasUuids;
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
 
     /**
      * @return BelongsTo<Division, $this>

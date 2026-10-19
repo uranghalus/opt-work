@@ -19,6 +19,8 @@ class DepartmentController extends Controller
 {
     public function index(): Response
     {
+        $tenant = tenant();
+
         $departments = Department::query()
             ->with(['division', 'hod'])
             ->withCount(['employees', 'positions'])
@@ -28,6 +30,7 @@ class DepartmentController extends Controller
 
         return Inertia::render('departments/index', [
             'departments' => $departments,
+            'last_synced_at' => $tenant?->last_department_synced_at,
         ]);
     }
 
@@ -131,6 +134,9 @@ class DepartmentController extends Controller
 
             return back()->with('error', 'Sinkronisasi gagal. Periksa log untuk detail.');
         }
+
+        // Refresh so the index page picks up the updated last_department_synced_at.
+        $tenant->refresh();
 
         $summary = collect(explode("\n", $output))
             ->map(fn (string $line) => trim($line))

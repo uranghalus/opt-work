@@ -12,6 +12,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -77,6 +78,11 @@ class SyncDepartments extends Command
             $totalDeactivated += $deactivated;
         }
 
+        // Persist last sync timestamp on each tenant that was successfully processed.
+        Tenant::query()->whereIn('id', $tenants->pluck('id'))->update([
+            'last_department_synced_at' => now(),
+        ]);
+
         $this->info("Sinkronisasi selesai: {$totalCreated} dibuat, {$totalUpdated} diperbarui, {$totalDeactivated} dinonaktifkan.");
         Log::info('Optigate department sync selesai.', [
             'created' => $totalCreated,
@@ -123,6 +129,7 @@ class SyncDepartments extends Command
         $departments = collect();
         $page = 1;
         $total = null;
+        $lastPage = null;
 
         do {
             $response = $this->fetchPage($url, $token, $companyId, $page);
@@ -139,8 +146,14 @@ class SyncDepartments extends Command
             $departments = $departments->merge($batch);
 
             $total = $response->json('meta.total');
+            $lastPage = $response->json('meta.last_page');
             $page++;
-        } while ($batch->isNotEmpty() && ($total === null || $departments->count() < $total) && $page <= self::MAX_PAGES);
+        } while (
+            $batch->isNotEmpty()
+            && ($total === null || $departments->count() < $total)
+            && ($lastPage === null || $page <= $lastPage)
+            && $page <= self::MAX_PAGES
+        );
 
         return $departments;
     }
@@ -216,37 +229,39 @@ class SyncDepartments extends Command
             ->filter(fn (Employee $employee) => $employee->user !== null)
             ->mapWithKeys(fn (Employee $employee) => [$employee->optigate_user_id => $employee->user->id]);
 
-        foreach ($departments as $dept) {
-            if (blank($dept['id'] ?? null)) {
-                continue;
+        DB::transaction(function () use ($tenant, $departments, $hodUserIds, &$created, &$updated) {
+            foreach ($departments as $dept) {
+                if (blank($dept['id'] ?? null)) {
+                    continue;
+                }
+
+                // Idempotent key: the portal department id. tenant_id is filled
+                // explicitly (no Tenant::current() on the landlord side).
+                $record = Department::withoutGlobalScopes()->firstOrNew([
+                    'tenant_id' => $tenant->id,
+                    'optigate_department_id' => (string) $dept['id'],
+                ]);
+
+                $record->forceFill([
+                    'tenant_id' => $tenant->id,
+                    'optigate_department_id' => (string) $dept['id'],
+                    'kode_department' => $dept['code'] ?? (string) $dept['id'],
+                    'nama_department' => $dept['name'] ?? null,
+                    // HOD portal (UUID) -> user lokal; null kalau belum ada.
+                    'hod_user_id' => $hodUserIds[$dept['hod']['id'] ?? null] ?? null,
+                    'is_active' => true,
+                ])->save();
+
+                $record->wasRecentlyCreated ? $created++ : $updated++;
             }
-
-            // Idempotent key: the portal department id. tenant_id is filled
-            // explicitly (no Tenant::current() on the landlord side).
-            $record = Department::withoutGlobalScopes()->firstOrNew([
-                'tenant_id' => $tenant->id,
-                'optigate_department_id' => (string) $dept['id'],
-            ]);
-
-            $record->forceFill([
-                'tenant_id' => $tenant->id,
-                'optigate_department_id' => (string) $dept['id'],
-                'kode_department' => $dept['code'] ?? (string) $dept['id'],
-                'nama_department' => $dept['name'] ?? null,
-                // HOD portal (UUID) -> user lokal; null kalau belum ada.
-                'hod_user_id' => $hodUserIds[$dept['hod']['id'] ?? null] ?? null,
-            ])->save();
-
-            $record->wasRecentlyCreated ? $created++ : $updated++;
-        }
+        });
 
         return [$created, $updated];
     }
 
     /**
-     * Deactivate departments whose portal row disappeared: the kode is
-     * suffixed so the unique (tenant_id, kode_department) slot frees up if
-     * the portal reuses it later.
+     * Deactivate departments whose portal row disappeared: set is_active =
+     * false instead of renaming kode_department so employee FKs stay valid.
      */
     protected function deactivateMissingDepartments(Tenant $tenant, Collection $departments): int
     {
@@ -259,18 +274,9 @@ class SyncDepartments extends Command
             ->where('tenant_id', $tenant->id)
             ->whereNotNull('optigate_department_id')
             ->whereNotIn('optigate_department_id', $activeIds->all())
-            ->get();
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
 
-        $count = 0;
-
-        foreach ($stale as $department) {
-            $department->forceFill([
-                'kode_department' => $department->kode_department.'-sync-deleted-'.Str::lower(Str::random(6)),
-            ])->save();
-
-            $count++;
-        }
-
-        return $count;
+        return (int) $stale;
     }
 }

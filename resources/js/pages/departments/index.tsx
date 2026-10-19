@@ -27,6 +27,7 @@ type Department = {
 
 type PageProps = {
     departments: { data: Department[] };
+    last_synced_at: string | null;
 };
 
 type FlashProps = InertiaConfig['sharedPageProps'] & {
@@ -97,7 +98,7 @@ Departments.layout = {
 export default function Departments(props: PageProps) {
     const { departments } = props;
     const tenant = useRequiredTenant('departments.index');
-    const { flash } = usePage<FlashProps>().props;
+    const { flash, last_synced_at } = usePage<FlashProps>().props;
 
     return (
         <>
@@ -108,6 +109,16 @@ export default function Departments(props: PageProps) {
                     <Alert role="status">
                         <AlertDescription>{flash.success}</AlertDescription>
                     </Alert>
+                )}
+
+                {last_synced_at && (
+                    <p className="text-sm text-muted-foreground">
+                        Last synced:{' '}
+                        {new Date(last_synced_at).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                        })}
+                    </p>
                 )}
 
                 {flash?.error && (

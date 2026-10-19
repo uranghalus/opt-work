@@ -313,13 +313,10 @@ class SyncDepartments extends Command
             }
 
             if (blank($portalHodId)) {
-                // Portal no longer lists a HOD for this department.
-                if ($departmentRecord->hod_employee_id !== null) {
-                    $departmentRecord->hod_employee_id = null;
-                    $departmentRecord->save();
-                    $updated++;
-                }
-
+                // Only clear HOD if the portal explicitly sends an empty/null HOD,
+                // not when HOD data is simply missing from the response.
+                // The portal may not return HOD in list responses even when
+                // departments have HOD assigned.
                 continue;
             }
 

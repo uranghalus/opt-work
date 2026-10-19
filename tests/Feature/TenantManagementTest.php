@@ -4,8 +4,14 @@ use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkOrder;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
+    config([
+        'services.optigate_portal.url' => 'https://gate.test',
+        'services.optigate_portal.token' => 'test-token',
+    ]);
+
     createTestTenant([
         'optigate_company_id' => 1,
         'code' => 'hq',
@@ -19,7 +25,7 @@ beforeEach(function () {
 });
 
 test('guests are redirected to the sso portal', function () {
-    $this->get('/settings/tenants')->assertRedirect(route('saml.redirect'));
+    $this->get('/tenants')->assertRedirect(route('saml.redirect'));
 });
 
 test('a branch administrator cannot administer branch records', function () {
@@ -27,24 +33,24 @@ test('a branch administrator cannot administer branch records', function () {
     $hq = Tenant::where('code', 'hq')->first();
     $this
         ->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
-        ->get('/settings/tenants')
+        ->get('/tenants')
         ->assertForbidden();
 });
 
 test('a super admin reaches the branch list', function () {
     $this
         ->actingAs(makeSuperAdmin(User::factory()->create()))
-        ->get('/settings/tenants')
+        ->get('/tenants')
         ->assertOk()
         ->assertInertia(
-            fn ($page) => $page->component('settings/tenants/index')->etc(),
+            fn ($page) => $page->component('tenants/index')->etc(),
         );
 });
 
 test('a branch list shows names not slugs', function () {
     $this
         ->actingAs(makeSuperAdmin(User::factory()->create()))
-        ->get('/settings/tenants')
+        ->get('/tenants')
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
@@ -65,7 +71,7 @@ test('a branch detail page reports its tenant-scoped row counts', function () {
 
     $this
         ->actingAs(makeSuperAdmin(User::factory()->create()))
-        ->get('/settings/tenants/hq')
+        ->get('/tenants/hq')
         ->assertOk()
         ->assertInertia(
             fn ($page) => $page
@@ -86,7 +92,7 @@ test('an inactive branch is still reachable by url', function () {
     // Archiving must not orphan historical links.
     $this
         ->actingAs(makeSuperAdmin(User::factory()->create()))
-        ->get('/settings/tenants/plant-1')
+        ->get('/tenants/plant-1')
         ->assertOk();
 });
 
@@ -95,13 +101,55 @@ test('branch writes are refused for a branch administrator', function () {
     $plant1 = Tenant::where('code', 'plant-1')->first();
     $this
         ->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
-        ->post('/settings/tenants', ['name' => 'Cabang Baru'])
+        ->post('/tenants', ['name' => 'Cabang Baru'])
         ->assertStatus(405); // Route no longer exists (manual create disabled)
 
     $this
         ->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
-        ->delete('/settings/tenants/plant-1')
+        ->delete('/tenants/plant-1')
         ->assertStatus(405); // Route no longer exists (manual delete disabled)
 
     expect(Tenant::where('code', 'plant-1')->exists())->toBeTrue();
+});
+
+test('a super admin can run the sync from the ui and sees the summary flash', function () {
+    Http::fake([
+        'gate.test/api/companies*' => Http::response([
+            'success' => true,
+            'data' => [
+                ['id' => 1, 'code' => 'HQ', 'name' => 'Head Office'],
+            ],
+            'meta' => ['current_page' => 1, 'per_page' => 1, 'total' => 1],
+        ]),
+    ]);
+
+    $this
+        ->actingAs(makeSuperAdmin(User::factory()->create()))
+        ->post('/tenants/sync')
+        ->assertRedirect()
+        ->assertSessionHas('success', fn (string $message) => str_contains($message, 'Sinkronisasi selesai'));
+});
+
+test('the sync endpoint is forbidden for a branch administrator', function () {
+    $hq = Tenant::where('code', 'hq')->first();
+
+    $this
+        ->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
+        ->post('/tenants/sync')
+        ->assertForbidden();
+
+    expect(Tenant::where('code', 'hq')->first()->name)->toBe('Head Office');
+});
+
+test('a failed sync reports an error flash instead of a success message', function () {
+    // The command retries transient 5xx 3x, then fails; answer every attempt with 500.
+    Http::fake(['gate.test/api/companies*' => Http::response(status: 500)]);
+
+    $this
+        ->actingAs(makeSuperAdmin(User::factory()->create()))
+        ->post('/tenants/sync')
+        ->assertRedirect()
+        ->assertSessionHas('error');
+
+    expect(Tenant::query()->count())->toBe(2);
 });

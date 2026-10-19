@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\Employee;
@@ -53,7 +52,7 @@ class TenantController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return Inertia::render('settings/tenants/index', [
+        return Inertia::render('tenants/index', [
             'tenants' => $tenants,
             'filters' => [
                 'search' => $search,
@@ -64,7 +63,7 @@ class TenantController extends Controller
 
     public function show(Tenant $tenant): Response
     {
-        return Inertia::render('settings/tenants/show', [
+        return Inertia::render('tenants/show', [
             'branch' => $tenant,
             'usage' => $this->usageCounts($tenant->id),
         ]);

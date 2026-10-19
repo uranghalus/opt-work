@@ -12,8 +12,8 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
-            case name.startsWith('settings/tenants/'):
-                return AppLayout;
+            // Unit Bisnis pages set their own `.layout` metadata (breadcrumbs,
+            // title, actions) resolved against the plain AppLayout shell.
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
             default:

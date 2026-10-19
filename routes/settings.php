@@ -3,7 +3,6 @@
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
-use App\Http\Controllers\Settings\TenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -24,14 +23,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
-
-    // Cabang (tenant) administration — platform level, deliberately outside the
-    // {tenant} prefix. Tenants are synced from Optigate API (Companies).
-    // Only index/show are available; create/update/delete disabled.
-    Route::prefix('settings/tenants')->name('tenants.')->middleware('ensure.platform.tenant.access')->group(function (): void {
-        Route::get('/', [TenantController::class, 'index'])->name('index');
-        Route::get('{tenant}', [TenantController::class, 'show'])->name('show');
-    });
 });
 
 // Hak Akses (roles) moved out of the settings section: see routes/hak-akses.php.

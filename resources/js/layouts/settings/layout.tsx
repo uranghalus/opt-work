@@ -22,8 +22,10 @@ const sidebarNavItems: NavItem[] = [
         title: 'Tampilan',
         href: editAppearance(),
     },
+    // Unit Bisnis lives at its own /tenants root (platform-level, super admin
+    // only), kept here so super admins still find it from the settings nav.
     {
-        title: 'Cabang',
+        title: 'Unit Bisnis',
         href: indexTenants(),
     },
 ];

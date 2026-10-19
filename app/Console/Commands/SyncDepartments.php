@@ -71,6 +71,7 @@ class SyncDepartments extends Command
             }
 
             [$created, $updated] = $this->upsertDepartments($tenant, $departments);
+            $this->resolveHod($tenant, $departments);
             $deactivated = $this->deactivateMissingDepartments($tenant, $departments);
 
             $totalCreated += $created;
@@ -257,6 +258,92 @@ class SyncDepartments extends Command
         });
 
         return [$created, $updated];
+    }
+
+    /**
+     * Map portal HOD (user UUID) → local employee ID.
+     *
+     * The portal sends hod.id as a user UUID. We bridge through employees
+     * (which already have optigate_user_id from the employee sync) to
+     * resolve the local employee primary key.
+     */
+    protected function resolveHod(Tenant $tenant, Collection $departments): void
+    {
+        // Collect all portal HOD IDs that appear in this batch.
+        $hodPortalIds = $departments
+            ->filter(fn (array $dept) => filled($dept['hod']['id'] ?? null))
+            ->map(fn (array $dept) => (string) $dept['hod']['id'])
+            ->unique()
+            ->values();
+
+        // Build map: portal user UUID → local employee ID.
+        $hodEmployeeMap = Employee::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereNotNull('optigate_user_id')
+            ->whereIn('optigate_user_id', $hodPortalIds->all())
+            ->get()
+            ->keyBy(fn (Employee $e) => (string) $e->optigate_user_id);
+
+        Log::debug('resolveHod: hodPortalIds', [
+            'tenant_id' => $tenant->id,
+            'portal_ids' => $hodPortalIds->all(),
+            'map_keys' => $hodEmployeeMap->keys()->all(),
+        ]);
+
+        // Update departments with resolved HOD employee.
+        // If portal no longer lists a HOD, clear the field.
+        $updated = 0;
+        foreach ($departments as $dept) {
+            $portalHodId = $dept['hod']['id'] ?? null;
+            $departmentRecord = Department::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('optigate_department_id', (string) $dept['id'])
+                ->first();
+
+            Log::debug('resolveHod: processing dept', [
+                'portal_id' => $dept['id'],
+                'portal_hod_id' => $portalHodId,
+                'department_found' => $departmentRecord !== null,
+                'department_id' => $departmentRecord?->id,
+                'map_lookup_result' => $hodEmployeeMap->get((string) $portalHodId)?->id,
+            ]);
+
+            if (! $departmentRecord) {
+                continue;
+            }
+
+            if (blank($portalHodId)) {
+                // Portal no longer lists a HOD for this department.
+                if ($departmentRecord->hod_employee_id !== null) {
+                    $departmentRecord->hod_employee_id = null;
+                    $departmentRecord->save();
+                    $updated++;
+                }
+
+                continue;
+            }
+
+            $employeeId = $hodEmployeeMap->get((string) $portalHodId)?->id;
+            if ($employeeId && $departmentRecord->hod_employee_id !== $employeeId) {
+                // Use direct query update to ensure it works
+                Department::withoutGlobalScopes()
+                    ->where('id', $departmentRecord->id)
+                    ->update(['hod_employee_id' => $employeeId]);
+                $updated++;
+            } elseif ($employeeId === null && $departmentRecord->hod_employee_id !== null) {
+                // HOD was previously resolved but now the employee is missing.
+                $departmentRecord->hod_employee_id = null;
+                $departmentRecord->save();
+                $updated++;
+                Log::warning('Optigate department sync: HOD employee not found.', [
+                    'tenant_id' => $tenant->id,
+                    'department_optigate_id' => $dept['id'],
+                    'hod_portal_id' => (string) $portalHodId,
+                ]);
+            }
+        }
+
+        $this->info("Resolved HOD for {$updated} departments.");
     }
 
     /**

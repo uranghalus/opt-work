@@ -246,6 +246,114 @@ it('persists last_department_synced_at on the tenant after a successful sync', f
     expect($this->hq->fresh()->last_department_synced_at)->not->toBeNull();
 });
 
+it('resolves HOD to the correct employee after sync', function () {
+    Tenant::forgetCurrent();
+
+    // Create an employee with a known optigate_user_id.
+    $employee = Employee::withoutGlobalScopes()->make([
+        'optigate_user_id' => 'hod-user-123',
+        'nik_employee' => 'NIK-001',
+        'nama_employee' => 'Budi HOD',
+    ]);
+    $employee->tenant_id = $this->hq->id;
+    $employee->save();
+
+    fakePortalDepartments([
+        ['id' => 1, 'code' => 'IT', 'name' => 'IT Department', 'hod' => ['id' => 'hod-user-123', 'name' => 'Budi']],
+    ]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    // Use fresh() to get a clean instance from database
+    $department = Department::query()
+        ->withoutGlobalScopes()
+        ->where('optigate_department_id', '1')
+        ->first()
+        ->fresh();
+
+    expect($department)->not->toBeNull()
+        ->and($department->hod_employee_id)->toBe($employee->id);
+});
+
+it('clears HOD when portal no longer lists one', function () {
+    Tenant::forgetCurrent();
+
+    // Pre-create a user and employee.
+    $user = User::factory()->create([
+        'tenant_id' => $this->hq->id,
+        'employee_id' => null,
+    ]);
+
+    $employee = Employee::withoutGlobalScopes()->make([
+        'optigate_user_id' => 'hod-user-456',
+        'nik_employee' => 'NIK-002',
+        'nama_employee' => 'Sari HOD',
+    ]);
+    $employee->tenant_id = $this->hq->id;
+    $employee->save();
+    $user->employee_id = $employee->id;
+    $user->save();
+
+    // Pre-create department with HOD.
+    $dept = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '2',
+        'kode_department' => 'HRD',
+        'nama_department' => 'HR',
+        'hod_employee_id' => $employee->id,
+    ]);
+    $dept->tenant_id = $this->hq->id;
+    $dept->save();
+
+    // Portal no longer lists HOD for this department.
+    fakePortalDepartments([
+        ['id' => 2, 'code' => 'HRD', 'name' => 'HR Department'],
+    ]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    // Force refresh from database
+    $fresh = Department::query()
+        ->withoutGlobalScopes()
+        ->where('optigate_department_id', '2')
+        ->first()
+        ->fresh();
+
+    expect($fresh->hod_employee_id)->toBeNull();
+});
+
+it('does not crash when HOD employee is not found', function () {
+    Tenant::forgetCurrent();
+
+    fakePortalDepartments([
+        ['id' => 3, 'code' => 'FIN', 'name' => 'Finance', 'hod' => ['id' => 'nonexistent-hod', 'name' => 'Unknown']],
+    ]);
+
+    // Should not throw; just log warning and leave hod_employee_id null.
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $department = Department::withoutGlobalScopes()->where('optigate_department_id', '3')->first();
+    expect($department)->not->toBeNull()
+        ->and($department->hod_employee_id)->toBeNull();
+});
+
+it('has bidirectional relations: department.hodEmployee and employee.headedDepartments', function () {
+    Tenant::forgetCurrent();
+
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    $department = Department::factory()->create([
+        'tenant_id' => $this->hq->id,
+        'hod_employee_id' => $employee->id,
+    ]);
+
+    // Verify database has the correct values
+    $deptFromDb = Department::withoutGlobalScopes()->find($department->id);
+    expect($deptFromDb->hod_employee_id)->toBe($employee->id);
+
+    // Test the relation directly
+    expect($department->hodEmployee()->first()?->id)->toBe($employee->id)
+        ->and($employee->headedDepartments()->where('id', $department->id)->exists())->toBeTrue();
+});
+
 it('rolls back on transient error so no half-written data remains', function () {
     Tenant::forgetCurrent();
 

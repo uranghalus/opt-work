@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string $kode_department
  * @property string|null $nama_department
  * @property int|null $hod_user_id
+ * @property string|null $hod_employee_id
  * @property int|null $manager_user_id
  * @property string|null $division_id
  * @property string|null $optigate_department_id
@@ -25,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'manager_user_id', 'division_id', 'optigate_department_id', 'is_active'])]
+#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'hod_employee_id', 'manager_user_id', 'division_id', 'optigate_department_id', 'is_active'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
@@ -52,6 +53,14 @@ class Department extends Model
     }
 
     /**
+     * Direct link to the employee who is the HOD.
+     */
+    public function hodEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'hod_employee_id');
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function manager(): BelongsTo
@@ -65,6 +74,14 @@ class Department extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class, 'department_id');
+    }
+
+    /**
+     * Departments where this employee is the HOD.
+     */
+    public function headedDepartments(): HasMany
+    {
+        return $this->hasMany(Department::class, 'hod_employee_id');
     }
 
     /**

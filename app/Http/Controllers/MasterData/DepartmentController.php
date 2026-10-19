@@ -22,7 +22,7 @@ class DepartmentController extends Controller
         $tenant = tenant();
 
         $departments = Department::query()
-            ->with(['division', 'hod'])
+            ->with(['division', 'hodEmployee', 'hod'])
             ->withCount(['employees', 'positions'])
             ->orderBy('kode_department')
             ->paginate(10)

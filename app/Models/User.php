@@ -80,6 +80,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Departments where this user is the HOD.
+     */
+    public function headedDepartments(): HasMany
+    {
+        return $this->hasMany(Department::class, 'hod_employee_id');
+    }
+
+    /**
      * @return BelongsToMany<Tenant, $this>
      */
     public function tenants(): BelongsToMany

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\SyncTenantData;
 use App\Http\Responses\LoginResponse;
 use App\Services\LoginLanding;
 use Carbon\CarbonImmutable;
@@ -26,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
         // Password login lands through the same role-aware rule as SAML
         // (LoginLanding) instead of the dead config('fortify.home') route.
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+
+        $this->commands([
+            SyncTenantData::class,
+        ]);
     }
 
     /**

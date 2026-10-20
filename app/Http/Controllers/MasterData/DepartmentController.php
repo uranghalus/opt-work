@@ -20,8 +20,8 @@ class DepartmentController extends Controller
         $tenant = tenant();
 
         $departments = Department::query()
-            ->with(['division', 'hodEmployee', 'hod.employee', 'manager'])
-            ->withCount(['employees', 'positions'])
+            ->with(['hodEmployee', 'hod.employee', 'manager'])
+            ->withCount(['employees', 'positions', 'divisions'])
             ->orderBy('kode_department')
             ->paginate(10)
             ->withQueryString()
@@ -56,8 +56,13 @@ class DepartmentController extends Controller
 
         return Inertia::render('departments/show', [
             'department' => $department
-                ->load(['division', 'hod.employee', 'hodEmployee', 'manager'])
-                ->loadCount(['employees', 'positions'])
+                ->load([
+                    'divisions' => fn ($query) => $query->orderBy('nama_division'),
+                    'hod.employee',
+                    'hodEmployee',
+                    'manager',
+                ])
+                ->loadCount(['employees', 'positions', 'divisions'])
                 ->append('hod_display'),
         ]);
     }

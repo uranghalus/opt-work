@@ -9,11 +9,16 @@ type HodDisplay = {
     photo_url: string | null;
 };
 
+type Division = {
+    id: string;
+    nama_division: string;
+};
+
 type Department = {
     id: string;
     kode_department: string;
     nama_department: string | null;
-    division: { nama_division: string } | null;
+    divisions: Division[];
     hod_display: HodDisplay | null;
     manager: { name: string; email: string | null } | null;
     employees_count: number;
@@ -56,12 +61,22 @@ export default function ShowDepartment({ department }: PageProps) {
                             {department.nama_department ?? '—'}
                         </dd>
                     </div>
-                    <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                    <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
                             Divisi
                         </dt>
-                        <dd className="text-sm">
-                            {department.division?.nama_division ?? '—'}
+                        <dd className="text-right text-sm">
+                            {department.divisions.length === 0 ? (
+                                <span className="text-ink-subtle">—</span>
+                            ) : (
+                                <ul className="space-y-1">
+                                    {department.divisions.map((division) => (
+                                        <li key={division.id}>
+                                            {division.nama_division}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">

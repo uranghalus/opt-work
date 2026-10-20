@@ -27,10 +27,10 @@ type Department = {
     id: string;
     kode_department: string;
     nama_department: string | null;
-    division: { nama_division: string } | null;
     hod_display: HodDisplay | null;
     employees_count: number;
     positions_count: number;
+    divisions_count: number;
 };
 
 type PageProps = {
@@ -161,7 +161,9 @@ export default function Departments(props: PageProps) {
                             <TableRow className="hover:bg-transparent">
                                 <TableHead>Kode</TableHead>
                                 <TableHead>Nama</TableHead>
-                                <TableHead>Divisi</TableHead>
+                                <TableHead className="text-right">
+                                    Divisi
+                                </TableHead>
                                 <TableHead>HOD</TableHead>
                                 <TableHead className="text-right">
                                     Karyawan
@@ -199,9 +201,8 @@ export default function Departments(props: PageProps) {
                                                     '—'}
                                             </Link>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {department.division
-                                                ?.nama_division ?? '—'}
+                                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                                            {department.divisions_count}
                                         </TableCell>
                                         <TableCell>
                                             <HodCell

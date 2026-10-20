@@ -21,13 +21,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $hod_user_id
  * @property string|null $hod_employee_id
  * @property int|null $manager_user_id
- * @property string|null $division_id
  * @property string|null $optigate_department_id
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'hod_employee_id', 'manager_user_id', 'division_id', 'optigate_department_id', 'is_active'])]
+#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'hod_employee_id', 'manager_user_id', 'optigate_department_id', 'is_active'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
@@ -65,11 +64,11 @@ class Department extends Model
     }
 
     /**
-     * @return BelongsTo<Division, $this>
+     * @return HasMany<Division, $this>
      */
-    public function division(): BelongsTo
+    public function divisions(): HasMany
     {
-        return $this->belongsTo(Division::class, 'division_id');
+        return $this->hasMany(Division::class, 'department_id');
     }
 
     /**

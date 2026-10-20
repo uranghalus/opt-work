@@ -121,7 +121,6 @@ function rbacForwardLookingPermissions(): array
         'department.read' => 'gated when master data moves to permissions',
         'department.update' => 'gated when master data moves to permissions',
         'department.delete' => 'gated when master data moves to permissions',
-        'employee.read' => 'gated when master data moves to permissions',
         'tenant.create' => 'gated when master data moves to permissions',
         'tenant.read' => 'gated when master data moves to permissions',
         'tenant.update' => 'gated when master data moves to permissions',

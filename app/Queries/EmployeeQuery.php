@@ -35,6 +35,7 @@ class EmployeeQuery
                 'department_id',
                 'position_id',
                 'division_id',
+                'banned_at',
                 'created_at',
                 'tenant_id',
             ]);

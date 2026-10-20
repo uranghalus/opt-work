@@ -7,6 +7,7 @@ use App\Http\Requests\Employee\SyncAkunRolesRequest;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Queries\EmployeeQuery;
 use Illuminate\Console\Command;
@@ -23,6 +24,8 @@ class EmployeeController extends Controller
 {
     public function index(EmployeeIndexRequest $request): Response
     {
+        Gate::authorize('employee.read');
+
         $query = (new EmployeeQuery)->build(
             $request->search(),
             $request->sort(),
@@ -54,13 +57,15 @@ class EmployeeController extends Controller
      */
     public function show(Request $request): Response
     {
+        Gate::authorize('employee.read');
+
         $employee = $this->resolveEmployeeFromRoute($request);
-        $employee->load(['department', 'position', 'division']);
+        $employee->load(['department', 'position', 'division', 'user']);
 
         $akun = null;
 
         if ($request->user()?->can('akun.read')) {
-            $akunUser = $employee->user()->first();
+            $akunUser = $employee->user;
 
             $akun = $akunUser === null
                 ? ['exists' => false]
@@ -71,9 +76,18 @@ class EmployeeController extends Controller
                 ];
         }
 
+        $assignableRoles = $request->user()?->can('akun.update')
+            ? Role::query()
+                ->where('name', '!=', 'super_admin')
+                ->orderBy('name')
+                ->pluck('name')
+                ->all()
+            : [];
+
         return Inertia::render('employees/show', [
-            'employee' => $employee,
+            'employee' => EmployeeResource::make($employee)->resolve(),
             'akun' => $akun,
+            'assignable_roles' => $assignableRoles,
         ]);
     }
 
@@ -112,6 +126,8 @@ class EmployeeController extends Controller
      */
     public function sync(): RedirectResponse
     {
+        Gate::authorize('employee.read');
+
         $tenant = tenant();
         $tenantId = $tenant?->id;
 
@@ -164,6 +180,15 @@ class EmployeeController extends Controller
         $akun = $employee->user()->first();
 
         abort_unless($akun !== null, 403, 'Karyawan ini tidak memiliki akun pengguna.');
+
+        // Roles are global, employee data is per-cabang. Never let an
+        // akun.update holder change an account linked to an employee in a
+        // different cabang.
+        abort_unless(
+            $akun->tenant_id !== null && $akun->tenant_id === $employee->tenant_id,
+            403,
+            'Akun pengguna ini bukan milik cabang karyawan tersebut.',
+        );
 
         if ($akun->hasRole('super_admin')) {
             return back()->withErrors(['roles' => 'Peran akun super admin tidak dapat diubah di sini.']);

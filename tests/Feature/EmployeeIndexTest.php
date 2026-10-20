@@ -401,13 +401,28 @@ it('denies access for users from another tenant', function () {
     $response->assertForbidden();
 });
 
-it('allows access for users with correct tenant linkage', function () {
+it('allows access for users with correct tenant linkage and employee.read', function () {
     initTenant('hq');
     Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
     $user = createUser(['tenant_id' => $this->hq->id]);
+    $user->givePermissionTo('employee.read');
 
     $response = $this->actingAs($user)->get('/hq/employees');
     $response->assertOk();
+});
+
+it('denies access for users without employee.read', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs($user)->get('/hq/employees')->assertForbidden();
+});
+
+it('denies the employee sync without employee.read', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs($user)->post('/hq/employees/sync')->assertForbidden();
 });
 
 it('super admin can access any tenant employees', function () {

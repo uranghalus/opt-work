@@ -67,22 +67,8 @@ type Akun = {
 type PageProps = {
     employee: Employee;
     akun?: Akun | null;
+    assignable_roles?: string[];
 };
-
-/**
- * Assignable roles on this surface: the canonical system roles minus
- * super_admin, which is never assignable (ADR-0005 decision 4).
- */
-const ASSIGNABLE_ROLES = [
-    'admin_tenant',
-    'general_manager',
-    'deputy_general_manager',
-    'hod',
-    'team_leader',
-    'karyawan',
-    'field_staff',
-    'viewer',
-] as const;
 
 function getInitials(name: string) {
     return name
@@ -97,7 +83,15 @@ function getInitials(name: string) {
  * Self-contained heading-band-style action (SyncButton pattern): owns its
  * dialog, form state, and error surfacing. Hidden without `akun.update`.
  */
-function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun }) {
+function UbahPeranAction({
+    employeeId,
+    akun,
+    assignableRoles,
+}: {
+    employeeId: string;
+    akun: Akun;
+    assignableRoles: string[];
+}) {
     const tenant = useRequiredTenant('employees.show');
     const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const [open, setOpen] = useState(false);
@@ -156,30 +150,38 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
                 )}
                 <form onSubmit={submit} className="space-y-4">
                     <div className="space-y-2">
-                        {ASSIGNABLE_ROLES.map(role => (
-                            <div
-                                key={role}
-                                className="flex items-center justify-between rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800"
-                            >
-                                <Label
-                                    htmlFor={`akun-role-${role}`}
-                                    className="cursor-pointer font-mono text-sm"
+                        {assignableRoles.length === 0 ? (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Belum ada peran yang dapat diberikan.
+                            </p>
+                        ) : (
+                            assignableRoles.map(role => (
+                                <div
+                                    key={role}
+                                    className="flex items-center justify-between rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800"
                                 >
-                                    {role}
-                                </Label>
-                                <Checkbox
-                                    id={`akun-role-${role}`}
-                                    checked={form.data.roles.includes(role)}
-                                    onCheckedChange={checked =>
-                                        toggle(role, checked === true)
-                                    }
-                                />
-                            </div>
-                        ))}
+                                    <Label
+                                        htmlFor={`akun-role-${role}`}
+                                        className="cursor-pointer font-mono text-sm"
+                                    >
+                                        {role}
+                                    </Label>
+                                    <Checkbox
+                                        id={`akun-role-${role}`}
+                                        checked={form.data.roles.includes(role)}
+                                        onCheckedChange={checked =>
+                                            toggle(role, checked === true)
+                                        }
+                                    />
+                                </div>
+                            ))
+                        )}
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                             field_staff selalu berpasangan dengan karyawan:
                             memberikan field_staff otomatis menambahkan
-                            karyawan.
+                            karyawan. Peran guest adalah penanda akun tanpa
+                            peran dan akan tergantikan saat peran nyata
+                            diberikan.
                         </p>
                     </div>
                     <DialogFooter>
@@ -206,7 +208,11 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
     );
 }
 
-export default function ShowEmployee({ employee, akun }: PageProps) {
+export default function ShowEmployee({
+    employee,
+    akun,
+    assignable_roles = [],
+}: PageProps) {
     const initials = getInitials(employee.nama_employee);
 
     const items = [
@@ -290,10 +296,14 @@ export default function ShowEmployee({ employee, akun }: PageProps) {
                                         {employee.position?.nama_position ?? 'Karyawan'} • {employee.department?.nama_department ?? '—'}
                                     </p>
                                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                                        {employee.has_account !== false && (
+                                        {employee.has_account === true ? (
                                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                 <BadgeCheck className="size-3.5" />
-                                                Akun Aktif
+                                                Punya akun
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                                Belum ada akun
                                             </span>
                                         )}
                                         {employee.is_banned && (
@@ -347,12 +357,12 @@ export default function ShowEmployee({ employee, akun }: PageProps) {
                         </div>
                         <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-fuchsia-600 p-[1px] shadow-lg">
                             <div className="rounded-3xl bg-white p-6 dark:bg-slate-950">
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Status</h3>
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Status Karyawan</h3>
                                 <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                                    {employee.is_banned ? 'Tidak Aktif' : 'Aktif'}
+                                    {employee.is_banned ? 'Diblokir' : 'Tidak diblokir'}
                                 </p>
                                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                                    Data berasal dari portal Optigate
+                                    Blokir lokal, bukan status aktif dari portal.
                                 </p>
                             </div>
                         </div>
@@ -372,6 +382,7 @@ export default function ShowEmployee({ employee, akun }: PageProps) {
                                         key={(akun.roles ?? []).join('|')}
                                         employeeId={employee.id}
                                         akun={akun}
+                                        assignableRoles={assignable_roles}
                                     />
                                 )}
                             </div>

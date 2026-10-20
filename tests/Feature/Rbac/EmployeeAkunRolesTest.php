@@ -22,16 +22,19 @@ afterEach(function () {
 function karyawanWithAkun(): array
 {
     $employee = Employee::factory()->create();
-    $akun = User::factory()->create(['employee_id' => $employee->id]);
+    $akun = User::factory()->create([
+        'employee_id' => $employee->id,
+        'tenant_id' => $employee->tenant_id,
+    ]);
 
     return [$employee, $akun];
 }
 
-/** A viewer holding exactly the given akun permissions, inside the current cabang. */
+/** A viewer holding employee.read plus exactly the given akun permissions. */
 function akunViewer(array $permissions): User
 {
     $user = createUser(['tenant_id' => Tenant::current()?->id]);
-    $user->givePermissionTo($permissions);
+    $user->givePermissionTo(['employee.read', ...$permissions]);
 
     return $user;
 }
@@ -39,7 +42,10 @@ function akunViewer(array $permissions): User
 it('omits the akun payload for a viewer without akun.read', function () {
     [$employee] = karyawanWithAkun();
 
-    $this->actingAs(createUser(['tenant_id' => $this->hq->id]))
+    $viewer = createUser(['tenant_id' => $this->hq->id]);
+    $viewer->givePermissionTo('employee.read');
+
+    $this->actingAs($viewer)
         ->get(route('employees.show', ['tenant' => 'hq', 'employee' => $employee]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page

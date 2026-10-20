@@ -2,6 +2,7 @@
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -23,7 +24,10 @@ afterEach(function () {
 function akunPair(): array
 {
     $employee = Employee::factory()->create();
-    $akun = User::factory()->create(['employee_id' => $employee->id]);
+    $akun = User::factory()->create([
+        'employee_id' => $employee->id,
+        'tenant_id' => $employee->tenant_id,
+    ]);
 
     return [$employee, $akun];
 }
@@ -190,6 +194,39 @@ it('rejects unknown role names', function () {
     $akun = $employee->user()->first();
 
     expect($akun->getRoleNames()->toArray())->toBe([]);
+});
+
+it('allows custom roles created through Hak Akses', function () {
+    [$employee, $akun] = akunPair();
+    Role::create(['name' => 'auditor_khusus', 'guard_name' => 'web']);
+
+    $this->actingAs(akunEditor(['akun.update']))
+        ->post(syncAkunRolesRoute($employee), ['roles' => ['auditor_khusus']])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($akun->fresh()->getRoleNames()->toArray())->toBe(['auditor_khusus']);
+});
+
+it('refuses to change roles on an account from another cabang', function () {
+    $other = createTestTenant([
+        'optigate_company_id' => '9002',
+        'code' => 'plant-1',
+        'name' => 'Plant 1',
+    ]);
+    initTenant('hq');
+
+    $employee = Employee::factory()->create();
+    $akun = User::factory()->create([
+        'employee_id' => $employee->id,
+        'tenant_id' => $other->id,
+    ]);
+
+    $this->actingAs(akunEditor(['akun.update']))
+        ->post(syncAkunRolesRoute($employee), ['roles' => ['hod']])
+        ->assertForbidden();
+
+    expect($akun->fresh()->getRoleNames()->toArray())->toBe([]);
 });
 
 it('recognizes a freshly assigned role on the akun’s next request without re-login', function () {

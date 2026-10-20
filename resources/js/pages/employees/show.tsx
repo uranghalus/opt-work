@@ -5,15 +5,18 @@ import {
     Briefcase,
     Building2,
     Hash,
+    Link2,
     LoaderCircle,
     Lock,
     Mail,
     Pencil,
     Phone,
     ShieldCheck,
+    Unlink,
     User,
 } from 'lucide-react';
 import { useState } from 'react';
+import { link, unlink } from '@/routes/employees/akun';
 import { sync } from '@/routes/employees/akun/roles';
 import { useRequiredTenant } from '@/lib/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,6 +31,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
@@ -64,10 +74,17 @@ type Akun = {
     roles?: string[];
 };
 
+type AvailableAccount = {
+    id: number;
+    name: string;
+    email: string;
+};
+
 type PageProps = {
     employee: Employee;
     akun?: Akun | null;
     assignable_roles?: string[];
+    available_accounts?: AvailableAccount[];
 };
 
 function getInitials(name: string) {
@@ -208,10 +225,214 @@ function UbahPeranAction({
     );
 }
 
+function TautkanAkunAction({
+    employeeId,
+    availableAccounts,
+}: {
+    employeeId: string;
+    availableAccounts: AvailableAccount[];
+}) {
+    const tenant = useRequiredTenant('employees.show');
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ user_id: string }>({ user_id: '' });
+
+    if (!auth?.can?.['akun.update']) {
+        return null;
+    }
+
+    const close = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            form.clearErrors();
+        }
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.post(link({ tenant, employee: employeeId }).url, {
+            preserveScroll: true,
+            onSuccess: () => close(false),
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={close}>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+                <Link2 aria-hidden className="size-3.5" />
+                Tautkan Akun
+            </Button>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Tautkan Akun</DialogTitle>
+                    <DialogDescription>
+                        Pilih akun cabang ini yang belum tertaut ke karyawan
+                        lain. Akun super admin tidak dapat dipilih.
+                    </DialogDescription>
+                </DialogHeader>
+                {form.errors.user_id && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{form.errors.user_id}</AlertDescription>
+                    </Alert>
+                )}
+                <form onSubmit={submit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="akun-user">Akun</Label>
+                        {availableAccounts.length === 0 ? (
+                            <p className="rounded-xl border border-slate-200/60 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
+                                Tidak ada akun yang tersedia. Akun harus berada
+                                di cabang ini, belum tertaut, dan bukan super
+                                admin. Akun biasanya muncul setelah login SAML
+                                pertama.
+                            </p>
+                        ) : (
+                            <Select
+                                value={form.data.user_id}
+                                onValueChange={value =>
+                                    form.setData('user_id', value)
+                                }
+                            >
+                                <SelectTrigger id="akun-user" className="w-full">
+                                    <SelectValue placeholder="Pilih akun..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableAccounts.map(account => (
+                                        <SelectItem
+                                            key={account.id}
+                                            value={String(account.id)}
+                                        >
+                                            {account.name} — {account.email}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Akun tanpa peran tetap dapat ditautkan. Berikan peran
+                        setelah tautan dibuat agar akun dapat mengakses aplikasi.
+                    </p>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => close(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={
+                                form.processing ||
+                                availableAccounts.length === 0 ||
+                                form.data.user_id === ''
+                            }
+                        >
+                            {form.processing && (
+                                <LoaderCircle
+                                    aria-hidden
+                                    className="size-3.5 animate-spin"
+                                />
+                            )}
+                            Tautkan
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function LepasAkunAction({
+    employeeId,
+    email,
+}: {
+    employeeId: string;
+    email?: string | null;
+}) {
+    const tenant = useRequiredTenant('employees.show');
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ akun?: string }>({});
+
+    if (!auth?.can?.['akun.update']) {
+        return null;
+    }
+
+    const close = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            form.clearErrors();
+        }
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.delete(unlink({ tenant, employee: employeeId }).url, {
+            preserveScroll: true,
+            onSuccess: () => close(false),
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={close}>
+            <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={() => setOpen(true)}
+            >
+                <Unlink aria-hidden className="size-3.5" />
+                Lepas Tautan
+            </Button>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Lepas Tautan Akun</DialogTitle>
+                    <DialogDescription>
+                        Lepas tautan {email ?? 'akun ini'} dari karyawan? Akun
+                        tetap ada dan tidak dihapus; hanya hubungan ke karyawan
+                        ini yang dilepas.
+                    </DialogDescription>
+                </DialogHeader>
+                {form.errors.akun && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{form.errors.akun}</AlertDescription>
+                    </Alert>
+                )}
+                <form onSubmit={submit}>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => close(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            disabled={form.processing}
+                        >
+                            {form.processing && (
+                                <LoaderCircle
+                                    aria-hidden
+                                    className="size-3.5 animate-spin"
+                                />
+                            )}
+                            Lepas Tautan
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function ShowEmployee({
     employee,
     akun,
     assignable_roles = [],
+    available_accounts = [],
 }: PageProps) {
     const initials = getInitials(employee.nama_employee);
 
@@ -373,22 +594,37 @@ export default function ShowEmployee({
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
                                     <ShieldCheck className="size-5 text-violet-500" />
-                                    Peran Akun
+                                    Akun & Peran
                                 </h2>
-                                {/* Not rendered at all when there is no linked
-                                    akun; read-only when the akun is sealed. */}
-                                {akun.exists && !akunSealed && (
-                                    <UbahPeranAction
-                                        key={(akun.roles ?? []).join('|')}
-                                        employeeId={employee.id}
-                                        akun={akun}
-                                        assignableRoles={assignable_roles}
-                                    />
-                                )}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {/* Read-only when the akun is sealed. */}
+                                    {akun.exists && !akunSealed && (
+                                        <UbahPeranAction
+                                            key={(akun.roles ?? []).join('|')}
+                                            employeeId={employee.id}
+                                            akun={akun}
+                                            assignableRoles={assignable_roles}
+                                        />
+                                    )}
+                                    {akun.exists && !akunSealed && (
+                                        <LepasAkunAction
+                                            employeeId={employee.id}
+                                            email={akun.email}
+                                        />
+                                    )}
+                                    {!akun.exists && (
+                                        <TautkanAkunAction
+                                            employeeId={employee.id}
+                                            availableAccounts={available_accounts}
+                                        />
+                                    )}
+                                </div>
                             </div>
                             {!akun.exists ? (
                                 <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
                                     Belum ada akun yang terhubung untuk karyawan ini.
+                                    Tautkan akun yang sudah memiliki akses login
+                                    ke cabang ini.
                                 </p>
                             ) : akunSealed ? (
                                 <div className="mt-3 rounded-xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">

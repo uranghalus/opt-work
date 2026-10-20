@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Employee\LinkAkunRequest;
 use App\Http\Requests\Employee\SyncAkunRolesRequest;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\Role;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Queries\EmployeeQuery;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -62,11 +65,13 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployeeFromRoute($request);
         $employee->load(['department', 'position', 'division', 'user']);
 
+        $akunUser = $employee->user;
+        $canReadAkun = (bool) $request->user()?->can('akun.read');
+        $canUpdateAkun = (bool) $request->user()?->can('akun.update');
+
         $akun = null;
 
-        if ($request->user()?->can('akun.read')) {
-            $akunUser = $employee->user;
-
+        if ($canReadAkun) {
             $akun = $akunUser === null
                 ? ['exists' => false]
                 : [
@@ -76,7 +81,7 @@ class EmployeeController extends Controller
                 ];
         }
 
-        $assignableRoles = $request->user()?->can('akun.update')
+        $assignableRoles = $canUpdateAkun
             ? Role::query()
                 ->where('name', '!=', 'super_admin')
                 ->orderBy('name')
@@ -84,10 +89,32 @@ class EmployeeController extends Controller
                 ->all()
             : [];
 
+        // Only accounts that can safely be linked to this karyawan: same
+        // cabang, not already linked, and never the platform super admin.
+        $availableAccounts = [];
+
+        if ($canReadAkun && $canUpdateAkun && $akunUser === null) {
+            $availableAccounts = User::query()
+                ->where('tenant_id', $employee->tenant_id)
+                ->whereNull('employee_id')
+                ->where('is_super_admin', false)
+                ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
+                ->orderBy('name')
+                ->limit(100)
+                ->get(['id', 'name', 'email'])
+                ->map(fn (User $user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ])
+                ->all();
+        }
+
         return Inertia::render('employees/show', [
             'employee' => EmployeeResource::make($employee)->resolve(),
             'akun' => $akun,
             'assignable_roles' => $assignableRoles,
+            'available_accounts' => $availableAccounts,
         ]);
     }
 
@@ -215,6 +242,97 @@ class EmployeeController extends Controller
         });
 
         return back()->with('success', "Peran akun {$employee->nama_employee} diperbarui.");
+    }
+
+    /**
+     * Tautkan satu akun tenant yang belum terhubung ke karyawan ini. The
+     * account is resolved against the employee's cabang; cross-tenant and
+     * already-linked accounts are never valid targets.
+     */
+    public function linkAkun(LinkAkunRequest $request): RedirectResponse
+    {
+        Gate::authorize('akun.update');
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+
+        if ($employee->user()->exists()) {
+            return back()->withErrors([
+                'user_id' => 'Karyawan ini sudah memiliki akun. Lepas tautan lama terlebih dahulu.',
+            ]);
+        }
+
+        $akun = User::query()
+            ->whereKey($request->integer('user_id'))
+            ->where('tenant_id', $employee->tenant_id)
+            ->whereNull('employee_id')
+            ->where('is_super_admin', false)
+            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
+            ->first();
+
+        if ($akun === null) {
+            return back()->withErrors([
+                'user_id' => 'Akun tidak tersedia di cabang ini, sudah tertaut, atau bukan akun yang dapat ditautkan.',
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($akun, $employee): void {
+                $akun->forceFill(['employee_id' => $employee->id])->save();
+            });
+        } catch (QueryException $exception) {
+            // The unique index catches the race where another request linked
+            // the same akun between the lookup and the write.
+            Log::warning('Employee account link failed.', [
+                'employee_id' => $employee->id,
+                'user_id' => $akun->id,
+                'tenant_id' => $employee->tenant_id,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'user_id' => 'Akun gagal ditautkan. Muat ulang halaman lalu coba lagi.',
+            ]);
+        }
+
+        Log::info('Employee account linked.', [
+            'employee_id' => $employee->id,
+            'user_id' => $akun->id,
+            'tenant_id' => $employee->tenant_id,
+            'actor_id' => $request->user()?->id,
+        ]);
+
+        return back()->with('success', "Akun {$akun->email} ditautkan ke {$employee->nama_employee}.");
+    }
+
+    /**
+     * Lepas tautan akun dari karyawan. The akun itself, its roles, and its
+     * sessions are left intact — only the employee_id relation is cleared.
+     */
+    public function unlinkAkun(Request $request): RedirectResponse
+    {
+        Gate::authorize('akun.update');
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+        $akun = $employee->user()->first();
+
+        abort_unless($akun !== null, 404, 'Karyawan ini tidak memiliki akun pengguna.');
+
+        if ($akun->is_super_admin || $akun->hasRole('super_admin')) {
+            return back()->withErrors([
+                'akun' => 'Akun super admin tidak dapat dilepas dari sini.',
+            ]);
+        }
+
+        $akun->forceFill(['employee_id' => null])->save();
+
+        Log::info('Employee account unlinked.', [
+            'employee_id' => $employee->id,
+            'user_id' => $akun->id,
+            'tenant_id' => $employee->tenant_id,
+            'actor_id' => $request->user()?->id,
+        ]);
+
+        return back()->with('success', "Tautan akun {$akun->email} dilepas dari {$employee->nama_employee}.");
     }
 
     /**

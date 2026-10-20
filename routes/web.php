@@ -150,6 +150,10 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     // controller authorizes via Gate::authorize('akun.update').
     Route::post('employees/{employee}/akun/roles', [EmployeeController::class, 'syncAkunRoles'])
         ->name('employees.akun.roles.sync');
+    Route::post('employees/{employee}/akun', [EmployeeController::class, 'linkAkun'])
+        ->name('employees.akun.link');
+    Route::delete('employees/{employee}/akun', [EmployeeController::class, 'unlinkAkun'])
+        ->name('employees.akun.unlink');
     // Record-level block on a karyawan (superadmin only); survives portal syncs.
     Route::post('employees/{employee}/ban', [EmployeeController::class, 'ban'])->name('employees.ban');
     Route::post('employees/{employee}/unban', [EmployeeController::class, 'unban'])->name('employees.unban');

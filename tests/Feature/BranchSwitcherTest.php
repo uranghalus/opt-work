@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Testing\TestResponse;
@@ -88,16 +87,15 @@ test('a branch user is refused another branch URL even by hand', function () {
 
 test('a branch user is refused another branch write even by hand', function () {
     $hq = Tenant::where('code', 'hq')->first();
-    $plant1 = Tenant::where('code', 'plant-1')->first();
+
     $this->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
-        ->post('/plant-1/departments', ['kode_department' => 'X1', 'nama_department' => 'Sneaky'])
+        ->post('/plant-1/work-orders', [
+            'title' => 'Sneaky',
+            'description' => 'Sneaky',
+            'category' => 'normal',
+            'target_department_id' => 'not-a-real-department',
+        ])
         ->assertForbidden();
-
-    // The row must not exist in the other branch either.
-    initTenant('plant-1');
-    expect(Department::query()->where('kode_department', 'X1')->exists())->toBeFalse();
-
-    Tenant::forgetCurrent();
 });
 
 test('a user with no home branch is refused everywhere', function () {

@@ -122,9 +122,8 @@ it('allows super admin to view divisions on any branch', function () {
         ->assertOk();
 });
 
-it('rejects duplicate department code within the same cabang', function () {
+it('departments are read-only (sync-only): create returns 405', function () {
     $admin = makeSuperAdmin(createUser());
-    $hq = Tenant::where('code', 'hq')->first();
 
     $this
         ->actingAs($admin)
@@ -132,17 +131,38 @@ it('rejects duplicate department code within the same cabang', function () {
             'kode_department' => 'DEP-IT',
             'nama_department' => 'IT',
         ])
-        ->assertRedirect();
+        ->assertMethodNotAllowed();
 
-    $response = $this
+    $this
         ->actingAs($admin)
-        ->post('/hq/departments', [
-            'kode_department' => 'DEP-IT',
-            'nama_department' => 'IT Duplicate',
-        ]);
+        ->get('/hq/departments/create')
+        ->assertNotFound();
+});
 
-    $response->assertSessionHasErrors('kode_department');
-    $this->assertDatabaseCount('departments', 1);
+it('departments are read-only (sync-only): update and delete return 405', function () {
+    initTenant('hq');
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    Tenant::forgetCurrent();
+
+    $admin = makeSuperAdmin(createUser());
+
+    $this
+        ->actingAs($admin)
+        ->put('/hq/departments/'.$department->getKey(), [
+            'kode_department' => 'DEP-IT',
+            'nama_department' => 'IT Renamed',
+        ])
+        ->assertMethodNotAllowed();
+
+    $this
+        ->actingAs($admin)
+        ->delete('/hq/departments/'.$department->getKey())
+        ->assertMethodNotAllowed();
+
+    $this
+        ->actingAs($admin)
+        ->get('/hq/departments/'.$department->getKey().'/edit')
+        ->assertNotFound();
 });
 
 it('seeds the baseline roles and permissions', function () {

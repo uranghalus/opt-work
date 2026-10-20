@@ -1,8 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import type { ReactNode } from 'react';
-import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
+import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { index, show, sync } from '@/routes/departments';
+import { show, sync } from '@/routes/departments';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,12 +17,18 @@ import {
 import { useRequiredTenant } from '@/lib/tenant';
 import type { InertiaConfig } from '@inertiajs/core';
 
+type HodDisplay = {
+    name: string;
+    email: string | null;
+    photo_url: string | null;
+};
+
 type Department = {
     id: string;
     kode_department: string;
     nama_department: string | null;
     division: { nama_division: string } | null;
-    hod: { name: string; email: string | null; employee: { photo_url: string | null } | null } | null;
+    hod_display: HodDisplay | null;
     employees_count: number;
     positions_count: number;
 };
@@ -33,20 +38,13 @@ type PageProps = {
     last_synced_at: string | null;
 };
 
-type FlashProps = PageProps & InertiaConfig['sharedPageProps'] & {
-    flash?: { success?: string | null; error?: string | null };
-};
+type FlashProps = PageProps &
+    InertiaConfig['sharedPageProps'] & {
+        flash?: { success?: string | null; error?: string | null };
+    };
 
 /** HOD cell: linked akun avatar + name, or an explicit empty state. */
-function HodCell({
-    hod,
-}: {
-    hod: {
-        name: string;
-        email: string | null;
-        employee: { photo_url: string | null } | null;
-    } | null;
-}) {
+function HodCell({ hod }: { hod: HodDisplay | null }) {
     const getInitials = useInitials();
 
     if (!hod) {
@@ -56,10 +54,7 @@ function HodCell({
     return (
         <div className="flex items-center gap-2">
             <Avatar className="size-7 rounded-full ring-1 ring-border">
-                <AvatarImage
-                    src={hod.employee?.photo_url ?? undefined}
-                    alt={hod.name}
-                />
+                <AvatarImage src={hod.photo_url ?? undefined} alt={hod.name} />
                 <AvatarFallback className="rounded-full bg-brand-soft text-[11px] font-semibold text-brand">
                     {getInitials(hod.name)}
                 </AvatarFallback>
@@ -76,7 +71,7 @@ function HodCell({
 
 /** Primary actions of this page, rendered in the shell's heading band. */
 function DepartmentActions() {
-    const tenant = useRequiredTenant('departments.create');
+    const tenant = useRequiredTenant('departments.index');
     const [syncing, setSyncing] = useState(false);
 
     const runSync = useCallback(() => {
@@ -102,10 +97,7 @@ function DepartmentActions() {
             >
                 {syncing ? (
                     <>
-                        <LoaderCircle
-                            aria-hidden
-                            className="animate-spin"
-                        />
+                        <LoaderCircle aria-hidden className="animate-spin" />
                         Menyinkronkan…
                     </>
                 ) : (
@@ -114,11 +106,6 @@ function DepartmentActions() {
                         Sinkronkan
                     </>
                 )}
-            </Button>
-            <Button asChild size="lg">
-                      <Link href={create({ tenant })}>
-                    
-                </Link>
             </Button>
         </div>
     );
@@ -130,7 +117,7 @@ Departments.layout = {
     breadcrumbs: [{ title: 'Data Master' }, { title: 'Department' }],
     title: 'Department',
     description:
-        'Department perusahaan dalam cabang aktif, termasuk HOD penanggung jawabnya',
+        'Department perusahaan dalam cabang aktif, termasuk HOD penanggung jawabnya (hanya sync)',
     actions: DepartmentActions,
 };
 
@@ -146,7 +133,9 @@ export default function Departments(props: PageProps) {
             <div className="space-y-6">
                 {flash?.success && (
                     <Alert role="status">
-                        <AlertDescription>{String(flash.success)}</AlertDescription>
+                        <AlertDescription>
+                            {String(flash.success)}
+                        </AlertDescription>
                     </Alert>
                 )}
 
@@ -200,32 +189,44 @@ export default function Departments(props: PageProps) {
                                         </TableCell>
                                         <TableCell className="font-semibold">
                                             <Link
-                                                href={show({ tenant, department: department.id })}
+                                                href={show({
+                                                    tenant,
+                                                    department: department.id,
+                                                })}
                                                 className="hover:underline"
                                             >
-                                                {department.nama_department ?? '—'}
+                                                {department.nama_department ??
+                                                    '—'}
                                             </Link>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {department.division?.nama_division ?? '—'}
+                                            {department.division
+                                                ?.nama_division ?? '—'}
                                         </TableCell>
                                         <TableCell>
-                                            <HodCell hod={department.hodEmployee} />
+                                            <HodCell
+                                                hod={department.hod_display}
+                                            />
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             {department.employees_count}
                                         </TableCell>
                                         <TableCell>
                                             <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
+                                                variant="ghost"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={show({
+                                                        tenant,
+                                                        department:
+                                                            department.id,
+                                                    })}
                                                 >
-                                                    <Link
-                                                                                                      <Link href={show({ tenant, department: department.id })}
-                                                    >
-                                                                                        Lihat
-                                                    </Link></Button>
+                                                    Lihat
+                                                </Link>
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

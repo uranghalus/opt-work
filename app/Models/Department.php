@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\DepartmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +36,33 @@ class Department extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * HOD shown in the UI: prefer the linked user account, fall back to the
+     * synced employee when the HOD has not signed in yet.
+     */
+    protected function hodDisplay(): Attribute
+    {
+        return Attribute::get(function (): ?array {
+            if ($this->hod !== null) {
+                return [
+                    'name' => $this->hod->name,
+                    'email' => $this->hod->email,
+                    'photo_url' => $this->hod->employee?->photo_url,
+                ];
+            }
+
+            if ($this->hodEmployee !== null) {
+                return [
+                    'name' => $this->hodEmployee->nama_employee,
+                    'email' => $this->hodEmployee->email,
+                    'photo_url' => $this->hodEmployee->photo_url,
+                ];
+            }
+
+            return null;
+        });
+    }
 
     /**
      * @return BelongsTo<Division, $this>

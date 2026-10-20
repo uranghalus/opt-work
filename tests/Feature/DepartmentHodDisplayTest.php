@@ -24,7 +24,7 @@ function departmentsPageData(TestResponse $response): array
     return $response->viewData('page')['props']['departments']['data'];
 }
 
-function makeHodAccount(string $email, ?string $photoUrl = null): array
+function makeHodEmployee(string $email, ?string $photoUrl = null): Employee
 {
     $employee = Employee::withoutGlobalScopes()->make([
         'nama_employee' => 'Budi HOD',
@@ -33,6 +33,13 @@ function makeHodAccount(string $email, ?string $photoUrl = null): array
     $employee->tenant_id = Tenant::where('code', 'hq')->first()->id;
     $employee->photo_url = $photoUrl;
     $employee->save();
+
+    return $employee;
+}
+
+function makeHodAccount(string $email, ?string $photoUrl = null): array
+{
+    $employee = makeHodEmployee($email, $photoUrl);
 
     $user = User::create([
         'name' => 'Budi HOD',
@@ -45,15 +52,22 @@ function makeHodAccount(string $email, ?string $photoUrl = null): array
     return [$employee, $user];
 }
 
-it('exposes the hod display payload on the departments index', function () {
-    [$employee, $user] = makeHodAccount('budi.hod@tataoptima.com', 'https://portal.test/budi.png');
-
+function makeDepartment(string $kode, string $nama): Department
+{
     $department = Department::withoutGlobalScopes()->make([
-        'kode_department' => 'IT',
-        'nama_department' => 'Information Technology',
+        'kode_department' => $kode,
+        'nama_department' => $nama,
     ]);
     $department->tenant_id = Tenant::where('code', 'hq')->first()->id;
     $department->save();
+
+    return $department;
+}
+
+it('exposes the hod display payload on the departments index', function () {
+    [, $user] = makeHodAccount('budi.hod@tataoptima.com', 'https://portal.test/budi.png');
+
+    $department = makeDepartment('IT', 'Information Technology');
     $department->forceFill(['hod_user_id' => $user->id])->save();
 
     $admin = makeSuperAdmin(createUser());
@@ -64,19 +78,32 @@ it('exposes the hod display payload on the departments index', function () {
 
     $row = collect($rows)->firstWhere('kode_department', 'IT');
 
-    expect($row['hod']['name'])->toBe('Budi HOD')
-        ->and($row['hod']['email'])->toBe('budi.hod@tataoptima.com')
-        ->and($row['hod']['employee']['photo_url'])->toBe('https://portal.test/budi.png')
-        ->and($row['hod']['id'])->toBe($user->id);
+    expect($row['hod_display']['name'])->toBe('Budi HOD')
+        ->and($row['hod_display']['email'])->toBe('budi.hod@tataoptima.com')
+        ->and($row['hod_display']['photo_url'])->toBe('https://portal.test/budi.png');
 });
 
-it('returns a null hod on the index when none is set', function () {
-    $department = Department::withoutGlobalScopes()->make([
-        'kode_department' => 'FIN',
-        'nama_department' => 'Finance',
-    ]);
-    $department->tenant_id = Tenant::where('code', 'hq')->first()->id;
-    $department->save();
+it('falls back to the synced employee when the hod has no local account', function () {
+    $employee = makeHodEmployee('budi.hod@tataoptima.com', 'https://portal.test/budi.png');
+
+    $department = makeDepartment('IT', 'Information Technology');
+    $department->forceFill(['hod_employee_id' => $employee->id])->save();
+
+    $admin = makeSuperAdmin(createUser());
+
+    $rows = departmentsPageData(
+        $this->actingAs($admin)->get('/hq/departments')->assertOk(),
+    );
+
+    $row = collect($rows)->firstWhere('kode_department', 'IT');
+
+    expect($row['hod_display']['name'])->toBe('Budi HOD')
+        ->and($row['hod_display']['email'])->toBe('budi.hod@tataoptima.com')
+        ->and($row['hod_display']['photo_url'])->toBe('https://portal.test/budi.png');
+});
+
+it('returns a null hod display when none is set', function () {
+    makeDepartment('FIN', 'Finance');
 
     $admin = makeSuperAdmin(createUser());
 
@@ -86,19 +113,13 @@ it('returns a null hod on the index when none is set', function () {
 
     $row = collect($rows)->firstWhere('kode_department', 'FIN');
 
-    expect($row['hod'])->toBeNull();
+    expect($row['hod_display'])->toBeNull();
 });
 
 it('exposes the hod display payload on the department show page', function () {
-    $tenant = Tenant::where('code', 'hq')->first();
     [, $user] = makeHodAccount('budi.hod@tataoptima.com');
 
-    $department = Department::withoutGlobalScopes()->make([
-        'kode_department' => 'IT',
-        'nama_department' => 'Information Technology',
-    ]);
-    $department->tenant_id = $tenant->id;
-    $department->save();
+    $department = makeDepartment('IT', 'Information Technology');
     $department->forceFill(['hod_user_id' => $user->id])->save();
 
     $admin = makeSuperAdmin(createUser());
@@ -108,7 +129,24 @@ it('exposes the hod display payload on the department show page', function () {
         ->assertOk()
         ->viewData('page')['props']['department'];
 
-    expect($payload['hod']['name'])->toBe('Budi HOD')
-        ->and($payload['hod']['email'])->toBe('budi.hod@tataoptima.com')
+    expect($payload['hod_display']['name'])->toBe('Budi HOD')
+        ->and($payload['hod_display']['email'])->toBe('budi.hod@tataoptima.com')
         ->and($payload['manager'])->toBeNull();
+});
+
+it('falls back to the synced employee on the department show page', function () {
+    $employee = makeHodEmployee('budi.hod@tataoptima.com');
+
+    $department = makeDepartment('IT', 'Information Technology');
+    $department->forceFill(['hod_employee_id' => $employee->id])->save();
+
+    $admin = makeSuperAdmin(createUser());
+
+    $payload = $this->actingAs($admin)
+        ->get('/hq/departments/'.$department->getKey())
+        ->assertOk()
+        ->viewData('page')['props']['department'];
+
+    expect($payload['hod_display']['name'])->toBe('Budi HOD')
+        ->and($payload['hod_display']['email'])->toBe('budi.hod@tataoptima.com');
 });

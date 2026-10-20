@@ -154,7 +154,8 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('employees/{employee}/ban', [EmployeeController::class, 'ban'])->name('employees.ban');
     Route::post('employees/{employee}/unban', [EmployeeController::class, 'unban'])->name('employees.unban');
 
-    Route::resource('departments', DepartmentController::class)->names('departments');
+    Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
+    Route::get('departments/{department}', [DepartmentController::class, 'show'])->name('departments.show');
     Route::post('departments/sync', [DepartmentController::class, 'sync'])->name('departments.sync');
 
     Route::resource('positions', PositionController::class)->names('positions');

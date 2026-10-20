@@ -1,5 +1,14 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Rencana 2026-10-22 (besok) - NEXT
+
+- [ ] **Q7 - semantik ban/login:** putuskan `banned_at` hanya penanda record atau benar-benar memblokir login. Jika blokir: gate di SAML/middleware, cabut sesi aktif, dan test regresi.
+- [ ] **Q4 - linked-but-roleless:** putuskan auto-assign `karyawan` saat link atau tetap warning + role manual. Konfirmasi bahwa auto-assign sistem tidak melanggar kebijakan Q6 (grant/revoke role hanya superadmin).
+- [ ] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
+- [ ] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
+- [ ] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
+- [ ] **WhatsApp Gateway integration (discovery dulu):** **folder/repo integrasi belum diketahui - tanyakan ke user besok sebelum menyentuh kode.** Setelah folder dikonfirmasi: tentukan provider/gateway, event outbound (assign WO, perubahan status, eskalasi H+3/H+5/H+6, extend), template pesan, queue/retry/idempotency, routing tenant/nomor, penyimpanan secret, dan test sandbox. Integrasi ini masih di luar Non-Goals MVP sampai scope disetujui.
+
 ## Frontend HOD department (2026-10-20) — DONE
 
 - [x] **Tampilan HOD di frontend + fix binding latent:** kolom HOD di

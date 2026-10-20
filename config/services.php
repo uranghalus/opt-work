@@ -42,7 +42,7 @@ return [
         | sp_entityid must match exactly what is registered in the Identity Provider portal.
         */
         'sp_entityid' => env('SAML_SP_ENTITYID'),
-        'sp_acs' => 'saml/acs',
+        'sp_acs' => env('SAML_SP_ACS', 'saml/acs'),
         'sp_sls' => 'saml/logout',
 
         // Both ACS bindings are advertised; initiate with HTTP-Redirect.

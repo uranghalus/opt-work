@@ -98,7 +98,8 @@ function getInitials(name: string) {
 
 /**
  * Self-contained heading-band-style action (SyncButton pattern): owns its
- * dialog, form state, and error surfacing. Hidden without `akun.update`.
+ * dialog, form state, and error surfacing. Hidden outside superadmin
+ * (ADR-0008); `akun.update` gates link/unlink only.
  */
 function UbahPeranAction({
     employeeId,
@@ -116,8 +117,8 @@ function UbahPeranAction({
         roles: akun.roles ?? [],
     });
 
-    // Hidden without akun.update; the server rejects regardless (ADR-0005).
-    if (!auth?.can?.['akun.update']) {
+    // Hidden outside superadmin; the server rejects regardless (ADR-0008).
+    if (!auth?.isSuperAdmin) {
         return null;
     }
 
@@ -309,8 +310,9 @@ function TautkanAkunAction({
                         )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Akun tanpa peran tetap dapat ditautkan. Berikan peran
-                        setelah tautan dibuat agar akun dapat mengakses aplikasi.
+                        Akun tanpa peran tetap dapat ditautkan. Superadmin harus
+                        memberikan peran setelah tautan dibuat agar akun dapat
+                        mengakses aplikasi.
                     </p>
                     <DialogFooter>
                         <Button
@@ -435,6 +437,8 @@ export default function ShowEmployee({
     available_accounts = [],
 }: PageProps) {
     const initials = getInitials(employee.nama_employee);
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const canManageRoles = auth?.isSuperAdmin === true;
 
     const items = [
         {
@@ -597,15 +601,18 @@ export default function ShowEmployee({
                                     Akun & Peran
                                 </h2>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    {/* Read-only when the akun is sealed. */}
-                                    {akun.exists && !akunSealed && (
-                                        <UbahPeranAction
-                                            key={(akun.roles ?? []).join('|')}
-                                            employeeId={employee.id}
-                                            akun={akun}
-                                            assignableRoles={assignable_roles}
-                                        />
-                                    )}
+                                    {/* Read-only when the akun is sealed or the
+                                        viewer is not a superadmin. */}
+                                    {akun.exists &&
+                                        !akunSealed &&
+                                        canManageRoles && (
+                                            <UbahPeranAction
+                                                key={(akun.roles ?? []).join('|')}
+                                                employeeId={employee.id}
+                                                akun={akun}
+                                                assignableRoles={assignable_roles}
+                                            />
+                                        )}
                                     {akun.exists && !akunSealed && (
                                         <LepasAkunAction
                                             employeeId={employee.id}
@@ -656,6 +663,12 @@ export default function ShowEmployee({
                                             </span>
                                         )}
                                     </div>
+                                    {!canManageRoles && (
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Hanya superadmin yang dapat mengubah
+                                            peran akun.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>

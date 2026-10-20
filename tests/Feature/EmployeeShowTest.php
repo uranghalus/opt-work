@@ -94,7 +94,7 @@ it('shows the linked account and ban state to a viewer with akun.read', function
             ->where('akun.roles.0', 'hod'));
 });
 
-it('offers database roles except super_admin to an akun.update holder', function () {
+it('offers database roles except super_admin to a superadmin', function () {
     $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
     User::factory()->create([
         'employee_id' => $employee->id,
@@ -102,10 +102,7 @@ it('offers database roles except super_admin to an akun.update holder', function
     ]);
     Role::create(['name' => 'auditor_khusus', 'guard_name' => 'web']);
 
-    $editor = createUser(['tenant_id' => $this->hq->id]);
-    $editor->givePermissionTo(['employee.read', 'akun.read', 'akun.update']);
-
-    $this->actingAs($editor)
+    $this->actingAs(makeSuperAdmin(createUser(['tenant_id' => $this->hq->id])))
         ->get(employeeShowRoute($employee))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where(
@@ -114,6 +111,22 @@ it('offers database roles except super_admin to an akun.update holder', function
                 && collect($roles)->contains('guest')
                 && ! collect($roles)->contains('super_admin'),
         ));
+});
+
+it('does not expose role management to an admin_tenant with akun.update', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    User::factory()->create([
+        'employee_id' => $employee->id,
+        'tenant_id' => $this->hq->id,
+    ]);
+
+    $admin = createUser(['tenant_id' => $this->hq->id]);
+    $admin->assignRole('admin_tenant');
+
+    $this->actingAs($admin)
+        ->get(employeeShowRoute($employee))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('assignable_roles', []));
 });
 
 it('forbids an employee page without employee.read', function () {

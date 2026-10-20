@@ -81,7 +81,10 @@ class EmployeeController extends Controller
                 ];
         }
 
-        $assignableRoles = $canUpdateAkun
+        // Role grant/revoke is a platform-superadmin capability (ADR-0008).
+        // akun.update still gates link/unlink, but it no longer exposes the
+        // assignable role list.
+        $assignableRoles = $request->user()?->isSuperAdmin()
             ? Role::query()
                 ->where('name', '!=', 'super_admin')
                 ->orderBy('name')
@@ -194,23 +197,29 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Sinkronisasi peran akun karyawan (ADR-0005). The submitted set replaces
+     * Sinkronisasi peran akun karyawan (ADR-0008). Only the platform
+     * superadmin may grant or revoke roles; akun.update remains the gate for
+     * link/unlink and linkable-account visibility. The submitted set replaces
      * the current set inside one transaction; the pair invariant and the
      * super_admin seal are guarded before any write, and the write touches
      * only Spatie roles — never identity flags or department links.
      */
     public function syncAkunRoles(SyncAkunRolesRequest $request): RedirectResponse
     {
-        Gate::authorize('akun.update');
+        abort_unless(
+            $request->user()?->isSuperAdmin(),
+            403,
+            'Hanya superadmin yang dapat mengubah peran akun.',
+        );
 
         $employee = $this->resolveEmployeeFromRoute($request);
         $akun = $employee->user()->first();
 
         abort_unless($akun !== null, 403, 'Karyawan ini tidak memiliki akun pengguna.');
 
-        // Roles are global, employee data is per-cabang. Never let an
-        // akun.update holder change an account linked to an employee in a
-        // different cabang.
+        // Roles are global, employee data is per-cabang. Never let even a
+        // superadmin change an account linked to an employee in a different
+        // cabang.
         abort_unless(
             $akun->tenant_id !== null && $akun->tenant_id === $employee->tenant_id,
             403,

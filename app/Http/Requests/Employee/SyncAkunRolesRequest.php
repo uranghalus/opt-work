@@ -9,7 +9,8 @@ use Illuminate\Foundation\Http\FormRequest;
 class SyncAkunRolesRequest extends FormRequest
 {
     /**
-     * Authorization happens in the controller via Gate::authorize('akun.update').
+     * Authorization happens in the controller: only a platform superadmin
+     * may grant or revoke roles (ADR-0008).
      */
     public function authorize(): bool
     {

@@ -32,13 +32,10 @@ function akunPair(): array
     return [$employee, $akun];
 }
 
-/** An editor holding exactly the given akun permissions, inside the current cabang. */
-function akunEditor(array $permissions): User
+/** A platform superadmin inside the current cabang. */
+function roleAdmin(): User
 {
-    $user = createUser(['tenant_id' => Tenant::current()?->id]);
-    $user->givePermissionTo($permissions);
-
-    return $user;
+    return makeSuperAdmin(createUser(['tenant_id' => Tenant::current()?->id]));
 }
 
 function syncAkunRolesRoute(Employee $employee): string
@@ -49,14 +46,28 @@ function syncAkunRolesRoute(Employee $employee): string
     ]);
 }
 
-it('rejects the role sync without akun.update', function () {
+it('rejects the role sync for a non-superadmin with akun.update', function () {
     [$employee] = akunPair();
+    $editor = createUser(['tenant_id' => $this->hq->id]);
+    $editor->givePermissionTo('akun.update');
 
-    $this->actingAs(createUser(['tenant_id' => $this->hq->id]))
+    $this->actingAs($editor)
         ->post(syncAkunRolesRoute($employee), ['roles' => ['hod']])
         ->assertForbidden();
 
     expect($employee->user()->first()->hasRole('hod'))->toBeFalse();
+});
+
+it('forbids an admin_tenant from changing roles', function () {
+    [$employee, $akun] = akunPair();
+    $admin = createUser(['tenant_id' => $this->hq->id]);
+    $admin->assignRole('admin_tenant');
+
+    $this->actingAs($admin)
+        ->post(syncAkunRolesRoute($employee), ['roles' => ['hod']])
+        ->assertForbidden();
+
+    expect($akun->fresh()->getRoleNames()->toArray())->toBe([]);
 });
 
 it('evicts the guest role when real roles are synced', function () {
@@ -65,7 +76,7 @@ it('evicts the guest role when real roles are synced', function () {
     [$employee, $akun] = akunPair();
     $akun->assignRole('guest');
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['karyawan']])
         ->assertRedirect();
 
@@ -87,7 +98,7 @@ it('replaces the current role set with exactly the submitted set', function () {
     [$employee, $akun] = akunPair();
     $akun->assignRole('viewer');
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['hod', 'viewer']])
         ->assertRedirect();
 
@@ -98,7 +109,7 @@ it('replaces the current role set with exactly the submitted set', function () {
 it('auto-attaches karyawan when field_staff is granted', function () {
     [$employee, $akun] = akunPair();
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['field_staff']])
         ->assertRedirect();
 
@@ -111,7 +122,7 @@ it('refuses to drop karyawan from a field_staff holder', function () {
     $akun->assignRole(['field_staff', 'karyawan']);
 
     // The submission keeps field_staff but silently drops its pair.
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['field_staff']])
         ->assertRedirect()
         ->assertSessionHasErrors('roles');
@@ -125,7 +136,7 @@ it('keeps karyawan in place when field_staff is revoked', function () {
     [$employee, $akun] = akunPair();
     $akun->assignRole('field_staff');
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['karyawan']])
         ->assertRedirect()
         ->assertSessionHas('success');
@@ -163,7 +174,7 @@ it('leaves identity flags and department links byte-identical after a sync', fun
     $department->forceFill(['hod_user_id' => $akun->id])->save();
     $department->refresh();
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['viewer']])
         ->assertRedirect();
 
@@ -179,7 +190,7 @@ it('leaves identity flags and department links byte-identical after a sync', fun
 it('refuses the sync for a karyawan without a linked akun', function () {
     $employee = Employee::factory()->create();
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['hod']])
         ->assertForbidden();
 });
@@ -187,7 +198,7 @@ it('refuses the sync for a karyawan without a linked akun', function () {
 it('rejects unknown role names', function () {
     [$employee] = akunPair();
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['not-a-role']])
         ->assertSessionHasErrors('roles');
 
@@ -200,7 +211,7 @@ it('allows custom roles created through Hak Akses', function () {
     [$employee, $akun] = akunPair();
     Role::create(['name' => 'auditor_khusus', 'guard_name' => 'web']);
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['auditor_khusus']])
         ->assertRedirect()
         ->assertSessionHas('success');
@@ -222,7 +233,7 @@ it('refuses to change roles on an account from another cabang', function () {
         'tenant_id' => $other->id,
     ]);
 
-    $this->actingAs(akunEditor(['akun.update']))
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['hod']])
         ->assertForbidden();
 
@@ -241,8 +252,8 @@ it('recognizes a freshly assigned role on the akun’s next request without re-l
     // Before the sync the akun cannot even read the roles surface.
     $seeAkunAs($akun)->assertInertia(fn ($page) => $page->where('akun', null));
 
-    // A manager grants admin_tenant while the akun's session stays alive.
-    $this->actingAs(akunEditor(['akun.update']))
+    // A superadmin grants admin_tenant while the akun's session stays alive.
+    $this->actingAs(roleAdmin())
         ->post(syncAkunRolesRoute($employee), ['roles' => ['admin_tenant']])
         ->assertRedirect()
         ->assertSessionHas('success');

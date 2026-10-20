@@ -26,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Companies change rarely; a nightly reconciliation keeps cabang data
         // aligned with the Optigate portal without hammering the API.
         $schedule->command('app:sync-tenants')->dailyAt('01:00');
+
+        // Check overdue work orders and send staged escalations (H+3/5/6).
+        $schedule->command('app:check-deadline-escalation')->dailyAt('09:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

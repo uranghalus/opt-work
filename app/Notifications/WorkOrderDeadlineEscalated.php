@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Notifications;
+
+use App\Models\WorkOrder;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\BroadcastMessage;
+use Illuminate\Notifications\Notification;
+
+/**
+ * Sent when a work order deadline is approaching or has passed.
+ * Staged escalation: H+3 → Team Leader, H+5 → HOD, H+6 → DGM/GM.
+ */
+class WorkOrderDeadlineEscalated extends Notification
+{
+    use Queueable;
+
+    public function __construct(
+        public WorkOrder $workOrder,
+        public string $level, // 'h3', 'h5', 'h6'
+    ) {}
+
+    /**
+     * @return array<int, string>
+     */
+    public function via(object $notifiable): array
+    {
+        return ['database', 'broadcast'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        $levelLabel = match ($this->level) {
+            'h3' => 'Team Leader',
+            'h5' => 'HOD',
+            'h6' => 'DGM/GM',
+            default => 'Unknown',
+        };
+
+        $deadline = $this->workOrder->deadline_date?->isoFormat('D MMMM Y');
+
+        return [
+            'type' => 'work_order.escalated',
+            'work_order_id' => $this->workOrder->getKey(),
+            'nomor_wo' => $this->workOrder->nomor_wo,
+            'title' => $this->workOrder->title,
+            'category' => $this->workOrder->category->value,
+            'escalation_level' => $this->level,
+            'escalation_target' => $levelLabel,
+            'target_department_id' => $this->workOrder->target_department_id,
+            'message' => sprintf(
+                'WO %s ("%s") 已逾期，请及时处理。%s 请注意跟进。%s',
+                $this->workOrder->nomor_wo,
+                $this->workOrder->title,
+                $levelLabel,
+                $deadline === null ? '' : '截止日期: '.$deadline,
+            ),
+        ];
+    }
+
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage($this->toArray($notifiable));
+    }
+}

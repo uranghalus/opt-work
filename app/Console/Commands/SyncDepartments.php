@@ -70,8 +70,11 @@ class SyncDepartments extends Command
                 return Command::FAILURE;
             }
 
-            [$created, $updated] = $this->upsertDepartments($tenant, $departments);
-            $this->resolveHod($tenant, $departments);
+            // Peta portal user UUID -> users.id lokal (jembatan employees).
+            $hodUserIds = $this->portalUserMap($tenant);
+
+            [$created, $updated] = $this->upsertDepartments($tenant, $departments, $hodUserIds);
+            $this->resolveHod($tenant, $departments, $hodUserIds);
             $deactivated = $this->deactivateMissingDepartments($tenant, $departments);
 
             $totalCreated += $created;
@@ -180,9 +183,11 @@ class SyncDepartments extends Command
                         'paginate' => 'true',
                         'per_page' => self::PER_PAGE,
                         'page' => $page,
-                        // Portal relasi HOD: user UUID pemegang jabatan
-                        // pimpinan department (lihat optigate-complete-api-docs.md).
-                        'with' => 'hod',
+                        // Portal relasi pimpinan department: HOD + Manager
+                        // (user UUID; lihat optigate-complete-api-docs.md §3.1
+                        // — with: company, divisions, positions, users, hod,
+                        // manager, clients).
+                        'with' => 'hod,manager',
                     ]);
             } catch (ConnectionException $exception) {
                 if ($attempt >= $maxAttempts) {
@@ -212,23 +217,15 @@ class SyncDepartments extends Command
      * @param  Collection<int, array<string, mixed>>  $departments
      * @return array{0: int, 1: int} [created, updated]
      */
-    protected function upsertDepartments(Tenant $tenant, Collection $departments): array
+    protected function upsertDepartments(Tenant $tenant, Collection $departments, array $hodUserIds): array
     {
         $created = 0;
         $updated = 0;
 
         // Portal mengidentifikasi personel dengan UUID; lokal menunjuk HOD
         // lewat users.id (bigint). Peta optigate_user_id (employee) ->
-        // users.id dibangun sekali per tenant, jadi HOD hanya tertaut
-        // kalau karyawan itu sudah ikut sync karyawan.
-        $hodUserIds = Employee::withoutGlobalScopes()
-            ->where('tenant_id', $tenant->id)
-            ->whereNotNull('optigate_user_id')
-            ->whereHas('user')
-            ->with('user:id,employee_id')
-            ->get()
-            ->filter(fn (Employee $employee) => $employee->user !== null)
-            ->mapWithKeys(fn (Employee $employee) => [$employee->optigate_user_id => $employee->user->id]);
+        // users.id dibangun sekali per tenant di handle() (portalUserMap),
+        // jadi HOD hanya tertaut kalau karyawan itu sudah ikut sync karyawan.
 
         DB::transaction(function () use ($tenant, $departments, $hodUserIds, &$created, &$updated) {
             foreach ($departments as $dept) {
@@ -250,6 +247,8 @@ class SyncDepartments extends Command
                     'nama_department' => $dept['name'] ?? null,
                     // HOD portal (UUID) -> user lokal; null kalau belum ada.
                     'hod_user_id' => $hodUserIds[$dept['hod']['id'] ?? null] ?? null,
+                    // Manager portal (UUID) -> user lokal; null kalau belum ada.
+                    'manager_user_id' => $hodUserIds[$dept['manager']['id'] ?? null] ?? null,
                     'is_active' => true,
                 ])->save();
 
@@ -261,18 +260,42 @@ class SyncDepartments extends Command
     }
 
     /**
+     * Build a map of portal user UUID → local users.id for this tenant,
+     * bridged through employees.optigate_user_id → users.employee_id.
+     * Only synced employees with a linked akun appear in the map.
+     *
+     * @return array<string, int>
+     */
+    protected function portalUserMap(Tenant $tenant): array
+    {
+        return Employee::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereNotNull('optigate_user_id')
+            ->whereHas('user')
+            ->with('user:id,employee_id')
+            ->get()
+            ->filter(fn (Employee $employee) => $employee->user !== null)
+            ->mapWithKeys(fn (Employee $employee) => [$employee->optigate_user_id => $employee->user->id])
+            ->all();
+    }
+
+    /**
      * Map portal HOD (user UUID) → local employee ID.
      *
      * The portal sends hod.id as a user UUID. We bridge through employees
      * (which already have optigate_user_id from the employee sync) to
      * resolve the local employee primary key.
      */
-    protected function resolveHod(Tenant $tenant, Collection $departments): void
+    protected function resolveHod(Tenant $tenant, Collection $departments, array $hodUserIds): void
     {
-        // Collect all portal HOD IDs that appear in this batch.
+        // Collect all portal HOD + Manager IDs that appear in this batch.
         $hodPortalIds = $departments
-            ->filter(fn (array $dept) => filled($dept['hod']['id'] ?? null))
-            ->map(fn (array $dept) => (string) $dept['hod']['id'])
+            ->flatMap(fn (array $dept) => [
+                $dept['hod']['id'] ?? null,
+                $dept['manager']['id'] ?? null,
+            ])
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (string) $id)
             ->unique()
             ->values();
 
@@ -337,6 +360,19 @@ class SyncDepartments extends Command
                     'department_optigate_id' => $dept['id'],
                     'hod_portal_id' => (string) $portalHodId,
                 ]);
+            }
+
+            $portalManagerId = $dept['manager']['id'] ?? null;
+            if (blank($portalManagerId)) {
+                continue;
+            }
+
+            $managerUserId = $hodUserIds[$portalManagerId] ?? null;
+            if ($managerUserId && $departmentRecord->manager_user_id !== $managerUserId) {
+                Department::withoutGlobalScopes()
+                    ->where('id', $departmentRecord->id)
+                    ->update(['manager_user_id' => $managerUserId]);
+                $updated++;
             }
         }
 

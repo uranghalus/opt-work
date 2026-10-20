@@ -5,6 +5,8 @@ import { useCallback, useState } from 'react';
 import { create, edit, index, show, sync } from '@/routes/departments';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useInitials } from '@/hooks/use-initials';
 import {
     Table,
     TableBody,
@@ -21,7 +23,7 @@ type Department = {
     kode_department: string;
     nama_department: string | null;
     division: { nama_division: string } | null;
-    hod: { name: string } | null;
+    hod: { name: string; email: string | null; employee: { photo_url: string | null } | null } | null;
     employees_count: number;
     positions_count: number;
 };
@@ -34,6 +36,43 @@ type PageProps = {
 type FlashProps = PageProps & InertiaConfig['sharedPageProps'] & {
     flash?: { success?: string | null; error?: string | null };
 };
+
+/** HOD cell: linked akun avatar + name, or an explicit empty state. */
+function HodCell({
+    hod,
+}: {
+    hod: {
+        name: string;
+        email: string | null;
+        employee: { photo_url: string | null } | null;
+    } | null;
+}) {
+    const getInitials = useInitials();
+
+    if (!hod) {
+        return <span className="text-ink-subtle">Belum di-set</span>;
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            <Avatar className="size-7 rounded-full ring-1 ring-border">
+                <AvatarImage
+                    src={hod.employee?.photo_url ?? undefined}
+                    alt={hod.name}
+                />
+                <AvatarFallback className="rounded-full bg-brand-soft text-[11px] font-semibold text-brand">
+                    {getInitials(hod.name)}
+                </AvatarFallback>
+            </Avatar>
+            <div className="grid leading-tight">
+                <span className="text-sm font-medium">{hod.name}</span>
+                {hod.email && (
+                    <span className="text-xs text-ink-muted">{hod.email}</span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 /** Primary actions of this page, rendered in the shell's heading band. */
 function DepartmentActions() {
@@ -172,11 +211,7 @@ export default function Departments(props: PageProps) {
                                             {department.division?.nama_division ?? '—'}
                                         </TableCell>
                                         <TableCell>
-                                            {department.hod?.name ?? (
-                                                <span className="text-ink-subtle">
-                                                    Belum di-set
-                                                </span>
-                                            )}
+                                            <HodCell hod={department.hod} />
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             {department.employees_count}

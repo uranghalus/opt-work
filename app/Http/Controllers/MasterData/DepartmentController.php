@@ -5,6 +5,7 @@ namespace App\Http\Controllers\MasterData;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Division;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,7 @@ class DepartmentController extends Controller
         $tenant = tenant();
 
         $departments = Department::query()
-            ->with(['division', 'hodEmployee', 'hod'])
+            ->with(['division', 'hodEmployee', 'hod.employee', 'manager'])
             ->withCount(['employees', 'positions'])
             ->orderBy('kode_department')
             ->paginate(10)
@@ -64,15 +65,36 @@ class DepartmentController extends Controller
             ->with('success', 'Department berhasil dibuat.');
     }
 
-    public function show(Department $department): Response
+    /**
+     * Departments are resolved manually against the route's tenant: implicit
+     * binding runs before tenancy bootstraps, so the BelongsToTenant scope
+     * cannot be trusted at bind time (same pattern as EmployeeController and
+     * WorkOrderController).
+     */
+    protected function resolveDepartmentFromRoute(Request $request): Department
     {
+        $tenant = Tenant::whereCode((string) $request->route('tenant'))->first();
+        abort_unless($tenant !== null, 404);
+
+        return Department::withoutGlobalScope('tenant')
+            ->where('id', (string) $request->route('department'))
+            ->where('tenant_id', $tenant->id)
+            ->firstOrFail();
+    }
+
+    public function show(Request $request): Response
+    {
+        $department = $this->resolveDepartmentFromRoute($request);
+
         return Inertia::render('departments/show', [
-            'department' => $department->load(['division', 'hod', 'manager'])->loadCount(['employees', 'positions']),
+            'department' => $department->load(['division', 'hod.employee', 'hodEmployee', 'manager'])->loadCount(['employees', 'positions']),
         ]);
     }
 
-    public function edit(Department $department): Response
+    public function edit(Request $request): Response
     {
+        $department = $this->resolveDepartmentFromRoute($request);
+
         return Inertia::render('departments/edit', [
             'department' => $department,
             'divisions' => Division::query()->orderBy('nama_division')->get(['id', 'nama_division']),
@@ -80,8 +102,10 @@ class DepartmentController extends Controller
         ]);
     }
 
-    public function update(Request $request, Department $department): RedirectResponse
+    public function update(Request $request): RedirectResponse
     {
+        $department = $this->resolveDepartmentFromRoute($request);
+
         $validated = $request->validate([
             'kode_department' => [
                 'required',
@@ -104,8 +128,9 @@ class DepartmentController extends Controller
             ->with('success', 'Department berhasil diperbarui.');
     }
 
-    public function destroy(Department $department): RedirectResponse
+    public function destroy(Request $request): RedirectResponse
     {
+        $department = $this->resolveDepartmentFromRoute($request);
         $department->delete();
 
         return redirect()

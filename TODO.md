@@ -1,5 +1,42 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Frontend HOD department (2026-10-20) — DONE
+
+- [x] **Tampilan HOD di frontend + fix binding latent:** kolom HOD di
+      `departments/index.tsx` dan baris HOD di `show.tsx` kini avatar (foto
+      karyawan, fallback inisial `useInitials`) + nama + email; kosong = "Belum
+      di-set". Payload: `DepartmentController` index/show eager-load
+      `hod.employee` (+ `hodEmployee`, `manager` di show).
+      **Bug latent diperbaiki**: implicit binding `{department}` jalan sebelum
+      `IdentifyTenant` (SubstituteBindings lebih awal di grup web) →
+      `Tenant::current()` null → scope `BelongsToTenant` = `whereRaw(1=0)` →
+      show/edit/update/destroy department gagal via URL. Dikonversi ke
+      `resolveDepartmentFromRoute()` manual (pola terdokumentasi di
+      `EmployeeController::resolveEmployeeFromRoute` + `WorkOrderController`).
+      Verifikasi: DepartmentHodDisplayTest 3/3 (payload index/show/null),
+      DepartmentTenantResolutionTest 2/2 (edit/update/destroy + 404 lintas
+      cabang), MasterData+BranchSwitcher+SyncDepartments 35/35, WorkOrder+
+      Notification 20/20, Employee 20/20; pint + tsc + `npm run build` hijau.
+      Session: `Sessions/2026-10/20/1320-frontend-hod-display.md`.
+
+## Paritas sync Department+HOD vs opti-work2 (2026-10-20) — DONE
+
+- [x] **Riset + implementasi gap tunggal `manager_user_id`:** background agent
+      mendokumentasikan fitur opti-work2 dengan sitasi file:line di
+      `.scratch/optigate-sync/research/opti-work2-department-hod-sync.md`.
+      Fitur ternyata sudah ada di opti-works (`b0be63f`, lebih baik dari referensi:
+      pagination + retry + transaction + deactivate + per-tenant); satu-satunya
+      perilaku referensi yang hilang = `manager_user_id` (opti-work2 men-sync-nya,
+      konsumen lokal sudah ada: fallback eskalasi, scoping WO, halaman show).
+      `SyncDepartments` kini kirim `with=hod,manager`, tulis `manager_user_id`
+      dari `dept['manager']['id']` via `portalUserMap()` (diekstrak, dipakai kedua
+      pass), semantik persis HOD (unlinked → null, hilang dari portal → dikosongkan).
+      Tanpa migrasi. Verifikasi: SyncDepartmentsTest 16/16 (2 test manager baru),
+      SyncEmployees+SyncDivisions 17/17, pint --dirty passed, tsc exit 0, full suite
+      381 → 363 passed + 8 skipped (10 error = `EscalationTest.php` WIP untracked
+      milik sesi paralel, bukan surface ini). Session log:
+      `Sessions/2026-10/20/1028-paritas-department-hod-sync-manager.md`.
+
 ## Unit Bisnis page revamp + URL move (2026-10-19) — DONE
 
 - [x] **Move `/settings/tenants` → `/tenants`:** routes/web.php (prefix `tenants`, names

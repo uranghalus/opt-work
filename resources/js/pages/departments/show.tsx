@@ -1,13 +1,15 @@
 import { Head } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useInitials } from '@/hooks/use-initials';
 
 type Department = {
     id: string;
     kode_department: string;
     nama_department: string | null;
     division: { nama_division: string } | null;
-    hod: { name: string } | null;
-    manager: { name: string } | null;
+    hod: { name: string; email: string | null; employee: { photo_url: string | null } | null } | null;
+    manager: { name: string; email: string | null } | null;
     employees_count: number;
     positions_count: number;
 };
@@ -17,6 +19,8 @@ type PageProps = {
 };
 
 export default function ShowDepartment({ department }: PageProps) {
+    const getInitials = useInitials();
+
     return (
         <>
             <Head title={department.kode_department} />
@@ -53,10 +57,28 @@ export default function ShowDepartment({ department }: PageProps) {
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                         <dt className="text-sm text-muted-foreground">HOD</dt>
                         <dd className="text-sm">
-                            {department.hod?.name ?? (
-                                <span className="text-ink-subtle">
-                                    Belum di-set
-                                </span>
+                            {department.hod ? (
+                                <div className="flex items-center gap-2">
+                                    <Avatar className="size-7 rounded-full ring-1 ring-border">
+                                        <AvatarImage
+                                            src={department.hod.employee?.photo_url ?? undefined}
+                                            alt={department.hod.name}
+                                        />
+                                        <AvatarFallback className="rounded-full bg-brand-soft text-[11px] font-semibold text-brand">
+                                            {getInitials(department.hod.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid leading-tight text-right">
+                                        <span className="font-medium">{department.hod.name}</span>
+                                        {department.hod.email && (
+                                            <span className="text-xs text-ink-muted">
+                                                {department.hod.email}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <span className="text-ink-subtle">Belum di-set</span>
                             )}
                         </dd>
                     </div>

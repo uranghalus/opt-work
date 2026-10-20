@@ -2,7 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { create, edit, index, show, sync } from '@/routes/departments';
+import { index, show, sync } from '@/routes/departments';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -116,9 +116,8 @@ function DepartmentActions() {
                 )}
             </Button>
             <Button asChild size="lg">
-                <Link href={create({ tenant })}>
-                    <Plus aria-hidden />
-                    Tambah Department
+                      <Link href={create({ tenant })}>
+                    
                 </Link>
             </Button>
         </div>
@@ -211,7 +210,7 @@ export default function Departments(props: PageProps) {
                                             {department.division?.nama_division ?? '—'}
                                         </TableCell>
                                         <TableCell>
-                                            <HodCell hod={department.hod} />
+                                            <HodCell hod={department.hodEmployee} />
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             {department.employees_count}
@@ -223,9 +222,9 @@ export default function Departments(props: PageProps) {
                                                     asChild
                                                 >
                                                     <Link
-                                                        href={edit({ tenant, department: department.id })}
+                                                                                                      <Link href={show({ tenant, department: department.id })}
                                                     >
-                                                        Edit
+                                                                                        Lihat
                                                     </Link></Button>
                                         </TableCell>
                                     </TableRow>

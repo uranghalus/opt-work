@@ -21,6 +21,7 @@ import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
 import { index as rolesIndex } from '@/routes/roles';
 import positions from '@/routes/positions';
+import { edit as profileEdit } from '@/routes/profile';
 import { index as workOrdersIndex } from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
 import type { NavItem } from '@/types';
@@ -273,7 +274,7 @@ export function navGroups({
                           {
                               title: 'Pengaturan',
                               shortTitle: 'Atur',
-                              href: tenants.index(),
+                              href: profileEdit(),
                               icon: Settings,
                               tone: 'system',
                           } satisfies OptiNavItem,

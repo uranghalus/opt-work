@@ -172,6 +172,14 @@ class RoleAndPermissionSeeder extends Seeder
             'akun.create', 'akun.read', 'akun.update', 'akun.delete',
         ];
 
+        // Gateway WhatsApp per tenant (ADR-0009 amendmen): halaman Pengaturan
+        // → WhatsApp hanya punya tampilan (read) + aksi kelola sesi (update);
+        // tidak ada objek "whatsapp" yang bisa dibuat/dihapus, sehingga tanpa
+        // verb create/delete.
+        $whatsappPermissions = [
+            'whatsapp.read', 'whatsapp.update',
+        ];
+
         return [
             ...$masterDataPermissions,
             ...$workOrderPermissions,
@@ -179,6 +187,7 @@ class RoleAndPermissionSeeder extends Seeder
             ...$workDataPermissions,
             ...$dailyWorkPermissions,
             ...$akunPermissions,
+            ...$whatsappPermissions,
             'dashboard.read',
             'reports.read',
             ...$hakAksesPermissions,
@@ -226,6 +235,12 @@ class RoleAndPermissionSeeder extends Seeder
             'akun.create', 'akun.read', 'akun.update', 'akun.delete',
         ];
 
+        // Gateway WhatsApp per tenant (ADR-0009 amendmen) — read + update saja
+        // (lihat catatan serupa di catalogue()); default khusus admin_tenant.
+        $whatsappPermissions = [
+            'whatsapp.read', 'whatsapp.update',
+        ];
+
         $readMasterData = fn (array $permissions) => array_map(
             fn (string $p) => str_replace(['.create', '.update', '.delete'], '.read', $p),
             $permissions,
@@ -237,6 +252,7 @@ class RoleAndPermissionSeeder extends Seeder
             'admin_tenant' => [
                 ...$masterDataPermissions,
                 ...$akunPermissions,
+                ...$whatsappPermissions,
                 ...$workOrderPermissions,
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,

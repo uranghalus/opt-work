@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string $event
  * @property string|null $phone
  * @property string|null $chat_id
+ * @property string|null $session_name
  * @property string $payload
  * @property WaMessageStatus $status
  * @property int $attempts
@@ -41,6 +42,7 @@ use Illuminate\Support\Carbon;
     'event',
     'phone',
     'chat_id',
+    'session_name',
     'payload',
     'status',
     'attempts',

@@ -5,6 +5,7 @@ use App\Jobs\SendWaMessageJob;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
+use App\Models\TenantWaSession;
 use App\Models\User;
 use App\Models\WaMessage;
 use App\Models\WorkOrder;
@@ -13,6 +14,7 @@ use App\Notifications\WorkOrderCreated;
 use App\Notifications\WorkOrderReviewed;
 use App\Services\DeadlineCalculator;
 use App\Services\WahaClient;
+use App\TenantWaSessionStatus;
 use App\WaMessageStatus;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
@@ -44,7 +46,11 @@ function wahaGatewayConfigure(): void
     config([
         'waha.url' => 'http://waha.test',
         'waha.api_key' => 'test-key',
-        'waha.session' => 'optiworks',
+        // Nonaktifkan rate limit per sesi agar multi-kirim dalam satu test
+        // (mis. eskalasi H+3/5/6) tidak saling menahan. Test rate limit
+        // mengeset batasnya sendiri.
+        'waha.rate_per_minute' => 1000,
+        'waha.min_interval_seconds' => 0,
     ]);
 }
 
@@ -89,6 +95,27 @@ function wahaGatewayWorkOrder(array $overrides = [], ?int $hodUserId = null): Wo
     ], $overrides));
 }
 
+/**
+ * Sesi aktif sebuah tenant — prasyarat channel menulis `pending` + job
+ * mengirim (slice 2: tanpa sesi aktif = `failed`, tanpa HTTP).
+ */
+function wahaGatewaySession(
+    ?Tenant $tenant = null,
+    string $sessionName = 'tw-hq',
+    TenantWaSessionStatus $status = TenantWaSessionStatus::Working,
+): TenantWaSession {
+    $tenant ??= Tenant::where('code', 'hq')->firstOrFail();
+
+    return TenantWaSession::withoutGlobalScope('tenant')->updateOrCreate(
+        ['tenant_id' => $tenant->getKey()],
+        [
+            'session_name' => $sessionName,
+            'phone_number' => '6281234567890',
+            'status' => $status,
+        ],
+    );
+}
+
 it('does not touch WhatsApp or the outbox when the gateway is not configured', function () {
     Http::preventStrayRequests();
 
@@ -105,6 +132,7 @@ it('does not touch WhatsApp or the outbox when the gateway is not configured', f
 
 it('sends a review request through the gateway and records a sent outbox row', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::preventStrayRequests();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
@@ -119,6 +147,7 @@ it('sends a review request through the gateway and records a sent outbox row', f
         ->and($message->event)->toBe('work_order.created')
         ->and($message->phone)->toBe('081234567890')
         ->and($message->chat_id)->toBe('6281234567890@c.us')
+        ->and($message->session_name)->toBe('tw-hq')
         ->and($message->recipient_user_id)->toBe($recipient->getKey())
         ->and($message->work_order_id)->toBe($workOrder->getKey())
         ->and($message->tenant_id)->toBe($workOrder->tenant_id)
@@ -128,7 +157,7 @@ it('sends a review request through the gateway and records a sent outbox row', f
     Http::assertSent(function (Request $request) use ($workOrder) {
         return $request->url() === 'http://waha.test/api/sendText'
             && $request->hasHeader('X-Api-Key', 'test-key')
-            && $request['session'] === 'optiworks'
+            && $request['session'] === 'tw-hq'
             && $request['chatId'] === '6281234567890@c.us'
             && str_contains((string) $request['text'], $workOrder->nomor_wo);
     });
@@ -157,6 +186,7 @@ it('marks the outbox row skipped when the recipient has no usable phone number',
 
 it('prefers the linked employee number over the account phone', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
     $workOrder = wahaGatewayWorkOrder();
@@ -169,6 +199,7 @@ it('prefers the linked employee number over the account phone', function () {
 
 it('resolves the recipient number when no tenant is current', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
     $workOrder = wahaGatewayWorkOrder();
@@ -190,10 +221,12 @@ it('resolves the recipient number when no tenant is current', function () {
 
 it('delivers the outbox job when no tenant is current', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::preventStrayRequests();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
     $message = WaMessage::create([
+        'tenant_id' => Tenant::where('code', 'hq')->firstOrFail()->getKey(),
         'event' => 'work_order.escalated',
         'phone' => '081234567890',
         'payload' => 'test payload',
@@ -211,6 +244,7 @@ it('delivers the outbox job when no tenant is current', function () {
 
 it('notifies the requester with the review decision', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
     $requester = wahaGatewayUser('081234567890');
@@ -229,6 +263,7 @@ it('notifies the requester with the review decision', function () {
 
 it('notifies each assigned worker with the deadline', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
     $worker = wahaGatewayUser('081234567890');
@@ -247,10 +282,12 @@ it('notifies each assigned worker with the deadline', function () {
 
 it('records the gateway error on the outbox row when a send fails', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::preventStrayRequests();
     Http::fake(['http://waha.test/api/sendText' => fn () => Http::response(['error' => 'boom'], 500)]);
 
     $message = WaMessage::create([
+        'tenant_id' => Tenant::where('code', 'hq')->firstOrFail()->getKey(),
         'event' => 'work_order.created',
         'phone' => '081234567890',
         'payload' => 'test payload',
@@ -290,6 +327,7 @@ it('marks the outbox row failed when retries are exhausted', function () {
 it('writes escalation outbox rows for the notified department head', function () {
     (new RoleAndPermissionSeeder)->run();
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::preventStrayRequests();
     Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
 
@@ -324,21 +362,40 @@ it('fails the ping command when the gateway is not configured', function () {
         ->and(Artisan::output())->toContain('belum dikonfigurasi');
 });
 
-it('reports the session status and sends a test message', function () {
+it('reports the instance and sends a test message via the tenant session', function () {
     wahaGatewayConfigure();
+    wahaGatewaySession();
     Http::preventStrayRequests();
     Http::fake([
-        'http://waha.test/api/sessions/optiworks' => fn () => ['status' => 'WORKING'],
+        'http://waha.test/api/sessions' => fn () => [
+            ['name' => 'tw-hq', 'status' => 'WORKING', 'me' => ['tel' => '6281234567890']],
+        ],
+        'http://waha.test/api/sessions/tw-hq' => fn () => ['name' => 'tw-hq', 'status' => 'WORKING'],
         'http://waha.test/api/sendText' => fn () => ['status' => 'sent'],
     ]);
 
-    $exitCode = Artisan::call('app:waha-ping', ['phone' => '081234567890']);
+    $exitCode = Artisan::call('app:waha-ping', ['--tenant' => 'hq', 'phone' => '081234567890']);
 
     expect($exitCode)->toBe(0)
         ->and(Artisan::output())->toContain('WORKING');
 
     Http::assertSent(fn (Request $request) => $request->url() === 'http://waha.test/api/sendText'
+        && $request['session'] === 'tw-hq'
         && $request['chatId'] === '6281234567890@c.us');
+});
+
+it('checks only the instance when no tenant option is given (no send path)', function () {
+    wahaGatewayConfigure();
+    Http::preventStrayRequests();
+    Http::fake(['http://waha.test/api/sessions' => fn () => Http::response([], 200)]);
+
+    $exitCode = Artisan::call('app:waha-ping');
+
+    expect($exitCode)->toBe(0)
+        ->and(Artisan::output())->toContain('Instance OK');
+
+    // Tanpa --tenant: hanya satu panggilan daftar sesi, nol pesan keluar.
+    Http::assertSentCount(1);
 });
 
 it('reports an unreachable gateway from the ping command', function () {

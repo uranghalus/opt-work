@@ -7,9 +7,10 @@
 - [ ] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
 - [ ] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
 - [ ] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
-- [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound) — lihat
-      section "WhatsApp Gateway slice 1" di bawah. Item ini tadinya "discovery dulu +
-      di luar Non-Goals"; keputusan grill G1–G7 + implementasi + test sudah masuk.
+- [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound + slice 2
+      sesi-per-tenant) — lihat section "WhatsApp Gateway slice 1" dan "slice 2" di
+      bawah. Item ini tadinya "discovery dulu + di luar Non-Goals"; keputusan grill
+      G1–G7 + rencana slice 2 (Q1–Q5) + implementasi + test sudah masuk.
 
 ## WhatsApp Gateway slice 1 — outbound (2026-10-21) — DONE
 
@@ -61,6 +62,61 @@
       item Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
       employee filters).
 
+## WhatsApp Gateway slice 2 — sesi per tenant (2026-10-21) — DONE
+
+- [x] **Rencana + grill Q1–Q5 disetujui user (semua rekomendasi diterima):**
+      (Q1) halaman `/settings/whatsapp`; (Q2) izin `whatsapp.read`/`whatsapp.update`
+      khusus `admin_tenant` + bypass super admin; (Q3) rate limit rethrow → backoff
+      antrean, default 20/menit + jeda 2 dtk via `WAHA_RATE_PER_MINUTE`/
+      `WAHA_MIN_INTERVAL`; (Q4) putuskan = stop (fallback logout, perlu pairing
+      ulang); (Q5) ping tanpa `--tenant` = cek instance saja tanpa kirim. Skema:
+      `tenant_wa_sessions` (tenant_id unique, session_name `tw-{kode}` unique
+      global) + `wa_messages.session_name` snapshot + index `(tenant_id, status)`.
+- [x] **Migrasi + model/enum:** `2026_10_21_000002_create_tenant_wa_sessions_table`,
+      `2026_10_21_000003_add_session_name_to_wa_messages_table` (belum dijalankan ke
+      dev DB — jalankan `php artisan migrate` saat deploy); `TenantWaSession`
+      (`activeFor()`/`forTenant()`, trait `BelongsToTenant`+`HasUuids`),
+      `TenantWaSessionStatus` (stopped/starting/scan_qr/working/stopping/error/
+      missing + `isActive()`/`label()`/`fromWahaStatus()`).
+- [x] **Guard channel + job:** channel berurutan — URL kosong no-op → nomor kosong
+      skipped → tanpa tenant failed → tanpa sesi aktif failed (alasan menyebut
+      status baris sesi) → sesi aktif pending + snapshot `session_name` + dispatch.
+      Job re-resolve sesi saat run (sesi mati setelah dispatch → failed tanpa HTTP);
+      rate limit `RateLimiter` per `waha:send:minute:{session}` +
+      `waha:send:interval:{session}` — kena batas → tulis `last_error` → rethrow
+      (backoff antrean, attempts HTTP tidak terpakai), kunci per sesi menjamin
+      antrean tenant A tidak menahan tenant B.
+- [x] **Transport + sinkron:** `WahaClient` ditulis ulang (send wajib sesi eksplisit,
+      `listSessions`/`getSession` 404→null/`startOrCreateSession`/`qrImage`/
+      `stopSession` fallback logout; `sessionStatus` lama dihapus);
+      `app:waha-sync-sessions` cron `everyMinute` (`bootstrap/app.php`) — daftar sesi
+      → status lokal; instance tak terjangkau (Connection/Stray) → **tanpa flip
+      massal** + exit FAILURE; sesi hilang → Missing; `last_connected_at` hanya saat
+      transisi masuk working; `phone_number` dari `me.tel`. `app:waha-ping --tenant=`.
+- [x] **Izin + Gate + UI:** katalog + `roleDefaults` `whatsapp.read`/`whatsapp.update`
+      (grant via `php artisan app:grant-default-permissions`); flags `auth.can` di
+      `HandleInertiaRequests` + tipe TS `auth.ts`; `Settings\WhatsAppController`
+      (index/store/start/stop/qr, `Gate::authorize`, QR data URI on-demand) +
+      `routes/settings.php` (prefix `settings/whatsapp`); halaman
+      `resources/js/pages/settings/whatsapp.tsx` (status badge + `usePoll(15s)` +
+      QR auto-refresh 5dtk selama waiting + tombol gated), nav "WhatsApp" di
+      `layouts/settings/layout.tsx` gated `auth.can['whatsapp.read']`.
+- [x] **Test:** `WahaTenantSessionTest` 23 baru (isolasi dua tenant → nomor masing-
+      masing; tanpa sesi → failed + nol HTTP; sesi non-aktif → alasan status; sesi
+      mati setelah dispatch → failed tanpa HTTP; rate limit per sesi + interval;
+      sync happy/missing/unreachable/no-config; ping unknown/tanpa sesi; Gate 403
+      read/update + render + store/start/stop/qr); `WahaGatewayTest` rombak (sesi
+      aktif prasyarat, session `tw-hq`, ping `--tenant`, helper rate limit longgar);
+      `GateTest` +2 flag. **Full suite 462: 454 passed, 8 skipped, 0 gagal**;
+      `pint --dirty` bersih; `tsc --noEmit` 0; `npm run build` hijau
+      (wayfinder `--with-form` — tanpa flag itu helper `.form` hilang dan tsc
+      meledak di 10+ file lama).
+- [x] **Dokumen:** ADR-0009 di-amend (judul slice 1–2, keputusan 1/2/6/7/8/9 revisi,
+      references file slice 2) — masih `draft`, menunggu review user.
+- [ ] **Sisa manual (user):** `php artisan migrate` + `app:grant-default-permissions`
+      di dev; isi `WAHA_URL`/`WAHA_API_KEY` di `.env`; daftar nomor per tenant di
+      `/settings/whatsapp` → Mulai Sesi → pindai QR; flip ADR-0009 ke `accepted`
+      setelah review; sinkron catatan vault (Sessions/Decisions/changelog/Index).
 
 ## Frontend HOD department (2026-10-20) — DONE
 

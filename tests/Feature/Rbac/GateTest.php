@@ -84,6 +84,8 @@ it('shares the full hak-akses flag set with a user holding them', function () {
         'permission.delete' => true,
         'akun.read' => false,
         'akun.update' => false,
+        'whatsapp.read' => false,
+        'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
     ]);
@@ -108,6 +110,8 @@ it('shares only role.read with a read-only viewer', function () {
         'permission.delete' => false,
         'akun.read' => false,
         'akun.update' => false,
+        'whatsapp.read' => false,
+        'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
     ]);
@@ -130,6 +134,8 @@ it('shares the full hak-akses flag set with a super admin holding zero permissio
         'permission.delete' => true,
         'akun.read' => true,
         'akun.update' => true,
+        'whatsapp.read' => true,
+        'whatsapp.update' => true,
         'work-order.review' => true,
         'work-order.assign' => true,
     ]);

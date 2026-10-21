@@ -29,6 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Check overdue work orders and send staged escalations (H+3/5/6).
         $schedule->command('app:check-deadline-escalation')->dailyAt('09:00');
+
+        // Sinkron status sesi WA per tenant dari WAHA (polling keluar —
+        // pengganti webhook masuk; ADR-0009). Tiap menit: ringan (satu GET
+        // /api/sessions) dan QR pairing cepat terlihat di UI.
+        $schedule->command('app:waha-sync-sessions')->everyMinute();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

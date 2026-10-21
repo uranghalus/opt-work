@@ -1,4 +1,5 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -7,6 +8,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
 import { index as indexTenants } from '@/routes/tenants';
 import { edit as editSecurity } from '@/routes/security';
+import { index as indexWhatsapp } from '@/routes/whatsapp';
 import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
@@ -33,6 +35,21 @@ const sidebarNavItems: NavItem[] = [
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
 
+    // Gateway WhatsApp (ADR-0009): hanya untuk yang pegang whatsapp.read —
+    // flag Gate, otomatis lolos untuk super admin (bypass ADR-0004).
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const canSeeWhatsApp = Boolean(auth?.can?.['whatsapp.read']);
+
+    const navItems: NavItem[] = canSeeWhatsApp
+        ? [
+              ...sidebarNavItems,
+              {
+                  title: 'WhatsApp',
+                  href: indexWhatsapp(),
+              },
+          ]
+        : sidebarNavItems;
+
     return (
         <div>
             <Heading
@@ -46,7 +63,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
                         aria-label="Pengaturan"
                     >
-                        {sidebarNavItems.map((item, index) => (
+                        {navItems.map((item, index) => (
                             <Link
                                 key={`${toUrl(item.href)}-${index}`}
                                 href={item.href}

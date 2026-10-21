@@ -1,5 +1,31 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+> **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
+
+## Backlog PRD audit 2026-10-21 (belum dikerjakan)
+
+Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-status.md) (bukti `file:line`/test per FR). Status hidup per section: [PRD.md](PRD.md). Checklist ini = semua 🟡/⬜ yang belum punya entri DONE di bawah.
+
+**Inti alur WO (prioritas MVP):**
+- [ ] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** alur berhenti di `assigned`; enum `InProgress`/`PendingVerify`/`Revision`/`Closed` belum pernah tercapai. Issue siap: `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
+- [ ] **FR-2.3–2.5 — extend deadline (`extend_requests`):** aturan settled (maks 3 hari/request, maks 3 approved, blokir pending duplikat) tapi **nol kode** (hanya kolom `extend_count`/`extend_reason`/`extended_at` di `work_orders`). Issue: `06-extend-work-order-schedule.md`.
+- [ ] **FR-2.4 + WO Terjadwal lanjutan — `work_planning` + Extend Work Schedule (approval DGM/GM):** nol kode (keputusan jadwal HOD sudah ✅).
+- [ ] **FR-3.x — Work Data Management:** nol kode, bergantung FR-1.8 (WO closed). Issue: `08-work-data-management.md`.
+- [ ] **FR-5.x — Daily Work:** nol kode (OQ-4 settled: template per karyawan). Issue: `07-daily-work-templates.md`.
+- [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
+
+**Defect / keputusan kecil (temuan audit):**
+- [ ] **Eskalasi H+6 → DGM/GM:** kini H+6 masih dikirim ke rantai fallback HOD (`CheckDeadlineEscalation.php:141-153`); `EscalationTest:321` meng-assert perilaku lama — ganti sekalian dengan resolve `general_manager`/`deputy_general_manager` dulu.
+- [ ] **Route WO tanpa method (latent 500):** `work-orders.edit/update/destroy` terdaftar (`routes/web.php:134-136`) tapi `WorkOrderController` tidak punya methodnya → `->only([...])` atau implement.
+- [ ] **Revisi assign pasc-assign:** panel revisi tampil (`show.tsx:49` ASSIGNABLE termasuk `assigned`) tapi backend 409 (`WorkOrderService.php:122-124`) → putuskan: izinkan re-assign (jaga `assigned_at`/deadline) atau sembunyikan panel.
+- [ ] **Listener realtime frontend:** `window.Echo` tersambung tapi tidak ada handler `.notification()` — badge/count hanya segar saat navigasi Inertia.
+- [ ] **FR-6.3 — "tercatat di log":** belum ada implementasi pencatatan percobaan akses 403 (putuskan bentuknya: event `Gate::denied`? middleware?). **FR-6.2 gating sisa:** `work-order.create/read/update/delete/submit/verify` + master data masih di forward-looking allowlist (`PermissionConsistencyTest:104-131`).
+- [ ] **FR-1.9 — UI histori WO** (events sudah tercatat, tampilan belum; `WorkOrderController::show` tidak load events) + **UI reader `audit_logs`** (lanjutan dari item Audit trail).
+- [ ] **FR-4.1** — dropdown department tujuan belum filter `is_active` (semua department tampil); **FR-7.1 event modul baru** (submit/revisi/extend/Daily Work) menyusul modulnya; **§9 metrics** belum diinstrumentasi (angka PRD masih usulan).
+- [ ] **OQ-8 sisa:** 13 skenario UAT (artefak tidak ada di repo) + pilot live 1 department — suite hijau ✓ sudah.
+- [ ] **Keputusan terbuka §8 PRD (jangan diambil sendiri tanpa konfirmasi):** #2 re-assign karyawan resign/nonaktif · #4 SLA revisi berulang · #5 urutan antrean (FIFO?) · #8 delegasi approver extend.
+- [ ] **Sinkronisasi dokumen:** issue `.scratch/wms-mvp/issues` 02 (`ready-for-agent` padahal create shipped) & 03 (`in-progress` padahal slice 1 selesai); TODO `### Deferred (do not start yet)` masih menyebut WA/email gateway tertunda padahal WA shipped; **AGENTS.md belum ter-amend soal WA** (klaim di section "WhatsApp Gateway slice 1" tidak ada di file disk — Non-Goals/OQ-7/Notifikasi masih "Nanti") → amend ulang atau koreksi klaim.
+
 ## Rencana hari ini (2026-10-21, diperbarui pasca-grill) - DONE (2026-10-21 21:13)
 
 Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima semua rekomendasi). Rencana lengkap + urutan kerja: vault `Planning/2026-10-22-rencana-kerja-lanjutan.md`. **Implementasi selesai** — full suite 492 (484 passed, 8 skipped, 0 failed), pint/tsc/build hijau, migrasi `audit_logs` jalan di dev; log sesi: vault `Sessions/2026-10/21/2113-impl-audit-ban-broadcast-filter`.

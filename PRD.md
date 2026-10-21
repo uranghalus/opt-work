@@ -1,10 +1,22 @@
 # PRD: Work Management System (WMS)
 
-**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via package **spatie/laravel-multitenancy** v4 (mode single-database — `BelongsToTenant`/`tenant_id` + identifikasi path by cabang code; keputusan Round 3 per docs/adr/0002 semula stancl/tenancy, dimigrasi ke Spatie v4) **Status:** Draft untuk review — beberapa item ditandai sebagai Open Question dan BELUM boleh dianggap final **Relasi proyek:** opti-works adalah rebuild bersih dari opti-work2 (implementasi referensi) dengan scope MVP dikurangi — Inventory, Kelompok Barang, Surat Masuk/Keluar, dan Tenant CRUD tidak diporting.
+**Versi:** 1.0 Draft **Stack:** Laravel + Inertia React + MySQL, RBAC via Spatie Laravel Permission, multi-cabang via package **spatie/laravel-multitenancy** v4 (mode single-database — `BelongsToTenant`/`tenant_id` + identifikasi path by cabang code; keputusan Round 3 per docs/adr/0002 semula stancl/tenancy, dimigrasi ke Spatie v4) **Status:** 1.0 — seluruh Open Question §10 sudah **SETTLED** (Round 1–2 + grill 2026-10-21); status implementasi per bagian ditandai langsung di dokumen ini (lihat "Peta Status Hidup" di bawah). Audit kode per FR: `.scratch/prd-audit/research/prd-implementation-status.md` (2026-10-21) **Relasi proyek:** opti-works adalah rebuild bersih dari opti-work2 (implementasi referensi) dengan scope MVP dikurangi — Inventory, Kelompok Barang, Surat Masuk/Keluar, dan Tenant CRUD tidak diporting.
+
+> ##  Peta Status Hidup — audit implementasi 2026-10-21
+>
+> **Cara pakai:** progres harian dilacak **hanya di [`TODO.md`](TODO.md)** — setiap bagian PRD di bawah menaut ke entri TODO yang cocok. Status per FR di bawah diverifikasi kode-first lewat **[audit implementasi](.scratch/prd-audit/research/prd-implementation-status.md)** (bukti `file:line` / nama test per baris).
+>
+> **Legend:** ✅ `DONE` (ada + diuji) · 🟡 `PARTIAL` (sebagian, sisanya disebut) · ⬜ `NOT STARTED` (nol kode) · ⛔ `OUT OF SCOPE` (v2 / Nanti / Non-Goal) · 📌 `SETTLED` (keputusan final; sub-status implementasi disebut).
+>
+> **Rekap 89 unit status:** ✅ 26 · 🟡 15 · ⬜ 28 · ⛔ 8 · 📌 12.
+>
+> **Gap utama:** FR-1.7/1.8 (submit + verifikasi → tutup WO) ⬜ · modul Daily Work, Work Data, `extend_requests`, `work_planning` ⬜ nol kode · eskalasi H+6 belum ke DGM/GM · listener realtime frontend belum ada. **Backlog lengkap: [`TODO.md` → "Backlog PRD audit 2026-10-21"](TODO.md).**
 
 ---
 
 ## 1. Problem Statement
+
+> **Status §1:** audit trail 🟡 `PARTIAL` — histori per WO (`work_order_events`, append-only) ✅ tercatat & diuji; `audit_logs` untuk aksi akun/hak-akses/ban ✅ (2026-10-21); **UI pembaca histori/audit belum** → TODO "Rencana hari ini (2026-10-21 … DONE)" + Backlog. Pain point lainnya menjadi dasar FR §6.
 
 Saat ini pengelolaan pekerjaan internal (perbaikan, pemeliharaan, permintaan bantuan antar-department) berjalan tanpa sistem terpusat. Akibatnya:
 
@@ -40,6 +52,8 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ## 3. Goals & Non-Goals
 
+> **Status §3:** G1 🟡 · G2 🟡 · G3 ⬜ · G4 🟡 · G5 ✅ · G6 ⬜ — perincian + bukti: [audit §3](.scratch/prd-audit/research/prd-implementation-status.md); progres: [TODO.md](TODO.md).
+
 **Goals (MVP):**
 
 - Satu sistem terpusat untuk membuat, assign, menjadwalkan, mengerjakan, dan menutup Work Order — termasuk lintas department.
@@ -53,7 +67,7 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 - Modul Inventory, Kelompok Barang, dan Surat Masuk/Keluar — eksplisit **tidak** masuk produk ini.
 - Management Tenant (CRUD penyewa tempat) — ditunda ke v2.
-- Integrasi eksternal (WhatsApp/email gateway, sistem absensi, dsb) — tidak ada di scope MVP karena belum ada batasan teknis yang dikonfirmasi (lihat Open Question §10).
+- Integrasi eksternal — **email gateway & sistem absensi tetap di luar scope MVP**; **WhatsApp gateway di-amend masuk scope dan SUDAH diimplementasikan (slice 1–2, ADR-0009 `accepted`)** → progres di TODO: section "WhatsApp Gateway slice 1" & "slice 2". _(Teks asli "WhatsApp/email gateway … tidak ada di scope MVP" sudah tidak berlaku untuk WA; amendmen 2026-10-21.)_
 - Analytics/reporting dashboard lanjutan (selain kebutuhan minimal untuk memantau SLA) — tidak dibahas eksplisit oleh user, jadi tidak diasumsikan masuk MVP.
 
 ---
@@ -105,28 +119,35 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ## 5. Daftar Fitur — MVP / v2 / Nanti
 
-| Fitur                                                     | Kategori                                            |
-| --------------------------------------------------------- | --------------------------------------------------- |
-| Work Order (Create/Update/Review/Assign)                  | **MVP**                                             |
-| Work Order Terjadwal (planning + eksekusi)                | **MVP**                                             |
-| Work Data Management (histori/riwayat pekerjaan per WO)   | **MVP**                                             |
-| Lintas Department Workorder                               | **MVP**                                             |
-| Daily Work Management (template rutin + tugas tambahan)   | **MVP**                                             |
-| RBAC (Spatie)                                             | **MVP**                                             |
-| Realtime Notification                                     | **MVP**                                             |
-| Eskalasi deadline berjenjang (Team Leader → HOD → DGM/GM) | **MVP** (bagian dari Work Order)                    |
-| Extend deadline WO telat (approval berjenjang)            | **MVP**                                             |
-| Extend Work Schedule (approval DGM/GM)                    | **MVP**                                             |
-| Management Tenant (CRUD penyewa tempat)                   | **v2**                                              |
-| Integrasi WA/email notification                           | **Nanti** (belum dikonfirmasi, lihat Open Question) |
-| Reporting/analytics dashboard lanjutan                    | **Nanti**                                           |
-| Inventory, Kelompok Barang, Surat Masuk/Keluar            | **Tidak masuk produk ini**                          |
+> **Status §5:** ✅ Lintas Department, RBAC · 🟡 WO (create/review/assign; update ⬜), WO Terjadwal (keputusan jadwal ✅, `work_planning` ⬜), Realtime (server ✅, listener WS ⬜), Eskalasi (H+6 ⬜), WA (DONE — amendmen Non-Goal) · ⬜ Work Data, Daily Work, Extend deadline/schedule · ⛔ v2 / Nanti / tidak masuk. Bukti per baris: [audit §5](.scratch/prd-audit/research/prd-implementation-status.md).
+
+| Fitur | Kategori | Status (audit 2026-10-21) |
+| ----- | -------- | ------------------------- |
+| Work Order (Create/Update/Review/Assign) | **MVP** | 🟡 Create/Review/Assign ✅ (ada test); **Update ⬜** (route terdaftar, method tidak ada di controller); submit/verify → FR-1.7/1.8 ⬜ — TODO: WO slice 1 + Backlog |
+| Work Order Terjadwal (planning + eksekusi) | **MVP** | 🟡 Keputusan jadwal HOD ✅ (`scheduled_date` + test); `work_planning` + eksekusi planning ⬜ — Backlog |
+| Work Data Management (histori/riwayat pekerjaan per WO) | **MVP** | ⬜ nol kode — Backlog (issue `.scratch/wms-mvp/issues/08-work-data-management.md`) |
+| Lintas Department Workorder | **MVP** | ✅ lintas-department & lintas-cabang diuji (`WorkOrderTest`) |
+| Daily Work Management (template rutin + tugas tambahan) | **MVP** | ⬜ nol kode (OQ-4 settled) — Backlog (issue `07-daily-work-templates.md`) |
+| RBAC (Spatie) | **MVP** | ✅ seeder 10 role kanonik, Gates, UI `/hak-akses`, honesty test — TODO: "Next session — 2026-10-14 (RBAC v2…)" |
+| Realtime Notification | **MVP** | 🟡 server (DB + Reverb + bell/history) ✅; **listener WS frontend ⬜** (badge segar hanya saat navigasi) — Backlog |
+| Eskalasi deadline berjenjang (Team Leader → HOD → DGM/GM) | **MVP** (bagian dari Work Order) | 🟡 H+3 → TL ✅, H+5 → HOD ✅; **H+6 → DGM/GM ⬜** (kini masih ke rantai HOD) — Backlog |
+| Extend deadline WO telat (approval berjenjang) | **MVP** | ⬜ `extend_requests` belum ada (OQ-3/9 settled) — Backlog (issue `06-extend-work-order-schedule.md`) |
+| Extend Work Schedule (approval DGM/GM) | **MVP** | ⬜ nol kode — Backlog |
+| Management Tenant (CRUD penyewa tempat) | **v2** | ⛔ v2 (halaman Unit Bisnis = read + sync Optigate, bukan CRUD penyewa) — TODO: "Unit Bisnis page revamp" |
+| Integrasi WA/email notification | **WA: MVP (DONE)** · email: **Nanti** | ✅ WA slice 1–2 shipped (ADR-0009 `accepted`: 4 event outbound, sesi per tenant, halaman settings, 41 test) — TODO: "WhatsApp Gateway slice 1" & "slice 2"; ⛔ email tetap Nanti |
+| Reporting/analytics dashboard lanjutan | **Nanti** | ⛔ belum ada instrumentasi metrik (dashboard masih data demo) |
+| Inventory, Kelompok Barang, Surat Masuk/Keluar | **Tidak masuk produk ini** | ⛔ Non-Goal (AGENTS.md) |
 
 ---
 
 ## 6. Functional Requirements — Detail per Fitur MVP
 
+> **Status per grup:** 6.1 🟡 (FR-1.2–1.6 ✅; FR-1.7/1.8 ⬜; FR-1.1/1.9 🟡) · 6.2 🟡 (FR-2.1 ✅; FR-2.2 🟡 sisa H+6; FR-2.3–2.5 ⬜) · 6.3 ⬜ · 6.4 🟡 (FR-4.1 🟡; FR-4.2 ✅) · 6.5 ⬜ · 6.6 🟡 (FR-6.1 ✅; FR-6.2/6.3 🟡) · 6.7 🟡 (FR-7.2/7.3 ✅; FR-7.1 🟡).
+
 ### 6.1 Work Order (Create/Update/Review/Assign)
+
+> **Status 6.1:** FR-1.1 🟡 (field *prioritas*, *jumlah personel*, *jenis pekerjaan/kerusakan* belum ada — kini title + deskripsi + dept tujuan + kategori + lampiran ≤3 file jpg/png/webp ≤2MB) · FR-1.2 ✅ · FR-1.3 ✅ · FR-1.4 ✅ · FR-1.5 ✅ · FR-1.6 ✅ _(catatan: revisi pasc-assign ditolak 409 di backend padahal panel UI tampil → Backlog)_ · FR-1.7 ⬜ · FR-1.8 ⬜ · FR-1.9 🟡 (event `work_order_events` tercatat; UI histori belum).
+> **Progres:** [TODO](TODO.md) → "WO slice 1 selesai 2026-10-17" · yang belum: TODO → "Backlog PRD audit 2026-10-21" · issue `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
 
 - FR-1.1: Requester membuat WO dengan field minimal: department tujuan, kategori (Normal / Urgent by Accident / Urgent Request by Owner), jenis pekerjaan/kerusakan, prioritas, jumlah personel dibutuhkan, deskripsi, lampiran gambar.
 - FR-1.2: Jika kategori = **Urgent by Accident** → sistem **tidak menampilkan opsi jadwal**, WO wajib masuk status "harus dieksekusi langsung".
@@ -140,7 +161,9 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ### 6.2 Work Order Terjadwal + Eskalasi Deadline
 
-- FR-2.1: Deadline otomatis dihitung dari **tanggal assign**, bukan tanggal submit WO. Minimal 3 hari kerja, maksimal 6 hari kerja (nilai pasti per jenis WO — lihat Open Question §10).
+> **Status 6.2:** FR-2.1 ✅ (urgent 3 / normal 6 hari kerja dari tanggal assign; `DeadlineCalculator` + `config/holidays.php`) · FR-2.2 🟡 (H+3 → TL ✅, H+5 → HOD ✅; **H+6 masih ke rantai HOD, belum DGM/GM** → Backlog) · FR-2.3 ⬜ · FR-2.4 ⬜ · FR-2.5 ⬜ (`extend_requests` nol kode; OQ-3/9 sudah settle) → Backlog + issue `.scratch/wms-mvp/issues/06-extend-work-order-schedule.md`.
+
+- FR-2.1: Deadline otomatis dihitung dari **tanggal assign**, bukan tanggal submit WO. **Settled (OQ-2): urgent = 3 hari kerja, normal = 6 hari kerja** — kalender libur via `config/holidays.php` _(terimplementasi `DeadlineCalculator`)_.
 - FR-2.2: Jika pekerjaan berstatus "on progress" dan telat melewati deadline:
     - Hari telat ke-3 → notifikasi ke **Team Leader** (jika ada tim leader di department tsb).
     - Hari telat ke-5 → notifikasi ke **HOD**.
@@ -151,23 +174,31 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ### 6.3 Work Data Management
 
+> **Status 6.3:** FR-3.1 ⬜ · FR-3.2 ⬜ · FR-3.3 ⬜ — nol kode (`work_data`/`work_data_pekerja` tidak ada); bergantung FR-1.8 (WO closed). Sub-OQ "alur revisi post-closing" di teks FR **belum masuk daftar OQ settled** → putuskan saat modul dibangun. Backlog + issue `.scratch/wms-mvp/issues/08-work-data-management.md`.
+
 - FR-3.1: Setiap WO yang closed menghasilkan satu record Work Data berisi: no kerja, jam pengerjaan, department, status akhir, gambar sebelum/sesudah, prediksi penyebab, hasil kesimpulan, saran solusi, tindakan yang diambil.
 - FR-3.2: Work Data dapat dicari/difilter berdasarkan department, rentang tanggal, status.
 - FR-3.3: Data ini menjadi sumber histori/audit trail — tidak bisa diedit setelah WO closed, hanya bisa dilihat (append-only setelah closing; detail alur revisi post-closing — **Open Question**).
 
 ### 6.4 Lintas Department Workorder
 
+> **Status 6.4:** FR-4.1 🟡 (wajib pilih `target_department_id` ✅, tapi dropdown department tujuan belum filter `is_active` — semua department tampil; → Backlog) · FR-4.2 ✅ (satu alur berbasis `target_department_id`; lintas-cabang diuji `WorkOrderTest`).
+
 - FR-4.1: Saat membuat WO, Requester wajib memilih department tujuan dari daftar department aktif.
 - FR-4.2: WO lintas department tunduk pada FR-1.x s.d. FR-2.x yang sama — tidak ada alur berbeda selain routing ke HOD department tujuan.
 
 ### 6.5 Daily Work Management
 
-- FR-5.1: Setiap karyawan punya template tugas harian rutin (recurring), didefinisikan per karyawan atau per jabatan/role (mekanisme pasti template — **Open Question**).
+> **Status 6.5:** FR-5.1 ⬜ · FR-5.2 ⬜ · FR-5.3 ⬜ · FR-5.4 ⬜ — nol kode (`work_daily`/`schedule_wd` tidak ada di migrasi mana pun; OQ-4 sudah settle: template per karyawan). [TODO](TODO.md) → "Backlog PRD audit 2026-10-21" · issue `.scratch/wms-mvp/issues/07-daily-work-templates.md`.
+
+- FR-5.1: Setiap karyawan punya template tugas harian rutin (recurring), didefinisikan per karyawan atau per jabatan/role. **Settled (OQ-4, opsi A): template per karyawan, dikelola HOD**, digabung virtual dengan tugas tambahan — keputusan siap, kode belum (lihat status di atas).
 - FR-5.2: HOD dapat menambahkan tugas tambahan di luar template untuk karyawan tertentu pada tanggal tertentu.
 - FR-5.3: Karyawan melihat gabungan (template rutin + tugas tambahan) sebagai satu daftar Daily Work per hari.
 - FR-5.4: Setiap item Daily Work punya status pekerjaan (belum/proses/selesai) dan lokasi pekerjaan.
 
 ### 6.6 RBAC (Spatie)
+
+> **Status 6.6:** FR-6.1 ✅ (10 role kanonik termasuk `guest`; Requester bukan role; Direksi ditunda; superadmin bypass — ADR-0004/0008) · FR-6.2 🟡 (katalog permission + UI `/hak-akses` tanpa deploy ✅; gating `work-order.create/read/update/delete/submit/verify` + master data masih di allowlist forward-looking — "gated when the WO flow lands") · FR-6.3 🟡 (403 + test ✅; **"tercatat di log" belum ada implementasinya** → Backlog). [TODO](TODO.md) → "Next session — 2026-10-14 (RBAC v2: hak akses slices 6–8 frontend)".
 
 - FR-6.1: Role baseline yang harus didukung (mengikuti implementasi referensi opti-work2): **Super Admin, Admin Tenant/Cabang, General Manager/Deputy GM (DGM), HOD, Team Leader, Karyawan, Karyawan Pelaksana (Field Staff), Viewer/Auditor**. **Requester bukan role eksklusif** — setiap user terautentikasi berpotensi jadi Requester (keputusan Round 1). **Direksi ditunda** sampai ada kebutuhan nyata; Super Admin setara pengelola konfigurasi sistem/RBAC/master data (keputusan Round 1).
 - FR-6.2: Setiap permission (create WO, assign, verify, approve extend, dst.) di-assign ke role via Spatie, dapat dikonfigurasi Admin tanpa deploy ulang.
@@ -175,13 +206,17 @@ _(Role lain yang ikut terdampak sistem: Requester (**bukan role eksklusif** — 
 
 ### 6.7 Realtime Notification
 
+> **Status 6.7:** FR-7.1 🟡 (event WO baru/assign/review/telat H+3/5/6 ✅; submit/revisi/extend/Daily Work ⬜ menunggu modulnya; **listener WS frontend belum ada** — `window.Echo` tersambung tapi tanpa handler `.notification()`, badge segar hanya saat navigasi Inertia) · FR-7.2 ✅ (in-app bell/toast/history + broadcast Reverb + **WA 4 event**; email ⛔ Nanti) · FR-7.3 ✅ (persist `notifications` + tandai dibaca + riwayat). [TODO](TODO.md) → "WhatsApp Gateway slice 1/slice 2" + "Rencana hari ini (2026-10-21 … DONE)".
+
 - FR-7.1: Event yang memicu notifikasi realtime: WO baru masuk, WO di-assign, hasil kerja disubmit, hasil kerja direvisi, WO telat (3/5/6 hari), pengajuan extend, approval/reject extend, Daily Work baru ditambahkan.
-- FR-7.2: Notifikasi tampil in-app (bell icon / toast) minimal; channel tambahan (WA/email) — **Open Question**, lihat §3 Non-Goals.
+- FR-7.2: Notifikasi tampil in-app (bell icon / toast) minimal. **Settled (OQ-7) lalu di-amend:** channel **WhatsApp kini aktif** (4 event outbound per ADR-0009 `accepted`, slice 1–2 DONE); **email tetap ditunda.**
 - FR-7.3: Notifikasi tersimpan dan bisa ditandai sudah dibaca; user bisa melihat riwayat notifikasi.
 
 ---
 
 ## 7. Sketsa Data Model (Entitas + Field Kunci)
+
+> **Status §7 (keberadaan tabel — verifikasi `migrate:status`: 27 migrasi, semua Ran):** ✅ `users`, `employees`, `divisions`, `departments`, `tenants`, `work_orders` · ⬜ `work_planning`, `work_daily`, `work_data`, `work_data_pekerja`, `schedule_wd`, `extend_requests` · ✅ Notification (tabel aktual **`notifications`**, bukan `app_notifications`) · ✅ tabel baru di luar ERD: `work_order_events`, `audit_logs`, `wa_messages`, `tenant_wa_sessions`. Rincian per entitas: [audit §7](.scratch/prd-audit/research/prd-implementation-status.md).
 
 _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di opti-work2), dengan tb_inventory, tb_kelompok_barang, tb_surat_masuk, tb_surat_keluar dikeluarkan sesuai instruksi. **OQ 10 SETTLED (Round 2):** field bertanda (?) di bawah sudah diverifikasi langsung ke foto ERD; koreksi penting: "field tanda tangan digital" di tb_karyawan sebenarnya adalah **fld_call_sign** (+ fld_user_image/foto profil), "fld_business_meeting" di tb_work_order sebenarnya **fld_business_plan**, dan tb_karyawan **tidak punya FK department** (hanya fld_divisi). Sisa ambiguitas resolusi foto ditandai (?). **Keputusan Round 1:** penamaan schema untuk development mengikuti konvensi Laravel seperti implementasi referensi opti-work2 (`users`, `employees`, `positions`, `departments`, `divisions`, `tenants`, `work_orders`, `work_planning`, `work_daily`, `work_data`, `work_data_pekerja`, `schedule_wd`, `extend_requests`, `app_notifications`), bukan nama `fld_*` dari ERD lama — sketsa di bawah tetap sebagai pemetaan konsep._
 
@@ -231,7 +266,7 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 
 **Catatan tambahan yang perlu ditambahkan di luar ERD asli (belum ada tabelnya):**
 
-- Entitas **Notification** (id, user_id tujuan, tipe event, referensi ke WO/Daily Work, status dibaca, timestamp) — wajib untuk FR-7.x, belum ada di ERD asli; **sudah terbukti di opti-work2** sebagai tabel `app_notifications` + broadcast Reverb.
+- Entitas **Notification** (id, user_id tujuan, tipe event, referensi ke WO/Daily Work, status dibaca, timestamp) — wajib untuk FR-7.x, belum ada di ERD asli; **di opti-work2**: tabel `app_notifications` + broadcast Reverb. **Anotasi (2026-10-21):** implementasi opti-works memakai tabel bawaan Laravel **`notifications`** (migrasi `2026_10_03_000000`) + broadcast Reverb — nama `app_notifications` hanya berlaku di referensi opti-work2.
 - Entitas **Extend Request** (id, referensi WO/Schedule, jenis extend \[deadline WO telat / work schedule\], jumlah hari, alasan, status approval, approver, timestamp) — **SETTLED (Round 1):** tabel terpisah `extend_requests`, terbukti di opti-work2.
 - Field eskalasi & extend di work_orders (verifikasi opti-work2): `deadline_date`, `escalation_h3_sent_at`, `escalation_h5_sent_at`, `escalation_h6_sent_at`, `is_escalated`, `extend_count`, `extend_reason`, `extended_at` — dari migration `add_deadline_and_escalation_to_tb_work_order`.
 
@@ -239,12 +274,14 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 
 ## 8. Edge Case & Failure State
 
-- WO Urgent by Accident dibuat tapi department tujuan tidak punya HOD aktif (HOD cuti/resign) → siapa yang menerima notifikasi dan assign? **Belum didefinisikan — Open Question.**
+> **Status §8 (9 bullet):** ✅ #1 (fallback HOD — OQ-6, `HodNotificationResolver`) · ⬜ #2 (re-assign karyawan resign/nonaktif) · 📌 #3 settle (OQ-3), kodenya ⬜ · ⬜ #4 (SLA revisi berulang — **masih Open Question**) · ⬜ #5 (urutan antrean/FIFO — **masih Open Question**) · ✅ #6 (dept tanpa TL — OQ-5) · ✅ #7 (notifikasi offline persist — OQ-7) · ⬜ #8 (delegasi approver — **masih Open Question**) · ✅ #9 (validasi lampiran ≤3 file jpg/png/webp ≤2MB). Jangan ambil keputusan untuk #4/#5/#8 tanpa konfirmasi user (aturan OQ di AGENTS.md).
+
+- WO Urgent by Accident dibuat tapi department tujuan tidak punya HOD aktif (HOD cuti/resign) → siapa yang menerima notifikasi dan assign? **Settled (OQ-6):** rantai notifikasi `hod_user_id` → `manager_user_id` (deputy) → semua user ber-role `hod` → Admin Tenant + log kritikal — terimplementasi `HodNotificationResolver` + test `WorkOrderTest`. _(Hak akses assign tetap `work-order.assign`; penerima notifikasi sudah jelas.)_
 - Karyawan yang di-assign resign/nonaktif sebelum WO selesai → butuh mekanisme re-assign, belum dibahas.
-- Extend deadline diajukan lebih dari 1 kali untuk WO yang sama — apakah dibatasi maksimal 1x extend atau bisa berulang? **Open Question**, dokumen hanya menyebut "extend 3 hari" tanpa batas jumlah pengajuan.
+- Extend deadline diajukan lebih dari 1 kali untuk WO yang sama — **Settled (OQ-3):** maks 3 hari per request + maks 3 approved extends per WO + blokir extend pending duplikat. _(Implementasi ⬜ — lihat FR-2.3 & Backlog.)_
 - WO direject HOD berkali-kali (revisi berulang) tanpa batas — apakah ada SLA/eskalasi untuk kasus ini? Tidak disebutkan di dokumen sumber.
 - Dua Requester dari department berbeda membuat WO ke department tujuan yang sama secara bersamaan dengan prioritas sama — urutan pengerjaan tidak didefinisikan (asumsi FIFO, perlu konfirmasi).
-- Department tanpa Team Leader — notifikasi hari ke-3 di-skip, langsung tunggu hari ke-5 ke HOD (sesuai FR-2.2), tapi perlu dipastikan sistem tahu department mana yang punya/tidak punya Team Leader (role ini belum eksplisit ada di ERD tb_karyawan — **Open Question**).
+- Department tanpa Team Leader — notifikasi hari ke-3 di-skip, langsung tunggu hari ke-5 ke HOD (sesuai FR-2.2). **Settled (OQ-5):** Team Leader = role Spatie `team_leader`; department "punya TL" = ada user role itu di department tersebut — terimplementasi deteksi `whereHasRoles('team_leader')` + test `EscalationTest`.
 - Realtime notification gagal terkirim (user offline/koneksi putus) — perlu notifikasi tetap tersimpan di database dan muncul saat user login kembali (in-app notification history, bukan hanya push).
 - Approval extend Work Schedule menunggu DGM/GM yang sedang cuti/tidak aktif — tidak ada mekanisme delegasi/pengganti approver disebutkan di dokumen sumber.
 - File/gambar bukti pekerjaan (sebelum/sesudah) gagal upload atau ukuran terlalu besar — perlu validasi ukuran/format, belum dispesifikasikan batasannya.
@@ -252,6 +289,8 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 ---
 
 ## 9. Success Metrics
+
+> **Status §9:** ⛔ `OUT OF SCOPE` — instrumentasi metrik belum ada (dashboard masih data demo hardcoded); angka di bawah tetap usulan yang perlu konfirmasi. Kriteria "selesai" dipisah ke OQ-8 (📌 settled: 13 skenario UAT + suite hijau + pilot 1 dept — **suite hijau ✓ 492 test; artefak UAT & pilot ⬜** → Backlog).
 
 \*Catatan: user menyatakan "selesai" = semua fitur berjalan sempurna tanpa celah keamanan — ini kriteria kualitatif rilis, bukan metrik pasca-launch. Metrik di bawah adalah usulan minimal untuk mengukur apakah produk mencapai tujuan di §3; **perlu dikonfirmasi/disetujui user sebagai Open Question**, karena tidak eksplisit diminta.\*\*
 
@@ -265,6 +304,8 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 ---
 
 ## 10. Open Questions
+
+> **Status §10:** 📌 **11/11 OQ SETTLED** (Round 1–2; daftar juga di `AGENTS.md`). Sub-status implementasi: **terimplementasi** OQ 1, 2, 5, 6, 7, 11 · ⬜ **menunggu modulnya** OQ 3, 4, 9 · OQ 8 `PARTIAL` (suite hijau ✓; 13 skenario UAT & pilot belum) · OQ 10 residual **MOOT** (FK `work_daily` — tabel belum ada; `fld_logo` — kolom tidak ada di `tenants`). Detail bukti: [audit §10](.scratch/prd-audit/research/prd-implementation-status.md). _Catatan: label "Q7/Q4/Q14" di [TODO.md](TODO.md) merujuk grill 2026-10-21, bukan nomor OQ di sini._
 
 1. ~~Apakah Requester adalah role terpisah, atau setiap user (apapun rolenya) otomatis bisa jadi Requester? (§6.6)~~ **SETTLED (Round 1):** Requester bukan role eksklusif — setiap user terautentikasi berpotensi jadi Requester.
 2. ~~Nilai pasti minimal/maksimal hari kerja deadline — apakah selalu 3–6 hari untuk semua jenis WO, atau bervariasi per kategori/prioritas? (§6.2 FR-2.1)~~ **SETTLED (Round 2):** urgent = 3 hari kerja, normal = 6 hari kerja (mengikuti implementasi referensi opti-work2); eskalasi H+3/5/6; kalender libur configurable via `config/holidays.php`.

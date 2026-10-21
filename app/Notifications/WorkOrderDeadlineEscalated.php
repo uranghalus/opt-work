@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WahaWhatsAppChannel;
 use App\Models\WorkOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -25,7 +26,7 @@ class WorkOrderDeadlineEscalated extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', WahaWhatsAppChannel::class];
     }
 
     /**
@@ -64,5 +65,60 @@ class WorkOrderDeadlineEscalated extends Notification
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    /**
+     * Outbox WhatsApp (ADR-0009): eskalasi keterlambatan berjenjang.
+     * Template sendiri dalam Bahasa Indonesia — payload in-app (toArray)
+     * memakai teks campuran dan di luar scope perubahan ini.
+     */
+    public function toWhatsApp(object $notifiable): string
+    {
+        $levelCode = match ($this->level) {
+            'h3' => 'H+3',
+            'h5' => 'H+5',
+            'h6' => 'H+6',
+            default => strtoupper($this->level),
+        };
+        $levelLabel = match ($this->level) {
+            'h3' => 'Team Leader',
+            'h5' => 'HOD',
+            'h6' => 'DGM/GM',
+            default => '-',
+        };
+        $deadline = $this->workOrder->deadline_date?->isoFormat('D MMMM Y');
+
+        // Department di-fetch tanpa scope tenant: notifikasi eskalasi dikirim
+        // dari command konsol tanpa tenant current (lihat CheckDeadlineEscalation).
+        $department = $this->workOrder->targetDepartment()
+            ->withoutGlobalScope('tenant')
+            ->first();
+
+        $lines = [
+            '⚠️ *ESKALASI KETERLAMBATAN '.$levelCode.'*',
+            '',
+            '*No:* '.$this->workOrder->nomor_wo,
+            '*Judul:* '.$this->workOrder->title,
+            '*Eskalasi ke:* '.$levelLabel,
+            '*Departemen:* '.($department?->nama_department ?? '-'),
+        ];
+
+        if ($deadline !== null) {
+            $lines[] = '*Deadline:* '.$deadline;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Work Order melewati tenggat — segera tindak lanjuti:';
+        $lines[] = route('work-orders.show', [
+            'tenant' => $this->workOrder->tenant?->code,
+            'workOrder' => $this->workOrder->getKey(),
+        ]);
+
+        return implode("\n", $lines);
+    }
+
+    public function waEvent(): string
+    {
+        return 'work_order.escalated';
     }
 }

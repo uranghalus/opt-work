@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WahaWhatsAppChannel;
 use App\Models\WorkOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -18,7 +19,7 @@ class WorkOrderReviewed extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', WahaWhatsAppChannel::class];
     }
 
     /**
@@ -54,5 +55,43 @@ class WorkOrderReviewed extends Notification
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    /**
+     * Outbox WhatsApp (ADR-0009): hasil review HOD ke pemohon. Keputusan diambil
+     * dari state WO (bukan teks hardcode) — sama dengan pesan in-app.
+     */
+    public function toWhatsApp(object $notifiable): string
+    {
+        $scheduled = $this->workOrder->scheduled_date?->isoFormat('D MMMM Y');
+        $decision = $scheduled === null
+            ? 'Disetujui — eksekusi langsung'
+            : 'Dijadwalkan pada '.$scheduled;
+
+        $lines = [
+            '✅ *KEPUTUSAN REVIEW WORK ORDER*',
+            '',
+            '*No:* '.$this->workOrder->nomor_wo,
+            '*Judul:* '.$this->workOrder->title,
+            '*Keputusan:* '.$decision,
+        ];
+
+        if (filled($this->workOrder->hod_notes)) {
+            $lines[] = '*Catatan HOD:* '.$this->workOrder->hod_notes;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Detail:';
+        $lines[] = route('work-orders.show', [
+            'tenant' => $this->workOrder->tenant?->code,
+            'workOrder' => $this->workOrder->getKey(),
+        ]);
+
+        return implode("\n", $lines);
+    }
+
+    public function waEvent(): string
+    {
+        return 'work_order.reviewed';
     }
 }

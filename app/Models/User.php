@@ -72,6 +72,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Nomor tujuan WhatsApp (ADR-0009): `employees.number` otoritatif dari
+     * portal, fallback `users.phone`. Employee di-fetch tanpa scope tenant —
+     * employee_id adalah FK langsung milik user ini (validasi same-cabang
+     * terjadi saat link), dan notifikasi bisa dikirim dari konteks tanpa
+     * tenant current (mis. command eskalasi di konsol).
+     */
+    public function routeNotificationForWahaWhatsApp(?object $notification = null): ?string
+    {
+        $number = $this->employee()->withoutGlobalScope('tenant')->value('number');
+
+        return filled($number) ? (string) $number : $this->phone;
+    }
+
+    /**
      * @return BelongsTo<Employee, $this>
      */
     public function employee(): BelongsTo

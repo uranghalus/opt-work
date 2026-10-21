@@ -7,7 +7,60 @@
 - [ ] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
 - [ ] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
 - [ ] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
-- [ ] **WhatsApp Gateway integration (discovery dulu):** **folder/repo integrasi belum diketahui - tanyakan ke user besok sebelum menyentuh kode.** Setelah folder dikonfirmasi: tentukan provider/gateway, event outbound (assign WO, perubahan status, eskalasi H+3/H+5/H+6, extend), template pesan, queue/retry/idempotency, routing tenant/nomor, penyimpanan secret, dan test sandbox. Integrasi ini masih di luar Non-Goals MVP sampai scope disetujui.
+- [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound) — lihat
+      section "WhatsApp Gateway slice 1" di bawah. Item ini tadinya "discovery dulu +
+      di luar Non-Goals"; keputusan grill G1–G7 + implementasi + test sudah masuk.
+
+## WhatsApp Gateway slice 1 — outbound (2026-10-21) — DONE
+
+- [x] **Grill G1–G7 dijawab user (semua mengikuti rekomendasi):** WAHA session global
+      (`WAHA_SESSION=optiworks`), secret di env (bukan tabel settings), slice = tepat 4
+      event (created/reviewed/assigned/escalated), nomor = `employees.number` fallback
+      `users.phone`, outbox `wa_messages`, command-bot inbound ditunda (route webhook
+      tidak dibuat), AGENTS.md di-amend + ADR-0009. Spec/issue:
+      `.scratch/wa-gateway/spec.md` + `issues.md`. Item Q1-exemption, Q6 min-1-role,
+      Q7 `resolveEmail()` = parkir ke sesi berikutnya (sesuai grill).
+- [x] **Implementasi:** `config/waha.php` + `.env.example` (WAHA_URL/WAHA_API_KEY/
+      WAHA_SESSION); `app/Services/WahaClient.php` (sendText `->throw()` tanpa auto-retry,
+      `normalizeChatId` 08xx→628xx@c.us + hormati chatId mentah, `sessionStatus`);
+      migrasi + model `app/Models/WaMessage.php` (outbox: pending/sent/failed/skipped,
+      attempts, last_error, sent_at; **tanpa `BelongsToTenant`** — dibaca job tanpa
+      konteks tenant, `tenant_id` = data); `app/Channels/WahaWhatsAppChannel.php`
+      (selalu di `via()`, no-op mutlak tanpa `WAHA_URL`, tulis outbox **dalam transaksi
+      bisnis** + dispatch after-commit, skipped bila nomor kosong);
+      `app/Jobs/SendWaMessageJob.php` (3x backoff [30,120], guard status pending =
+      idempoten, `failed()` → status failed, **implements `NotTenantAware`** — spatie v4
+      menghapus job tenant-aware yang tidak membawa tenantId, berarti dispatch dari
+      command eskalasi konsol tanpa tenant harus non-tenant-aware);
+      `toWhatsApp()` + `waEvent()` pada 4 kelas notifikasi (template per event, Bahasa
+      Indonesia, link `route('work-orders.show')`); `User::routeNotificationForWahaWhatsApp()`
+      (employee.number via `withoutGlobalScope('tenant')` → phone);
+      `app:waha-ping {phone?}` (config + status session + test send).
+- [x] **Test:** `tests/Feature/WahaGatewayTest.php` 14 + `tests/Unit/WahaClientTest.php` 4 —
+      unconfigured → nol baris/nol HTTP; sent (payload, chatId, X-Api-Key, session);
+      skipped tanpa nomor; preferensi employee number; channel tanpa tenant current; job
+      dispatch tanpa tenant current; template reviewed/assigned; gagal kirim → last_error
+      + rethrow (retry), `failed()` → failed; eskalasi `app:check-deadline-escalation` →
+      outbox per penerima (payload `H+3`); ping exit code 0/1 + status WORKING/UNREACHABLE.
+      **Full suite 438: 430 passed, 8 skipped, 0 gagal, 0 warning** (warning awal dari
+      `use RuntimeException` di file test tanpa namespace — dihapus). `pint --dirty` bersih.
+      Tanpa perubahan frontend/JS (tsc/build tidak terpengaruh; tidak diubah).
+- [x] **Dokumen:** `AGENTS.md` 4 titik amendmen (Non-Goals email-only, Modul MVP + row
+      WA, bagian Notifikasi, OQ settled #7 DIKECUALIKAN) + `docs/adr/0009-whatsapp-gateway.md`
+      (**status: `draft` — menunggu review user; flip ke `accepted` setelah OK**).
+- [ ] **DEFECT PRE-EXISTING (baru ketahuan, di luar scope slice — butuh keputusan user):**
+      `notify()` yang berjalan **tanpa tenant current** membuat job broadcast
+      (tenant-aware by default) dilempar `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`
+      dan **di-queue-delete** oleh spatie saat diproses — jalur command eskalasi di
+      produksi membuang saluran broadcast hari ini (test eskalasi lama selalu jalan dengan
+      tenant current sehingga tidak pernah ketahuan). Test slice ini memanggil channel
+      langsung untuk skenario tanpa tenant. Opsi perbaikan: masukkan event broadcast ke
+      `multitenancy.not_tenant_aware_jobs` (payload broadcast tidak butuh tenant) —
+      keputusan terpisah, jangan dikerjakan diam-diam.
+- [ ] Setelah user puas dengan gateway (dan ADR-0009 di-flip ke accepted): kerjakan
+      item Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
+      employee filters).
+
 
 ## Frontend HOD department (2026-10-20) — DONE
 

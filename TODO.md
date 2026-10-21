@@ -2,6 +2,22 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Rencana besok (2026-10-22) — inti alur WO + defect audit
+
+Detail/rationale lengkap: vault `Planning/2026-10-22-rencana-inti-alur-wo-dan-defect.md`. Prinsip: **tutup alur WO (submit → verify → close) dulu** sebelum modul lanjutan. Tiap langkah selesai → centang juga item Backlog yang cocok di bawah, lalu promosikan ke section DONE.
+
+- [ ] **0. Grilling 3 keputusan kecil (XS):** (a) revisi assign pasc-assign — buka 409 (jaga `assigned_at`/deadline) vs sembunyikan panel; (b) bentuk FR-6.3 log 403 — ke `audit_logs` via `Gate::denied` vs `Log::warning`; (c) field FR-1.1 kurang (prioritas/jumlah personel) — masuk besok vs tunda. _Rekomendasi: (a)-buka, (b)-audit_logs, (c)-tunda._
+- [ ] **1. Route WO tanpa method (XS):** `Route::resource->only([...])` atau implement `update` — lihat Backlog "Route WO tanpa method".
+- [ ] **2. Eskalasi H+6 → DGM/GM (S):** `CheckDeadlineEscalation::resolveRecipients` resolve GM/DGM dulu; **ganti test `EscalationTest:321`** — lihat Backlog "Eskalasi H+6".
+- [ ] **3. FR-1.7 submit hasil (M):** `POST work-orders/{wo}/submit`, gate `work-order.submit`, catatan + foto (≤3 jpg/png/webp ≤2MB), `assigned → PendingVerify`, event + notifikasi HOD. TDD.
+- [ ] **4. FR-1.8 verifikasi HOD (M):** approve → `Closed`; reject + catatan → `Revision` (deadline tidak reset); event + notifikasi requester. TDD.
+- [ ] **5. UI histori WO FR-1.9 (M):** load `work_order_events` di `show` + daftar riwayat — lihat Backlog "UI histori WO".
+- [ ] **6. Listener realtime frontend (S):** handler `Echo.notification()` → refresh count/bell + toast — lihat Backlog "Listener realtime".
+- [ ] **7. FR-6.3 log 403 (S) + FR-4.1 filter `is_active` (XS)** — satu commit kecil.
+- [ ] **8. Wrap-up:** full suite (≥492, 0 gagal) + `pint --dirty` + `tsc --noEmit` + `npm run build`; centang Backlog; sinkron vault (session log, changelog, Index); commit per-topik.
+
+**Di luar besok:** Daily Work, Work Data, `extend_requests`, `work_planning` (sesi terpisah setelah alur close hijau); keputusan terbuka §8 (#2/#4/#5/#8) butuh konfirmasi user; UAT/pilot/metrics.
+
 ## Backlog PRD audit 2026-10-21 (belum dikerjakan)
 
 Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-status.md) (bukti `file:line`/test per FR). Status hidup per section: [PRD.md](PRD.md). Checklist ini = semua 🟡/⬜ yang belum punya entri DONE di bawah.

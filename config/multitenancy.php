@@ -3,7 +3,9 @@
 use App\Models\Tenant;
 use App\TenantFinder;
 use Illuminate\Broadcasting\BroadcastEvent;
+use Illuminate\Events\CallQueuedListener;
 use Illuminate\Mail\SendQueuedMailable;
+use Illuminate\Notifications\Events\BroadcastNotificationCreated;
 use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Queue\CallQueuedClosure;
 use Spatie\Multitenancy\Actions\ForgetCurrentTenantAction;
@@ -61,11 +63,15 @@ return [
         // Map a queueable wrapper to the property that holds the wrapped
         // job — spatie probes it to decide tenant awareness. These were
         // swapped before: every queued broadcast or mailable crashed the
-        // worker probe on an undefined property.
+        // worker probe on an undefined property. CallQueuedListener had
+        // dropped out of this list at some point (vendor still ships it):
+        // without it, queued listeners resolved to the wrapper class
+        // itself and fell through to tenant-aware-by-default.
         BroadcastEvent::class => 'event',
         SendQueuedMailable::class => 'mailable',
         SendQueuedNotifications::class => 'notification',
         CallQueuedClosure::class => 'closure',
+        CallQueuedListener::class => 'class',
     ],
 
     'tenant_aware_interface' => TenantAware::class,
@@ -78,5 +84,17 @@ return [
         ProbeTenantContext::class,
     ],
 
-    'not_tenant_aware_jobs' => [],
+    'not_tenant_aware_jobs' => [
+        // Defect pre-existing (terungkap saat slice WhatsApp 2026-10-21):
+        // notify() yang berjalan TANPA tenant current (mis. command
+        // app:check-deadline-escalation) melempar BroadcastNotificationCreated
+        // ke queue tanpa tenantId di payload — spatie lalu melempar
+        // CurrentTenantCouldNotBeDeterminedInTenantAwareJob dan
+        // MENG-DELETE job-nya, sehingga saluran broadcast dibuang percuma.
+        // Payload broadcast tidak membawa data tenant (hanya notifikasi
+        // channel), jadi job ini memang non-tenant-aware. Entry ini harus
+        // kelas UNWRAPPED-nya — memasukkan BroadcastEvent di sini adalah
+        // no-op karena queueable_to_job sudah membongkarnya lebih dulu.
+        BroadcastNotificationCreated::class,
+    ],
 ];

@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\MasterData;
 
+use App\AuditAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employee\LinkAkunRequest;
 use App\Http\Requests\Employee\SyncAkunRolesRequest;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
+use App\Models\Department;
+use App\Models\Division;
 use App\Models\Employee;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Queries\EmployeeQuery;
+use App\Services\AuditLogger;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -25,6 +30,8 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
+    public function __construct(private readonly AuditLogger $audit) {}
+
     public function index(EmployeeIndexRequest $request): Response
     {
         Gate::authorize('employee.read');
@@ -32,7 +39,11 @@ class EmployeeController extends Controller
         $query = (new EmployeeQuery)->build(
             $request->search(),
             $request->sort(),
-            $request->direction()
+            $request->direction(),
+            $request->departmentId(),
+            $request->divisionId(),
+            $request->status(),
+            $request->akun(),
         );
 
         $perPage = $request->perPage();
@@ -43,11 +54,35 @@ class EmployeeController extends Controller
 
         return Inertia::render('employees/index', [
             'employees' => $employees,
+            // Filter options for the organizational selects (tenant-scoped by
+            // the BelongsToTenant global scope — same cabang only).
+            'filter_options' => [
+                'departments' => Department::query()
+                    ->orderBy('nama_department')
+                    ->get(['id', 'kode_department', 'nama_department'])
+                    ->map(fn (Department $department): array => [
+                        'id' => $department->id,
+                        'label' => trim("{$department->kode_department} — {$department->nama_department}") ?: $department->nama_department,
+                    ])
+                    ->all(),
+                'divisions' => Division::query()
+                    ->orderBy('nama_division')
+                    ->get(['id', 'kode_division', 'nama_division'])
+                    ->map(fn (Division $division): array => [
+                        'id' => $division->id,
+                        'label' => trim("{$division->kode_division} — {$division->nama_division}") ?: $division->nama_division,
+                    ])
+                    ->all(),
+            ],
             'filters' => [
                 'search' => $request->search() ?? '',
                 'per_page' => $perPage,
                 'sort' => $request->sort(),
                 'direction' => $request->direction(),
+                'department_id' => $request->departmentId() ?? '',
+                'division_id' => $request->divisionId() ?? '',
+                'status' => $request->status() ?? '',
+                'akun' => $request->akun() ?? '',
             ],
         ]);
     }
@@ -67,7 +102,6 @@ class EmployeeController extends Controller
 
         $akunUser = $employee->user;
         $canReadAkun = (bool) $request->user()?->can('akun.read');
-        $canUpdateAkun = (bool) $request->user()?->can('akun.update');
 
         $akun = null;
 
@@ -92,33 +126,56 @@ class EmployeeController extends Controller
                 ->all()
             : [];
 
-        // Only accounts that can safely be linked to this karyawan: same
-        // cabang, not already linked, and never the platform super admin.
-        $availableAccounts = [];
-
-        if ($canReadAkun && $canUpdateAkun && $akunUser === null) {
-            $availableAccounts = User::query()
-                ->where('tenant_id', $employee->tenant_id)
-                ->whereNull('employee_id')
-                ->where('is_super_admin', false)
-                ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
-                ->orderBy('name')
-                ->limit(100)
-                ->get(['id', 'name', 'email'])
-                ->map(fn (User $user): array => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ])
-                ->all();
-        }
+        // Only accounts that can safely be linked to this karyawan are
+        // offered by the search endpoint (searchAkun) — the old static
+        // limit(100) list in this payload is gone.
 
         return Inertia::render('employees/show', [
             'employee' => EmployeeResource::make($employee)->resolve(),
             'akun' => $akun,
             'assignable_roles' => $assignableRoles,
-            'available_accounts' => $availableAccounts,
         ]);
+    }
+
+    /**
+     * Pencarian server-side kandidat akun yang dapat ditautkan (Q6 grill
+     * 2026-10-21, langkah 6): same cabang, unlinked, non-superadmin — aturan
+     * yang sama dengan linkAkun, digali lewat param `search` + paginasi.
+     * Menggantikan daftar statis limit(100) di payload show.
+     */
+    public function searchAkun(Request $request): JsonResponse
+    {
+        Gate::authorize('akun.update');
+
+        $employee = $this->resolveEmployeeFromRoute($request);
+
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+        ]);
+
+        $searchTerm = filled($validated['search'] ?? null) ? '%'.$validated['search'].'%' : null;
+
+        $accounts = User::query()
+            ->where('tenant_id', $employee->tenant_id)
+            ->whereNull('employee_id')
+            ->where('is_super_admin', false)
+            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
+            ->when($searchTerm !== null, fn ($query) => $query
+                ->where(fn ($q) => $q
+                    ->where('name', 'like', $searchTerm)
+                    ->orWhere('email', 'like', $searchTerm)))
+            ->orderBy('name')
+            ->paginate((int) ($validated['per_page'] ?? 10))
+            ->withQueryString()
+            ->through(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+
+        return response()->json($accounts);
     }
 
     /**
@@ -131,7 +188,18 @@ class EmployeeController extends Controller
 
         $employee = $this->resolveEmployeeFromRoute($request);
 
-        $employee->forceFill(['banned_at' => now()])->save();
+        DB::transaction(function () use ($request, $employee): void {
+            $employee->forceFill(['banned_at' => now()])->save();
+
+            $this->audit->record(
+                action: AuditAction::EmployeeBan,
+                auditable: $employee,
+                before: ['banned_at' => null],
+                after: ['banned_at' => $employee->banned_at?->toISOString()],
+                actorId: $request->user()?->id,
+                tenantId: $employee->tenant_id,
+            );
+        });
 
         return back()->with('success', "{$employee->nama_employee} diblokir.");
     }
@@ -145,7 +213,20 @@ class EmployeeController extends Controller
 
         $employee = $this->resolveEmployeeFromRoute($request);
 
-        $employee->forceFill(['banned_at' => null])->save();
+        DB::transaction(function () use ($request, $employee): void {
+            $previous = $employee->banned_at;
+
+            $employee->forceFill(['banned_at' => null])->save();
+
+            $this->audit->record(
+                action: AuditAction::EmployeeUnban,
+                auditable: $employee,
+                before: ['banned_at' => $previous?->toISOString()],
+                after: ['banned_at' => null],
+                actorId: $request->user()?->id,
+                tenantId: $employee->tenant_id,
+            );
+        });
 
         return back()->with('success', "Blokir {$employee->nama_employee} dibatalkan.");
     }
@@ -246,8 +327,19 @@ class EmployeeController extends Controller
             $final[] = 'karyawan';
         }
 
-        DB::transaction(function () use ($akun, $final): void {
+        DB::transaction(function () use ($akun, $final, $request, $employee): void {
+            $before = $akun->getRoleNames()->all();
+
             $akun->syncRoles($final);
+
+            $this->audit->record(
+                action: AuditAction::AkunRolesSync,
+                auditable: $akun,
+                before: ['roles' => $before],
+                after: ['roles' => $akun->getRoleNames()->all()],
+                actorId: $request->user()?->id,
+                tenantId: $employee->tenant_id,
+            );
         });
 
         return back()->with('success', "Peran akun {$employee->nama_employee} diperbarui.");
@@ -285,8 +377,33 @@ class EmployeeController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($akun, $employee): void {
+            DB::transaction(function () use ($akun, $employee, $request): void {
                 $akun->forceFill(['employee_id' => $employee->id])->save();
+
+                // Q4 (grill 2026-10-21): provisioning dasar saat link — akun
+                // tanpa peran sama sekali langsung mendapat `karyawan` supaya
+                // tautan tidak menghasilkan akun yang mati di login (deny
+                // no_role). Akun yang SUDAH ber-role tidak disentuh. Ini
+                // sebidang auto-`guest` (ADR-0006), bukan grant manual —
+                // UI grant/revoke tetap superadmin-only (ADR-0008/Q6).
+                $provisionedRole = null;
+
+                if (! $akun->roles()->exists()) {
+                    $akun->assignRole('karyawan');
+                    $provisionedRole = 'karyawan';
+                }
+
+                $this->audit->record(
+                    action: AuditAction::AkunLink,
+                    auditable: $employee,
+                    before: ['user_id' => null],
+                    after: [
+                        'user_id' => $akun->id,
+                        'auto_role' => $provisionedRole,
+                    ],
+                    actorId: $request->user()?->id,
+                    tenantId: $employee->tenant_id,
+                );
             });
         } catch (QueryException $exception) {
             // The unique index catches the race where another request linked
@@ -302,13 +419,6 @@ class EmployeeController extends Controller
                 'user_id' => 'Akun gagal ditautkan. Muat ulang halaman lalu coba lagi.',
             ]);
         }
-
-        Log::info('Employee account linked.', [
-            'employee_id' => $employee->id,
-            'user_id' => $akun->id,
-            'tenant_id' => $employee->tenant_id,
-            'actor_id' => $request->user()?->id,
-        ]);
 
         return back()->with('success', "Akun {$akun->email} ditautkan ke {$employee->nama_employee}.");
     }
@@ -332,14 +442,18 @@ class EmployeeController extends Controller
             ]);
         }
 
-        $akun->forceFill(['employee_id' => null])->save();
+        DB::transaction(function () use ($akun, $employee, $request): void {
+            $akun->forceFill(['employee_id' => null])->save();
 
-        Log::info('Employee account unlinked.', [
-            'employee_id' => $employee->id,
-            'user_id' => $akun->id,
-            'tenant_id' => $employee->tenant_id,
-            'actor_id' => $request->user()?->id,
-        ]);
+            $this->audit->record(
+                action: AuditAction::AkunUnlink,
+                auditable: $employee,
+                before: ['user_id' => $akun->id],
+                after: ['user_id' => null],
+                actorId: $request->user()?->id,
+                tenantId: $employee->tenant_id,
+            );
+        });
 
         return back()->with('success', "Tautan akun {$akun->email} dilepas dari {$employee->nama_employee}.");
     }

@@ -16,12 +16,16 @@ class EmployeeQuery
     ];
 
     /**
-     * Build the query with search, sorting, and eager loading.
+     * Build the query with search, filters, sorting, and eager loading.
      */
     public function build(
         ?string $search,
         string $sort,
-        string $direction
+        string $direction,
+        ?string $departmentId = null,
+        ?string $divisionId = null,
+        ?string $status = null,
+        ?string $akun = null,
     ): Builder {
         $query = Employee::query()
             ->with(['department', 'position', 'division', 'user'])
@@ -54,6 +58,29 @@ class EmployeeQuery
                         ->orWhere('nama_division', 'like', $searchTerm));
             });
         }
+
+        if ($departmentId !== null && $departmentId !== '') {
+            $query->where('department_id', $departmentId);
+        }
+
+        if ($divisionId !== null && $divisionId !== '') {
+            $query->where('division_id', $divisionId);
+        }
+
+        // Ban status: "active" = not banned, "banned" = banned_at set. The
+        // column is nullable, so active is expressed as NULL.
+        match ($status) {
+            'banned' => $query->whereNotNull('banned_at'),
+            'active' => $query->whereNull('banned_at'),
+            default => null,
+        };
+
+        // Akun link: has a linked user account or not (hasOne via employee_id).
+        match ($akun) {
+            'linked' => $query->whereHas('user'),
+            'unlinked' => $query->whereDoesntHave('user'),
+            default => null,
+        };
 
         $sort = in_array($sort, self::SORTABLE_COLUMNS, true) ? $sort : 'nama_employee';
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';

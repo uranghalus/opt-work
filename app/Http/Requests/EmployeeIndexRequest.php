@@ -29,6 +29,10 @@ class EmployeeIndexRequest extends FormRequest
             'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
             'sort' => ['nullable', 'string', Rule::in(EmployeeQuery::SORTABLE_COLUMNS)],
             'direction' => ['nullable', 'string', 'in:asc,desc'],
+            'department_id' => ['nullable', 'uuid'],
+            'division_id' => ['nullable', 'uuid'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'banned'])],
+            'akun' => ['nullable', 'string', Rule::in(['linked', 'unlinked'])],
         ];
     }
 
@@ -38,6 +42,38 @@ class EmployeeIndexRequest extends FormRequest
     public function search(): ?string
     {
         return $this->validated('search');
+    }
+
+    /**
+     * Filter by department (organizational scope). UUID — departments.id.
+     */
+    public function departmentId(): ?string
+    {
+        return $this->validated('department_id');
+    }
+
+    /**
+     * Filter by division (organizational scope). UUID — divisions.id.
+     */
+    public function divisionId(): ?string
+    {
+        return $this->validated('division_id');
+    }
+
+    /**
+     * Filter by ban status: active = not banned, banned = banned_at set.
+     */
+    public function status(): ?string
+    {
+        return $this->validated('status');
+    }
+
+    /**
+     * Filter by akun link: linked = has a linked user account, unlinked = not.
+     */
+    public function akun(): ?string
+    {
+        return $this->validated('akun');
     }
 
     /**

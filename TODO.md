@@ -1,12 +1,15 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
-## Rencana 2026-10-22 (besok) - NEXT
+## Rencana hari ini (2026-10-21, diperbarui pasca-grill) - DONE (2026-10-21 21:13)
 
-- [ ] **Q7 - semantik ban/login:** putuskan `banned_at` hanya penanda record atau benar-benar memblokir login. Jika blokir: gate di SAML/middleware, cabut sesi aktif, dan test regresi.
-- [ ] **Q4 - linked-but-roleless:** putuskan auto-assign `karyawan` saat link atau tetap warning + role manual. Konfirmasi bahwa auto-assign sistem tidak melanggar kebijakan Q6 (grant/revoke role hanya superadmin).
-- [ ] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
-- [ ] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
-- [ ] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
+Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima semua rekomendasi). Rencana lengkap + urutan kerja: vault `Planning/2026-10-22-rencana-kerja-lanjutan.md`. **Implementasi selesai** — full suite 492 (484 passed, 8 skipped, 0 failed), pint/tsc/build hijau, migrasi `audit_logs` jalan di dev; log sesi: vault `Sessions/2026-10/21/2113-impl-audit-ban-broadcast-filter`.
+
+- [x] **Q7 - semantik ban/login (SETTLED: blokir login):** `EnsureEmployeeNotBanned` di grup `web` — employee ter-link ber-`banned_at` → logout + redirect `saml.denied` alasan `banned`; menutup login baru + sesi aktif. 7 test `EmployeeBanLoginTest` (sesi mati, password login ditolak, unban pulih, superadmin exempt, rute non-tenant).
+- [x] **Q4 - linked-but-roleless (SETTLED: auto-assign `karyawan` saat link):** hanya bila akun nol role, dalam transaksi link, tercatat di audit `after.auto_role`; bukan pelanggaran Q6 (UI grant/revoke manual tetap superadmin-only, ADR-0008; sebidang auto-`guest` ADR-0006). 4 test di `EmployeeAccountLinkTest` termasuk e2e login landing.
+- [x] **Q14 - staf lintas tenant (SETTLED: satu home tenant per akun, tanpa pivot):** last-assertion-wins dipertahankan; **ADR-0010** dibuat (`docs/adr/0010-satu-home-tenant-per-akun.md`, accepted); pivot `employee_user` = v2. Di-link dari vault Decisions.
+- [x] **Defect broadcast (SETTLED: perbaiki hari ini):** `BroadcastNotificationCreated::class` (unwrapped) masuk `not_tenant_aware_jobs` + `CallQueuedListener::class => 'class'` dikembalikan di `queueable_to_job`; test `BroadcastQueueTenancyTest` **red-green dibuktikan** (tanpa entry → `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`).
+- [x] **Audit trail durable:** tabel `audit_logs` + enum `AuditAction` + `AuditLog` + `AuditLogger` (tulisan dalam transaksi bisnis = atomic, tanpa dependency baru); `Log::info` link/unlink diganti audit; syncAkunRoles/ban/unban ikut tercatat; `Log::warning` race tetap log; 7 test `AuditTrailTest` (termasuk atomicity + tenant scoping). UI reader & input `reason` = lanjutan.
+- [x] **Employee page filters/search:** filter `department_id`/`division_id` (UUID), `status`, `akun` di `EmployeeIndexRequest`+`EmployeeQuery` + `filter_options` di payload; endpoint `GET employees/{employee}/akun/search` (gate `akun.update`, search+paginasi) menggantikan daftar statis `limit(100)` (dihapus dari payload show); `show.tsx` pakai combobox async (debounce+AbortController). 7 test `EmployeeIndexFilterTest` + 4 test search.
 - [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound + slice 2
       sesi-per-tenant) — lihat section "WhatsApp Gateway slice 1" dan "slice 2" di
       bawah. Item ini tadinya "discovery dulu + di luar Non-Goals"; keputusan grill
@@ -48,19 +51,20 @@
       Tanpa perubahan frontend/JS (tsc/build tidak terpengaruh; tidak diubah).
 - [x] **Dokumen:** `AGENTS.md` 4 titik amendmen (Non-Goals email-only, Modul MVP + row
       WA, bagian Notifikasi, OQ settled #7 DIKECUALIKAN) + `docs/adr/0009-whatsapp-gateway.md`
-      (**status: `draft` — menunggu review user; flip ke `accepted` setelah OK**).
-- [ ] **DEFECT PRE-EXISTING (baru ketahuan, di luar scope slice — butuh keputusan user):**
-      `notify()` yang berjalan **tanpa tenant current** membuat job broadcast
-      (tenant-aware by default) dilempar `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`
-      dan **di-queue-delete** oleh spatie saat diproses — jalur command eskalasi di
-      produksi membuang saluran broadcast hari ini (test eskalasi lama selalu jalan dengan
-      tenant current sehingga tidak pernah ketahuan). Test slice ini memanggil channel
-      langsung untuk skenario tanpa tenant. Opsi perbaikan: masukkan event broadcast ke
-      `multitenancy.not_tenant_aware_jobs` (payload broadcast tidak butuh tenant) —
-      keputusan terpisah, jangan dikerjakan diam-diam.
-- [ ] Setelah user puas dengan gateway (dan ADR-0009 di-flip ke accepted): kerjakan
-      item Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
-      employee filters).
+      (**status: `accepted` — di-flip 2026-10-21 setelah grill Q8; migrasi +
+      `app:grant-default-permissions` terverifikasi 0 pending / 0 perubahan**).
+- [x] **DEFECT PRE-EXISTING (diperbaiki 2026-10-21, grill Q5/Q8 — lihat blok
+      "Rencana hari ini"):** `notify()` tanpa tenant current membuat job broadcast
+      tenant-aware by default → `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`
+      dan **di-queue-delete** spatie. Fix: `BroadcastNotificationCreated::class`
+      (kelas **unwrapped** — `BroadcastEvent` = no-op karena `queueable_to_job`
+      sudah membongkar) masuk `not_tenant_aware_jobs` + `CallQueuedListener::class => 'class'`
+      dikembalikan; test `BroadcastQueueTenancyTest` red-green dibuktikan
+      (tanpa entry → exception persis seperti produksi).
+- [x] Setelah user puas dengan gateway (dan ADR-0009 sudah `accepted`): item
+      Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
+      employee filters) — **semua selesai 2026-10-21 21:13**, lihat blok
+      "Rencana hari ini" di atas.
 
 ## WhatsApp Gateway slice 2 — sesi per tenant (2026-10-21) — DONE
 
@@ -112,11 +116,14 @@
       (wayfinder `--with-form` — tanpa flag itu helper `.form` hilang dan tsc
       meledak di 10+ file lama).
 - [x] **Dokumen:** ADR-0009 di-amend (judul slice 1–2, keputusan 1/2/6/7/8/9 revisi,
-      references file slice 2) — masih `draft`, menunggu review user.
-- [ ] **Sisa manual (user):** `php artisan migrate` + `app:grant-default-permissions`
-      di dev; isi `WAHA_URL`/`WAHA_API_KEY` di `.env`; daftar nomor per tenant di
-      `/settings/whatsapp` → Mulai Sesi → pindai QR; flip ADR-0009 ke `accepted`
-      setelah review; sinkron catatan vault (Sessions/Decisions/changelog/Index).
+      references file slice 2) — **di-flip ke `accepted` 2026-10-21** (user menyetujui
+      semua rekomendasi grill Q1–Q8).
+- [x] `php artisan migrate` + `app:grant-default-permissions` di dev — diverifikasi
+      2026-10-21: tidak ada pending migration; `whatsapp.read`/`whatsapp.update`
+      sudah melekat di `admin_tenant`.
+- [ ] **Sisa manual (user):** isi `WAHA_URL`/`WAHA_API_KEY` di `.env`; daftar nomor
+      per tenant di `/settings/whatsapp` → Mulai Sesi → pindai QR; sinkron catatan
+      vault (Sessions/Decisions/changelog/Index).
 
 ## Frontend HOD department (2026-10-20) — DONE
 

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: accepted
 ---
 
 # WhatsApp gateway via WAHA (outbound, slice 1–2)

@@ -24,11 +24,6 @@ const sidebarNavItems: NavItem[] = [
         title: 'Tampilan',
         href: editAppearance(),
     },
-<<<<<<< HEAD
-=======
-    // Unit Bisnis lives at its own /tenants root (platform-level, super admin
-    // only), kept here so super admins still find it from the settings nav.
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 ];
 
 const navIconMap: Record<
@@ -49,24 +44,12 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const canSeeWhatsApp = Boolean(auth?.can?.['whatsapp.read']);
 
-<<<<<<< HEAD
     const navItems: NavItem[] = [
         ...sidebarNavItems,
         ...(canSeeWhatsApp
             ? [{ title: 'WhatsApp', href: indexWhatsapp() }]
             : []),
     ];
-=======
-    const navItems: NavItem[] = canSeeWhatsApp
-        ? [
-            ...sidebarNavItems,
-            {
-                title: 'WhatsApp',
-                href: indexWhatsapp(),
-            },
-        ]
-        : sidebarNavItems;
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 
     return (
         <div className="space-y-6">
@@ -134,18 +117,10 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                     </div>
                 </aside>
 
-<<<<<<< HEAD
                 {/* Content column — pages own their card surfaces. */}
                 <section className="min-w-0">
                     <div className="space-y-6 sm:p-1">{children}</div>
                 </section>
-=======
-                <div className="min-w-0 flex-1">
-                    <section className="w-full space-y-10">
-                        {children}
-                    </section>
-                </div>
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
             </div>
         </div>
     );

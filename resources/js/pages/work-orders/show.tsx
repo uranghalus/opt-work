@@ -661,7 +661,7 @@ ShowWorkOrder.layout = {
 };
 
 /**
- * FR-1.7: pelaksana menyerahkan hasil pekerjaan — catatan wajib, foto
+ * FR-1.7: pelaksana menyerahkan hasil pekerjaan â€” catatan wajib, foto
  * bukti opsional (maks 3). The server guard (assigned/revision) is the
  * source of truth; this mirror hides the form elsewhere.
  */
@@ -755,7 +755,7 @@ function SubmitPanel({ workOrderId }: { workOrderId: string }) {
 }
 
 /**
- * FR-1.8: HOD memverifikasi hasil submit — approve closes the WO,
+ * FR-1.8: HOD memverifikasi hasil submit â€” approve closes the WO,
  * reject sends it back for revision with mandatory notes (deadline
  * stays untouched). The submitted result itself is rendered above as
  * the read-only "Hasil Pekerjaan" section.

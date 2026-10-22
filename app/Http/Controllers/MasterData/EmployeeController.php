@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\MasterData;
 
-use App\AuditAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employee\LinkAkunRequest;
 use App\Http\Requests\Employee\SyncAkunRolesRequest;
 use App\Http\Requests\EmployeeIndexRequest;
 use App\Http\Resources\EmployeeResource;
+use App\Models\AuditEvent;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\Employee;
@@ -16,11 +16,9 @@ use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Queries\EmployeeQuery;
-use App\Services\AuditLogger;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,8 +31,6 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
-
     public function index(EmployeeIndexRequest $request): Response
     {
         Gate::authorize('employee.read');
@@ -45,10 +41,7 @@ class EmployeeController extends Controller
             $request->search(),
             $request->sort(),
             $request->direction(),
-            $request->departmentId(),
-            $request->divisionId(),
-            $request->status(),
-            $request->akun(),
+            $filters
         );
 
         $perPage = $request->perPage();
@@ -69,35 +62,29 @@ class EmployeeController extends Controller
 
         return Inertia::render('employees/index', [
             'employees' => $employees,
-            // Filter options for the organizational selects (tenant-scoped by
-            // the BelongsToTenant global scope — same cabang only).
-            'filter_options' => [
-                'departments' => Department::query()
-                    ->orderBy('nama_department')
-                    ->get(['id', 'kode_department', 'nama_department'])
-                    ->map(fn (Department $department): array => [
-                        'id' => $department->id,
-                        'label' => trim("{$department->kode_department} — {$department->nama_department}") ?: $department->nama_department,
-                    ])
-                    ->all(),
-                'divisions' => Division::query()
-                    ->orderBy('nama_division')
-                    ->get(['id', 'kode_division', 'nama_division'])
-                    ->map(fn (Division $division): array => [
-                        'id' => $division->id,
-                        'label' => trim("{$division->kode_division} — {$division->nama_division}") ?: $division->nama_division,
-                    ])
-                    ->all(),
+            'summary' => [
+                'total' => $summaryQuery->count(),
+                'with_account' => (clone $summaryQuery)->whereHas('user')->count(),
+                'missing_department' => (clone $summaryQuery)->whereNull('department_id')->count(),
             ],
-            'filters' => [
+            'filters' => array_merge([
                 'search' => $request->search() ?? '',
                 'per_page' => $perPage,
                 'sort' => $request->sort(),
                 'direction' => $request->direction(),
-                'department_id' => $request->departmentId() ?? '',
-                'division_id' => $request->divisionId() ?? '',
-                'status' => $request->status() ?? '',
-                'akun' => $request->akun() ?? '',
+            ], $filters),
+            // Server-driven filter options: the lists live in their own
+            // tenant-scoped tables, so the page never hardcodes them.
+            'filter_options' => [
+                'departments' => Department::query()
+                    ->orderBy('nama_department')
+                    ->get(['id', 'kode_department', 'nama_department']),
+                'divisions' => Division::query()
+                    ->orderBy('nama_division')
+                    ->get(['id', 'kode_division', 'nama_division']),
+                'positions' => Position::query()
+                    ->orderBy('nama_position')
+                    ->get(['id', 'nama_position']),
             ],
         ]);
     }
@@ -141,9 +128,8 @@ class EmployeeController extends Controller
                 ->all()
             : [];
 
-        // Only accounts that can safely be linked to this karyawan are
-        // offered by the search endpoint (searchAkun) — the old static
-        // limit(100) list in this payload is gone.
+        // Kandidat akun tidak lagi dikirim sebagai prop statis — combobox di
+        // halaman mengambil mereka dari endpoint akun/search (paginasi).
 
         return Inertia::render('employees/show', [
             'employee' => EmployeeResource::make($employee)->resolve(),
@@ -153,44 +139,54 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Pencarian server-side kandidat akun yang dapat ditautkan (Q6 grill
-     * 2026-10-21, langkah 6): same cabang, unlinked, non-superadmin — aturan
-     * yang sama dengan linkAkun, digali lewat param `search` + paginasi.
-     * Menggantikan daftar statis limit(100) di payload show.
+     * Kombobox async untuk memilih kandidat akun saat menautkan: pencarian +
+     * paginasi menggantikan daftar statis limit(100). Kandidat memakai
+     * aturan yang sama dengan linkAkun (linkCandidates).
      */
-    public function searchAkun(Request $request): JsonResponse
+    public function akunSearch(Request $request): JsonResponse
     {
         Gate::authorize('akun.update');
 
         $employee = $this->resolveEmployeeFromRoute($request);
 
         $validated = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:25'],
         ]);
 
-        $searchTerm = filled($validated['search'] ?? null) ? '%'.$validated['search'].'%' : null;
+        $search = trim($validated['q'] ?? '');
 
-        $accounts = User::query()
-            ->where('tenant_id', $employee->tenant_id)
-            ->whereNull('employee_id')
-            ->where('is_super_admin', false)
-            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
-            ->when($searchTerm !== null, fn ($query) => $query
-                ->where(fn ($q) => $q
-                    ->where('name', 'like', $searchTerm)
-                    ->orWhere('email', 'like', $searchTerm)))
+        $users = $this->linkCandidates($employee)
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = "%{$search}%";
+
+                $query->where(fn (Builder $q) => $q
+                    ->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term));
+            })
             ->orderBy('name')
-            ->paginate((int) ($validated['per_page'] ?? 10))
-            ->withQueryString()
+            ->paginate($validated['per_page'] ?? 10)
             ->through(fn (User $user): array => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
             ]);
 
-        return response()->json($accounts);
+        return response()->json($users);
+    }
+
+    /**
+     * Kandidat tautan akun — hanya akun cabang karyawan ini yang belum
+     * tertaut dan bukan super admin. Aturan tunggal untuk linkAkun dan
+     * akun/search (pembatasan ganda = sumber bug drift).
+     */
+    private function linkCandidates(Employee $employee): Builder
+    {
+        return User::query()
+            ->where('tenant_id', $employee->tenant_id)
+            ->whereNull('employee_id')
+            ->where('is_super_admin', false)
+            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'));
     }
 
     /**
@@ -205,16 +201,25 @@ class EmployeeController extends Controller
 
         $employee = $this->resolveEmployeeFromRoute($request);
 
-        DB::transaction(function () use ($request, $employee): void {
+        $before = ['banned_at' => $employee->banned_at?->toISOString()];
+
+        DB::transaction(function () use ($employee, $request, $before): void {
             $employee->forceFill(['banned_at' => now()])->save();
 
-            $this->audit->record(
-                action: AuditAction::EmployeeBan,
-                auditable: $employee,
-                before: ['banned_at' => null],
-                after: ['banned_at' => $employee->banned_at?->toISOString()],
-                actorId: $request->user()?->id,
-                tenantId: $employee->tenant_id,
+            // Q7: cabut sesi aktif akun terkait seketika (driver database,
+            // config/session.php); baris nol = tidak ada yang terlewat.
+            $akunId = $employee->user()->first()?->getKey();
+
+            if ($akunId !== null) {
+                DB::table('sessions')->where('user_id', $akunId)->delete();
+            }
+
+            AuditEvent::record(
+                $employee,
+                $request->user(),
+                'employee.ban',
+                $before,
+                ['banned_at' => $employee->banned_at?->toISOString()],
             );
         });
 
@@ -230,18 +235,17 @@ class EmployeeController extends Controller
 
         $employee = $this->resolveEmployeeFromRoute($request);
 
-        DB::transaction(function () use ($request, $employee): void {
-            $previous = $employee->banned_at;
+        $before = ['banned_at' => $employee->banned_at?->toISOString()];
 
+        DB::transaction(function () use ($employee, $request, $before): void {
             $employee->forceFill(['banned_at' => null])->save();
 
-            $this->audit->record(
-                action: AuditAction::EmployeeUnban,
-                auditable: $employee,
-                before: ['banned_at' => $previous?->toISOString()],
-                after: ['banned_at' => null],
-                actorId: $request->user()?->id,
-                tenantId: $employee->tenant_id,
+            AuditEvent::record(
+                $employee,
+                $request->user(),
+                'employee.unban',
+                $before,
+                ['banned_at' => null],
             );
         });
 
@@ -344,18 +348,20 @@ class EmployeeController extends Controller
             $final[] = 'karyawan';
         }
 
-        DB::transaction(function () use ($akun, $final, $request, $employee): void {
-            $before = $akun->getRoleNames()->all();
+        $actor = $request->user();
+
+        DB::transaction(function () use ($akun, $employee, $actor, $final): void {
+            $before = ['roles' => $akun->getRoleNames()->sort()->values()->all()];
 
             $akun->syncRoles($final);
 
-            $this->audit->record(
-                action: AuditAction::AkunRolesSync,
-                auditable: $akun,
-                before: ['roles' => $before],
-                after: ['roles' => $akun->getRoleNames()->all()],
-                actorId: $request->user()?->id,
-                tenantId: $employee->tenant_id,
+            AuditEvent::record(
+                $employee,
+                $actor,
+                'akun.roles.sync',
+                $before,
+                ['roles' => $akun->getRoleNames()->sort()->values()->all()],
+                ['user_id' => $akun->getKey(), 'user_email' => $akun->email],
             );
         });
 
@@ -391,32 +397,29 @@ class EmployeeController extends Controller
 
         try {
             DB::transaction(function () use ($akun, $employee, $request): void {
-            DB::transaction(function () use ($akun, $employee, $request): void {
                 $akun->forceFill(['employee_id' => $employee->id])->save();
 
-                // Q4 (grill 2026-10-21): provisioning dasar saat link — akun
-                // tanpa peran sama sekali langsung mendapat `karyawan` supaya
-                // tautan tidak menghasilkan akun yang mati di login (deny
-                // no_role). Akun yang SUDAH ber-role tidak disentuh. Ini
-                // sebidang auto-`guest` (ADR-0006), bukan grant manual —
-                // UI grant/revoke tetap superadmin-only (ADR-0008/Q6).
-                $provisionedRole = null;
+                // Q4: a roleless linked account would bounce at its next
+                // login (LoginLanding no_role) — linking provisions the
+                // zero-permission `guest` role, the same bootstrap the SSO
+                // login applies (LoginProvisioningService). Accounts with
+                // any role are untouched; unlink never revokes what a link
+                // provisioned (ADR-0008 amendment).
+                $after = ['user_id' => $akun->getKey(), 'user_email' => $akun->email];
 
-                if (! $akun->roles()->exists()) {
-                    $akun->assignRole('karyawan');
-                    $provisionedRole = 'karyawan';
+                if ($akun->roles()->doesntExist()) {
+                    $akun->assignRole('guest');
+                    $after['auto_role'] = 'guest';
                 }
 
-                $this->audit->record(
-                    action: AuditAction::AkunLink,
-                    auditable: $employee,
-                    before: ['user_id' => null],
-                    after: [
-                        'user_id' => $akun->id,
-                        'auto_role' => $provisionedRole,
-                    ],
-                    actorId: $request->user()?->id,
-                    tenantId: $employee->tenant_id,
+                // Dalam transaksi yang sama: audit gagal → link ikut
+                // ter-rollback (atomic), menggantikan Log::info lama.
+                AuditEvent::record(
+                    $employee,
+                    $request->user(),
+                    'akun.link',
+                    ['user_id' => null],
+                    $after,
                 );
             });
         } catch (QueryException $exception) {
@@ -457,15 +460,16 @@ class EmployeeController extends Controller
         }
 
         DB::transaction(function () use ($akun, $employee, $request): void {
+            $before = ['user_id' => $akun->getKey(), 'user_email' => $akun->email];
+
             $akun->forceFill(['employee_id' => null])->save();
 
-            $this->audit->record(
-                action: AuditAction::AkunUnlink,
-                auditable: $employee,
-                before: ['user_id' => $akun->id],
-                after: ['user_id' => null],
-                actorId: $request->user()?->id,
-                tenantId: $employee->tenant_id,
+            AuditEvent::record(
+                $employee,
+                $request->user(),
+                'akun.unlink',
+                $before,
+                ['user_id' => null],
             );
         });
 

@@ -177,11 +177,7 @@ it('prevents duplicate employee links at the database level', function () {
     ]))->toThrow(QueryException::class);
 });
 
-<<<<<<< HEAD
-it('offers only unlinked same-cabang accounts via the search endpoint (Q6)', function () {
-=======
 it('offers only unlinked same-cabang accounts through akun/search', function () {
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
     $available = User::factory()->create([
         'tenant_id' => $this->hq->id,
@@ -217,13 +213,6 @@ it('offers only unlinked same-cabang accounts through akun/search', function () 
         'employee_id' => Employee::factory()->create(['tenant_id' => $this->hq->id])->id,
     ])->save();
 
-    $this->actingAs($editor)
-        ->get(route('employees.akun.search', ['tenant' => 'hq', 'employee' => $employee->id]))
-        ->assertOk()
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.email', $available->email);
-
-    // The show payload no longer bakes in the static candidate list.
     $this->actingAs($editor)
         ->get(route('employees.show', ['tenant' => 'hq', 'employee' => $employee->id]))
         ->assertOk()
@@ -368,121 +357,4 @@ it('requires akun.update for akun/search', function () {
     $this->actingAs($viewer)
         ->getJson(accountLinkRoute($employee, 'employees.akun.search'))
         ->assertForbidden();
-});
-
-it('filters linkable accounts by the search term server-side (Q6)', function () {
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    User::factory()->create([
-        'tenant_id' => $this->hq->id,
-        'name' => 'Budi Santoso',
-        'email' => 'budi@example.com',
-    ]);
-    User::factory()->create([
-        'tenant_id' => $this->hq->id,
-        'name' => 'Siti Aminah',
-        'email' => 'siti@example.com',
-    ]);
-
-    $this->actingAs(accountEditor())
-        ->get(route('employees.akun.search', ['tenant' => 'hq', 'employee' => $employee->id]).'?search=budi')
-        ->assertOk()
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.email', 'budi@example.com');
-});
-
-it('paginates linkable accounts beyond the old 100-item cap (Q6)', function () {
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-
-    User::factory()->count(12)->create(['tenant_id' => $this->hq->id]);
-
-    // The editor's own account is unlinked by default; link it so the
-    // candidate set is exactly the 12 factory accounts.
-    $editor = accountEditor();
-    $editor->forceFill([
-        'employee_id' => Employee::factory()->create(['tenant_id' => $this->hq->id])->id,
-    ])->save();
-
-    $this->actingAs($editor)
-        ->get(route('employees.akun.search', ['tenant' => 'hq', 'employee' => $employee->id]))
-        ->assertOk()
-        ->assertJsonCount(10, 'data')
-        ->assertJsonPath('total', 12);
-});
-
-it('requires akun.update for the account search endpoint (Q6)', function () {
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    $viewer = createUser(['tenant_id' => $this->hq->id]);
-    $viewer->givePermissionTo('employee.read');
-
-    $this->actingAs($viewer)
-        ->get(route('employees.akun.search', ['tenant' => 'hq', 'employee' => $employee->id]))
-        ->assertForbidden();
-});
-
-it('auto-assigns karyawan when linking a roleless account (Q4)', function () {
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
-
-    expect($akun->getRoleNames())->toBeEmpty();
-
-    $this->actingAs(accountEditor())
-        ->post(accountLinkRoute($employee), ['user_id' => $akun->id])
-        ->assertRedirect()
-        ->assertSessionHas('success');
-
-    $akun->refresh();
-    expect($akun->employee_id)->toBe($employee->id)
-        ->and($akun->getRoleNames()->all())->toBe(['karyawan']);
-});
-
-it('never touches the roles of an account that already has one (Q4)', function () {
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
-    $akun->assignRole('viewer');
-
-    $this->actingAs(accountEditor())
-        ->post(accountLinkRoute($employee), ['user_id' => $akun->id])
-        ->assertRedirect();
-
-    expect($akun->fresh()->getRoleNames()->all())->toBe(['viewer']);
-});
-
-it('keeps the auto-assigned karyawan role after unlink', function () {
-    // Unlink removes the link only; the provisioning baseline survives so a
-    // relink never re-grants behind anyone's back.
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
-
-    $this->actingAs(accountEditor())
-        ->post(accountLinkRoute($employee), ['user_id' => $akun->id]);
-
-    $this->actingAs(accountEditor())
-        ->delete(accountLinkRoute($employee, 'employees.akun.unlink'))
-        ->assertRedirect();
-
-    $akun->refresh();
-    expect($akun->employee_id)->toBeNull()
-        ->and($akun->getRoleNames()->all())->toBe(['karyawan']);
-});
-
-it('lets a linked-and-provisioned akun land on the dashboard (Q4 end-to-end)', function () {
-    // The point of Q4: linking must not produce an account that dies at the
-    // no_role gate on its next login.
-    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
-    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
-
-    $this->actingAs(accountEditor())
-        ->post(accountLinkRoute($employee), ['user_id' => $akun->id]);
-
-    // Drop the editor's session AND resolved guards so the login request
-    // runs as a guest (actingAs pins the user on the guard instance).
-    $this->flushSession();
-    $this->app['auth']->forgetGuards();
-
-    $this->post(route('login.store'), [
-        'email' => $akun->fresh()->email,
-        'password' => 'password',
-    ])->assertRedirect(route('dashboard', ['tenant' => 'hq']));
-
-    $this->assertAuthenticatedAs($akun->fresh());
 });

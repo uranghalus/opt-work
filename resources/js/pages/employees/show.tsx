@@ -5,20 +5,10 @@ import {
     LoaderCircle,
     Lock,
     Pencil,
-<<<<<<< HEAD
-    Phone,
-    Search,
-=======
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     ShieldCheck,
     Unlink,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-<<<<<<< HEAD
-import { link, search, unlink } from '@/routes/employees/akun';
-import { sync } from '@/routes/employees/akun/roles';
-=======
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 import { useRequiredTenant } from '@/lib/tenant';
 import { index as employeesIndex } from '@/routes/employees';
 import {
@@ -42,12 +32,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-<<<<<<< HEAD
-=======
 import { Input } from '@/components/ui/input';
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
@@ -262,69 +248,6 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
     const [selected, setSelected] = useState<AvailableAccount | null>(null);
     const form = useForm<{ user_id: string }>({ user_id: '' });
 
-<<<<<<< HEAD
-    // Q6 (grill 2026-10-21): kandidat akun dicari server-side lewat
-    // employees/{employee}/akun/search + paginasi, menggantikan daftar statis
-    // limit(100) yang dulu ikut terbawa di payload show.
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<AvailableAccount[]>([]);
-    const [selected, setSelected] = useState<AvailableAccount | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [failed, setFailed] = useState(false);
-
-    useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        const controller = new AbortController();
-        // Debounce only while typing; load immediately on open / on clear.
-        const timer = window.setTimeout(
-            async () => {
-                setLoading(true);
-                setFailed(false);
-
-                try {
-                    const response = await fetch(
-                        search.url(
-                            { tenant, employee: employeeId },
-                            {
-                                query: {
-                                    search: query || undefined,
-                                    per_page: 10,
-                                },
-                            },
-                        ),
-                        {
-                            headers: { Accept: 'application/json' },
-                            signal: controller.signal,
-                        },
-                    );
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-
-                    const body = await response.json();
-                    setResults(Array.isArray(body.data) ? body.data : []);
-                } catch (error) {
-                    if ((error as Error)?.name === 'AbortError') {
-                        return;
-                    }
-                    setFailed(true);
-                } finally {
-                    setLoading(false);
-                }
-            },
-            query ? 300 : 0,
-        );
-
-        return () => {
-            controller.abort();
-            window.clearTimeout(timer);
-        };
-    }, [open, query, tenant, employeeId]);
-=======
     // Combobox async: candidates come from the paginated akun/search
     // endpoint (debounce 300ms + AbortController), replacing the old static
     // limit(100) prop.
@@ -375,7 +298,6 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
     const retrySearch = () => {
         setSearchRetryToken(token => token + 1);
     };
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 
     if (!auth?.can?.['akun.update']) {
         return null;
@@ -385,20 +307,9 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
         setOpen(next);
         if (!next) {
             form.clearErrors();
-            form.setData('user_id', '');
-            setQuery('');
-            setResults([]);
-            setSelected(null);
-            setFailed(false);
         }
     };
 
-<<<<<<< HEAD
-    const pick = (account: AvailableAccount) => {
-        setSelected(account);
-        form.setData('user_id', String(account.id));
-        form.clearErrors('user_id');
-=======
     const select = (account: AvailableAccount) => {
         setSelected(account);
         form.setData('user_id', String(account.id));
@@ -409,7 +320,6 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
         setSelected(null);
         form.setData('user_id', '');
         setQuery('');
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     };
 
     const submit = (event: React.FormEvent) => {
@@ -438,7 +348,7 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
                 <DialogHeader>
                     <DialogTitle>Tautkan Akun</DialogTitle>
                     <DialogDescription>
-                        Cari akun cabang ini yang belum tertaut ke karyawan
+                        Pilih akun cabang ini yang belum tertaut ke karyawan
                         lain. Akun super admin tidak dapat dipilih.
                     </DialogDescription>
                 </DialogHeader>
@@ -449,79 +359,6 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
                 )}
                 <form onSubmit={submit} className="space-y-4">
                     <div className="space-y-2">
-<<<<<<< HEAD
-                        <Label htmlFor="akun-user">Cari Akun</Label>
-                        <div className="relative">
-                            <Search
-                                aria-hidden
-                                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
-                            />
-                            <Input
-                                id="akun-user"
-                                value={query}
-                                onChange={event => setQuery(event.target.value)}
-                                placeholder="Ketik nama atau email..."
-                                autoComplete="off"
-                                className="pl-9"
-                            />
-                        </div>
-
-                        <div
-                            role="listbox"
-                            aria-label="Hasil pencarian akun"
-                            className="max-h-56 overflow-y-auto rounded-xl border border-slate-200/60 dark:border-slate-800"
-                        >
-                            {loading ? (
-                                <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
-                                    <LoaderCircle
-                                        aria-hidden
-                                        className="size-4 animate-spin"
-                                    />
-                                    Mencari akun...
-                                </p>
-                            ) : failed ? (
-                                <p
-                                    role="alert"
-                                    className="px-4 py-3 text-sm text-red-600 dark:text-red-400"
-                                >
-                                    Pencarian gagal. Coba lagi.
-                                </p>
-                            ) : results.length === 0 ? (
-                                <p className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
-                                    {query
-                                        ? 'Tidak ada akun yang cocok dengan pencarian.'
-                                        : 'Tidak ada akun yang tersedia. Akun harus berada di cabang ini, belum tertaut, dan bukan super admin. Akun biasanya muncul setelah login SAML pertama.'}
-                                </p>
-                            ) : (
-                                results.map(account => (
-                                    <button
-                                        key={account.id}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={
-                                            selected?.id === account.id
-                                        }
-                                        onClick={() => pick(account)}
-                                        className={`block w-full px-4 py-2.5 text-left text-sm transition ${
-                                            selected?.id === account.id
-                                                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
-                                                : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900'
-                                        }`}
-                                    >
-                                        {account.name}{' '}
-                                        <span className="text-slate-400">
-                                            — {account.email}
-                                        </span>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-
-                        {selected && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Terpilih: {selected.name} ({selected.email})
-                            </p>
-=======
                         <Label htmlFor="akun-user">Akun</Label>
                         {selected ? (
                             <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800">
@@ -620,7 +457,6 @@ function TautkanAkunAction({ employeeId }: { employeeId: string }) {
                                     </p>
                                 )}
                             </>
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
                         )}
                     </div>
                     <p className="text-xs text-ink-muted">
@@ -819,14 +655,6 @@ export default function ShowEmployee({
                                             assignableRoles={assignable_roles}
                                         />
                                     )}
-<<<<<<< HEAD
-                                    {!akun.exists && (
-                                        <TautkanAkunAction
-                                            employeeId={employee.id}
-                                        />
-                                    )}
-                                </div>
-=======
                                 {akun.exists && !akunSealed && (
                                     <LepasAkunAction
                                         employeeId={employee.id}
@@ -838,7 +666,6 @@ export default function ShowEmployee({
                                         employeeId={employee.id}
                                     />
                                 )}
->>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
                             </div>
                         )}
                     </div>

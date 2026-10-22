@@ -88,6 +88,8 @@ it('shares the full hak-akses flag set with a user holding them', function () {
         'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
+        'work-order.submit' => false,
+        'work-order.verify' => false,
     ]);
 });
 
@@ -114,6 +116,8 @@ it('shares only role.read with a read-only viewer', function () {
         'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
+        'work-order.submit' => false,
+        'work-order.verify' => false,
     ]);
 });
 
@@ -138,6 +142,8 @@ it('shares the full hak-akses flag set with a super admin holding zero permissio
         'whatsapp.update' => true,
         'work-order.review' => true,
         'work-order.assign' => true,
+        'work-order.submit' => true,
+        'work-order.verify' => true,
     ]);
 });
 

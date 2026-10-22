@@ -152,7 +152,7 @@ it('stamps the tenant as data and stays readable without a current tenant', func
         ->and(AuditEvent::query()->where('tenant_id', 'other-tenant')->count())->toBe(0);
 });
 
-it('writes no audit row when the action is denied', function () {
+it('writes an access.denied audit row when the action is denied', function () {
     $editor = createUser(['tenant_id' => $this->hq->id]);
     $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
 
@@ -160,5 +160,10 @@ it('writes no audit row when the action is denied', function () {
         ->post(auditRoute($employee, 'employees.ban'))
         ->assertForbidden();
 
-    expect(AuditEvent::query()->count())->toBe(0);
+    // FR-6.3 replaces the old "denied actions write nothing" contract:
+    // exactly one synthetic access-denied row per blocked request, and
+    // no employee.ban row (the denied action never ran).
+    expect(AuditEvent::query()->count())->toBe(1)
+        ->and(AuditEvent::query()->where('action', 'access.denied')->count())->toBe(1)
+        ->and(AuditEvent::query()->where('action', 'employee.ban')->count())->toBe(0);
 });

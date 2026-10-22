@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -139,7 +140,8 @@ it('does not resend escalation if already sent', function () {
 
 it('sends H+3 to Team Leader if department has one', function () {
     Notification::fake();
-    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $tenant = Tenant::where('code', 'hq')->first();
+    $hod = createUser(['tenant_id' => $tenant->id]);
     makeHod($hod);
 
     initTenant('hq');
@@ -149,7 +151,11 @@ it('sends H+3 to Team Leader if department has one', function () {
         'hod_user_id' => $hod->getKey(),
     ]);
 
-    $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $tlEmployee = Employee::factory()->create(['department_id' => $department->getKey()]);
+    $tl = createUser(['tenant_id' => $tenant->id, 'employee_id' => $tlEmployee->getKey()]);
+    $tl->assignRole('team_leader');
+
+    $requester = createUser(['tenant_id' => $tenant->id]);
     $assignedAt = Carbon::parse('2026-10-01 09:00:00');
     $deadline = app(DeadlineCalculator::class)
         ->calculate(WorkOrderCategory::Normal, $assignedAt);
@@ -173,7 +179,9 @@ it('sends H+3 to Team Leader if department has one', function () {
 
     Artisan::call('app:check-deadline-escalation');
 
-    // Should notify HOD as fallback
+    // H+3 goes to the Team Leader; the HOD still receives the later H+5/H+6
+    // levels via the direct-hod chain.
+    Notification::assertSentTo($tl, WorkOrderDeadlineEscalated::class);
     Notification::assertSentTo($hod, WorkOrderDeadlineEscalated::class);
 });
 
@@ -320,7 +328,33 @@ it('sends H+5 to HOD after H+3 already sent', function () {
     });
 });
 
-it('sends H+6 to DGM/GM after H+3 and H+5 already sent', function () {
+it('sends H+6 to GM/DGM before the HOD chain', function () {
+    Notification::fake();
+    $tenant = Tenant::where('code', 'hq')->first();
+    $hod = createUser(['tenant_id' => $tenant->id]);
+    makeHod($hod);
+    $gm = createUser(['tenant_id' => $tenant->id]);
+    $gm->assignRole('general_manager');
+
+    // Create WO with H+3 and H+5 already sent — only h6 fires this run
+    $workOrder = createOverdueWorkOrder(
+        WorkOrderCategory::Normal,
+        escalationMarkers: [
+            'h3' => Carbon::parse('2026-10-06 10:00:00'),
+            'h5' => Carbon::parse('2026-10-08 10:00:00'),
+        ],
+        hodUserId: $hod->getKey(),
+    );
+
+    Artisan::call('app:check-deadline-escalation');
+
+    $workOrder->refresh();
+    expect($workOrder->escalation_h6_sent_at)->not->toBeNull();
+    Notification::assertSentTo($gm, WorkOrderDeadlineEscalated::class);
+    Notification::assertNotSentTo($hod, WorkOrderDeadlineEscalated::class);
+});
+
+it('falls back to the HOD chain for H+6 when no GM/DGM exists', function () {
     Notification::fake();
     $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
     makeHod($hod);
@@ -340,7 +374,7 @@ it('sends H+6 to DGM/GM after H+3 and H+5 already sent', function () {
     $workOrder->refresh();
     // H+6 should have been sent
     expect($workOrder->escalation_h6_sent_at)->not->toBeNull();
-    // HOD should have received all three escalations
+    // No GM/DGM exists in this tenant → the HOD chain receives it
     Notification::assertSentTo($hod, WorkOrderDeadlineEscalated::class);
 });
 

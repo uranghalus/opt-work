@@ -116,11 +116,23 @@ type Filters = {
     per_page: number;
     sort: string;
     direction: string;
+    department_id: string | null;
+    division_id: string | null;
+    position_id: string | null;
+    has_account: boolean | null;
+    status: string;
+};
+
+type FilterOptions = {
+    departments: { id: string; nama_department: string }[];
+    divisions: { id: string; nama_division: string }[];
+    positions: { id: string; nama_position: string }[];
 };
 
 type PageProps = {
     employees: Paginator;
     filters: Filters;
+    filter_options: FilterOptions;
     errors?: Record<string, string>;
 };
 
@@ -556,7 +568,12 @@ function BanConfirmDialog({
 
 BanConfirmDialog.displayName = "BanConfirmDialog";
 
-export default function Employees({ employees, filters, errors }: PageProps) {
+export default function Employees({
+    employees,
+    filters,
+    filter_options,
+    errors,
+}: PageProps) {
     const { flash, auth } = usePage<FlashProps>().props;
     const tenant = useRequiredTenant("employees.index");
     const canBan = auth?.isSuperAdmin ?? false;
@@ -585,6 +602,15 @@ export default function Employees({ employees, filters, errors }: PageProps) {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    // Org/account/status filters — same debounce-free path as per_page: a
+    // Select change updates the state and the URL-sync effect navigates.
+    const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) =>
+        setAppliedFilters((current) => ({
+            ...current,
+            [key]: value,
+            page: 1,
+        }));
+
     // Sync URL with filters
     useEffect(() => {
         if (skipFirstQuery.current) {
@@ -599,6 +625,16 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                 per_page: appliedFilters.per_page,
                 sort: appliedFilters.sort,
                 direction: appliedFilters.direction,
+                department_id: appliedFilters.department_id ?? "",
+                division_id: appliedFilters.division_id ?? "",
+                position_id: appliedFilters.position_id ?? "",
+                has_account:
+                    appliedFilters.has_account === null
+                        ? ""
+                        : appliedFilters.has_account
+                          ? "1"
+                          : "0",
+                status: appliedFilters.status,
             },
             {
                 preserveState: true,
@@ -617,10 +653,21 @@ export default function Employees({ employees, filters, errors }: PageProps) {
             per_page: 10,
             sort: "nama_employee",
             direction: "asc",
+            department_id: null,
+            division_id: null,
+            position_id: null,
+            has_account: null,
+            status: "all",
         });
     };
 
-    const hasActiveFilters = appliedFilters.search !== "";
+    const hasActiveFilters =
+        appliedFilters.search !== "" ||
+        appliedFilters.department_id !== null ||
+        appliedFilters.division_id !== null ||
+        appliedFilters.position_id !== null ||
+        appliedFilters.has_account !== null ||
+        appliedFilters.status !== "all";
 
     const handleBanToggle = (employee: Employee) => {
         if (!employee.is_banned) {
@@ -765,6 +812,130 @@ export default function Employees({ employees, filters, errors }: PageProps) {
                             </SelectContent>
                         </Select>
                     </div>
+                </div>
+
+                {/* Filter bar — org + account/status filters; option lists
+                    are server-driven per tenant (filter_options prop). */}
+                <div className="flex flex-wrap items-center gap-3 px-4 lg:px-6">
+                    <Select
+                        value={appliedFilters.department_id ?? "all"}
+                        onValueChange={(value) =>
+                            setFilter(
+                                "department_id",
+                                value === "all" ? null : value,
+                            )
+                        }
+                    >
+                        <SelectTrigger size="sm" className="w-[170px]">
+                            <SelectValue placeholder="Departemen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">
+                                Semua departemen
+                            </SelectItem>
+                            {filter_options.departments.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                    {option.nama_department}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={appliedFilters.division_id ?? "all"}
+                        onValueChange={(value) =>
+                            setFilter(
+                                "division_id",
+                                value === "all" ? null : value,
+                            )
+                        }
+                    >
+                        <SelectTrigger size="sm" className="w-[170px]">
+                            <SelectValue placeholder="Divisi" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua divisi</SelectItem>
+                            {filter_options.divisions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                    {option.nama_division}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={appliedFilters.position_id ?? "all"}
+                        onValueChange={(value) =>
+                            setFilter(
+                                "position_id",
+                                value === "all" ? null : value,
+                            )
+                        }
+                    >
+                        <SelectTrigger size="sm" className="w-[150px]">
+                            <SelectValue placeholder="Posisi" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua posisi</SelectItem>
+                            {filter_options.positions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                    {option.nama_position}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={
+                            appliedFilters.has_account === null
+                                ? "all"
+                                : appliedFilters.has_account
+                                  ? "1"
+                                  : "0"
+                        }
+                        onValueChange={(value) =>
+                            setFilter(
+                                "has_account",
+                                value === "all" ? null : value === "1",
+                            )
+                        }
+                    >
+                        <SelectTrigger size="sm" className="w-[160px]">
+                            <SelectValue placeholder="Akun" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua akun</SelectItem>
+                            <SelectItem value="1">Punya akun</SelectItem>
+                            <SelectItem value="0">Belum ada akun</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={appliedFilters.status}
+                        onValueChange={(value) => setFilter("status", value)}
+                    >
+                        <SelectTrigger size="sm" className="w-[140px]">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua status</SelectItem>
+                            <SelectItem value="active">Aktif</SelectItem>
+                            <SelectItem value="banned">Diblokir</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {hasActiveFilters && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="text-ink-subtle"
+                        >
+                            <SearchX className="size-3" />
+                            Bersihkan filter
+                        </Button>
+                    )}
                 </div>
 
                 {/* Table */}

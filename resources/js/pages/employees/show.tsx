@@ -15,8 +15,8 @@ import {
     Unlink,
     User,
 } from 'lucide-react';
-import { useState } from 'react';
-import { link, unlink } from '@/routes/employees/akun';
+import { useEffect, useState } from 'react';
+import { link, search, unlink } from '@/routes/employees/akun';
 import { sync } from '@/routes/employees/akun/roles';
 import { useRequiredTenant } from '@/lib/tenant';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,13 +31,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
@@ -75,16 +69,22 @@ type Akun = {
 };
 
 type AvailableAccount = {
-    id: number;
+    id: string | number;
     name: string;
     email: string;
+};
+
+type AkunSearchPage = {
+    data: AvailableAccount[];
+    current_page: number;
+    last_page: number;
+    total: number;
 };
 
 type PageProps = {
     employee: Employee;
     akun?: Akun | null;
     assignable_roles?: string[];
-    available_accounts?: AvailableAccount[];
 };
 
 function getInitials(name: string) {
@@ -226,17 +226,64 @@ function UbahPeranAction({
     );
 }
 
-function TautkanAkunAction({
-    employeeId,
-    availableAccounts,
-}: {
-    employeeId: string;
-    availableAccounts: AvailableAccount[];
-}) {
+function TautkanAkunAction({ employeeId }: { employeeId: string }) {
     const tenant = useRequiredTenant('employees.show');
     const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<AvailableAccount[]>([]);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
+    const [selected, setSelected] = useState<AvailableAccount | null>(null);
     const form = useForm<{ user_id: string }>({ user_id: '' });
+
+    // Combobox async: candidates come from the paginated akun/search
+    // endpoint (debounce 300ms + AbortController), replacing the old static
+    // limit(100) prop.
+    useEffect(() => {
+        if (!open) return;
+
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setSearchError(null);
+
+            try {
+                const response = await fetch(
+                    search.url(
+                        { tenant, employee: employeeId },
+                        { query: { q: query } },
+                    ),
+                    {
+                        headers: { Accept: 'application/json' },
+                        signal: controller.signal,
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const page = (await response.json()) as AkunSearchPage;
+                setResults(page.data);
+                setTotal(page.total);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+
+                setResults([]);
+                setTotal(0);
+                setSearchError('Gagal memuat kandidat akun. Coba lagi.');
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        }, 300);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [query, open, tenant, employeeId]);
 
     if (!auth?.can?.['akun.update']) {
         return null;
@@ -249,11 +296,26 @@ function TautkanAkunAction({
         }
     };
 
+    const select = (account: AvailableAccount) => {
+        setSelected(account);
+        form.setData('user_id', String(account.id));
+        setResults([]);
+    };
+
+    const clearSelection = () => {
+        setSelected(null);
+        form.setData('user_id', '');
+        setQuery('');
+    };
+
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         form.post(link({ tenant, employee: employeeId }).url, {
             preserveScroll: true,
-            onSuccess: () => close(false),
+            onSuccess: () => {
+                close(false);
+                clearSelection();
+            },
         });
     };
 
@@ -279,40 +341,97 @@ function TautkanAkunAction({
                 <form onSubmit={submit} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="akun-user">Akun</Label>
-                        {availableAccounts.length === 0 ? (
-                            <p className="rounded-xl border border-slate-200/60 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
-                                Tidak ada akun yang tersedia. Akun harus berada
-                                di cabang ini, belum tertaut, dan bukan super
-                                admin. Akun biasanya muncul setelah login SAML
-                                pertama.
-                            </p>
+                        {selected ? (
+                            <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                        {selected.name}
+                                    </p>
+                                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                        {selected.email}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearSelection}
+                                >
+                                    Ganti
+                                </Button>
+                            </div>
                         ) : (
-                            <Select
-                                value={form.data.user_id}
-                                onValueChange={value =>
-                                    form.setData('user_id', value)
-                                }
-                            >
-                                <SelectTrigger id="akun-user" className="w-full">
-                                    <SelectValue placeholder="Pilih akun..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableAccounts.map(account => (
-                                        <SelectItem
-                                            key={account.id}
-                                            value={String(account.id)}
-                                        >
-                                            {account.name} — {account.email}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <>
+                                <Input
+                                    id="akun-user"
+                                    type="search"
+                                    placeholder="Ketik nama atau email akun…"
+                                    value={query}
+                                    onChange={event =>
+                                        setQuery(event.target.value)
+                                    }
+                                    autoComplete="off"
+                                />
+                                {searchError ? (
+                                    <Alert variant="destructive" role="alert">
+                                        <AlertDescription>
+                                            {searchError}
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200/60 dark:border-slate-800">
+                                        {loading ? (
+                                            <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                                                <LoaderCircle
+                                                    aria-hidden
+                                                    className="mr-2 inline size-3.5 animate-spin"
+                                                />
+                                                Memuat kandidat akun…
+                                            </p>
+                                        ) : results.length === 0 ? (
+                                            <p className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                                                Tidak ada akun yang cocok. Akun
+                                                harus berada di cabang ini,
+                                                belum tertaut, dan bukan super
+                                                admin.
+                                            </p>
+                                        ) : (
+                                            <ul>
+                                                {results.map(account => (
+                                                    <li key={account.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                select(account)
+                                                            }
+                                                            className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                                        >
+                                                            <span className="block truncate text-sm font-medium">
+                                                                {account.name}
+                                                            </span>
+                                                            <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                                                                {account.email}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                                {total > results.length && !loading && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Menampilkan {results.length} dari{' '}
+                                        {total} akun — ketik untuk mempersempit.
+                                    </p>
+                                )}
+                            </>
                         )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Akun tanpa peran tetap dapat ditautkan. Superadmin harus
-                        memberikan peran setelah tautan dibuat agar akun dapat
-                        mengakses aplikasi.
+                        Akun tanpa peran otomatis menerima role guest (izin
+                        nol) saat ditautkan; superadmin dapat mengubah perannya
+                        setelahnya.
                     </p>
                     <DialogFooter>
                         <Button
@@ -325,9 +444,7 @@ function TautkanAkunAction({
                         <Button
                             type="submit"
                             disabled={
-                                form.processing ||
-                                availableAccounts.length === 0 ||
-                                form.data.user_id === ''
+                                form.processing || form.data.user_id === ''
                             }
                         >
                             {form.processing && (
@@ -434,7 +551,6 @@ export default function ShowEmployee({
     employee,
     akun,
     assignable_roles = [],
-    available_accounts = [],
 }: PageProps) {
     const initials = getInitials(employee.nama_employee);
     const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
@@ -622,7 +738,6 @@ export default function ShowEmployee({
                                     {!akun.exists && (
                                         <TautkanAkunAction
                                             employeeId={employee.id}
-                                            availableAccounts={available_accounts}
                                         />
                                     )}
                                 </div>

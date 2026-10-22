@@ -2,11 +2,60 @@
 
 ## Rencana 2026-10-22 (besok) - NEXT
 
-- [ ] **Q7 - semantik ban/login:** putuskan `banned_at` hanya penanda record atau benar-benar memblokir login. Jika blokir: gate di SAML/middleware, cabut sesi aktif, dan test regresi.
-- [ ] **Q4 - linked-but-roleless:** putuskan auto-assign `karyawan` saat link atau tetap warning + role manual. Konfirmasi bahwa auto-assign sistem tidak melanggar kebijakan Q6 (grant/revoke role hanya superadmin).
-- [ ] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
-- [ ] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
-- [ ] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
+- [x] **Q7 - semantik ban/login:** putuskan `banned_at` hanya penanda record atau benar-benar memblokir login. Jika blokir: gate di SAML/middleware, cabut sesi aktif, dan test regresi.
+      **DONE 2026-10-22 (keputusan: blokir penuh):** middleware `EnsureEmployeeNotBanned`
+      di web stack setelah `IdentifyTenant` (link FK global / email same-cabang untuk akun
+      SAML unlinked; super admin eksempti via `isSuperAdmin()` konsisten `Gate::before`;
+      deny → `LoginLanding::deny('banned')`); `ban()` mencabut baris `sessions` akun
+      terkait dalam transaksi; guard `banned_at` di `WorkOrderService::assign`
+      (ValidationException `employees`); copy `banned` di peta `saml.denied`.
+      Test `EmployeeBanLoginTest` 7/7 (SAML + password ditolak, sesi mati di request
+      berikutnya, unban pulih, revoke sesi + audit, assign ditolak, superadmin lolos);
+      regresi 64 test hijau.
+- [x] **Q4 - linked-but-roleless:** putuskan auto-assign `karyawan` saat link atau tetap warning + role manual. Konfirmasi bahwa auto-assign sistem tidak melanggar kebijakan Q6 (grant/revoke role hanya superadmin).
+      **DONE 2026-10-22 (keputusan: auto-`guest`, bukan `karyawan`):** `linkAkun`
+      me-provision role `guest` (izin nol, role sistem #10) dalam transaksi yang sama
+      untuk akun tanpa role; akun ber-role tak disentuh; unlink tak mencabut role.
+      Bukan proxy-grant: provisioning sistem di luar cakupan "manual grant/revoke
+      superadmin-only" → amendmen 1 paragraf di `docs/adr/0008` (bagian Amendment).
+      Audit `akun.link` membawa `after.auto_role = guest`. Test `EmployeeAccountLinkTest`
+      14/14 (3 baru: roleless→guest + izin nol + e2e login landing, ber-role utuh,
+      guest bertahan lewat unlink).
+- [x] **Q14 - staf lintas tenant:** putuskan satu home tenant per akun atau pivot `employee_user`; jika pivot, siapkan migrasi data + penyesuaian unique index/login tenant.
+      **DONE 2026-10-22 (keputusan: status quo + drift guard, pivot = v2):** ADR-0010
+      `docs/adr/0010-satu-home-tenant-per-akun.md` (accepted) — satu home tenant final
+      MVP, last-assertion-wins dipertahankan; drift login (home tenant ≠ cabang karyawan
+      tertaut) dicatat `Log::warning` via `SamlController::warnHomeTenantDrift` tanpa
+      memutus link; pivot dibuka lagi di v2 (blocker: skalar `users.tenant_id`, SAML
+      single-valued, role global, `BelongsToTenant`). Test `Auth/TenantDriftGuardTest`
+      3/3 (drift memicu warning + link utuh, normal senyap, akun tanpa link diabaikan);
+      regresi SAML 44 test hijau.
+- [x] **Audit trail durable:** ganti `Log::info`/`Log::warning` untuk link/unlink, perubahan role, dan ban dengan tabel audit (actor, target, tenant, before/after, alasan). Jangan tambah dependency tanpa approval.
+      **DONE 2026-10-22:** tabel `audit_events` (UUID PK, `tenant_id` = data tanpa
+      `BelongsToTenant`, morph string, before/after/context json, `actor_email` snapshot)
+      + model `AuditEvent` append-only; `record()` tanpa transaksi sendiri (pemanggil
+      wajib dalam `DB::transaction` — pola `WorkOrderEvent`); 5 aksi `EmployeeController`
+      ter-wire (link/unlink ganti `Log::info`; ban/unban/roles.sync dari nol logging).
+      Tanpa dependency baru. Test `AuditTrailTest` 7/7 (atomisitas via `DB::listen`,
+      tenant-as-data, 5 aksi lengkap, 403 = nol baris).
+- [x] **Employee page filters/search:** filter organisasi/akun/status; pencarian akun server-side + pagination (kandidat saat ini dibatasi 100).
+      **DONE 2026-10-22 (langkah 6 rencana kerja):**
+      (a) `EmployeeIndexRequest` bertambah `department_id`/`division_id`/`position_id`
+      (UUID), `has_account` (boolean), `status` (`all/active/banned`, preseden tri-state
+      `TenantController`); `EmployeeQuery::build` menerima `$filters` + rantai `when()`;
+      prop `filter_options` (departemen/divisi/posisi server-driven per tenant).
+      (b) Prop statis `available_accounts` + `limit(100)` di `show` DIHAPUS → endpoint
+      baru `GET {tenant}/employees/{employee}/akun/search` (gate `akun.update`, `q` +
+      paginasi, kandidat lewat helper bersama `linkCandidates` yang kini juga dipakai
+      `linkAkun`). Frontend: filter bar `employees/index.tsx` (5 Select + clear,
+      URL-sync mengikuti debounce yang ada) + combobox async `employees/show.tsx`
+      (debounce 300ms + AbortController, fetch wayfinder `search`).
+      Test `EmployeeIndexFilterTest` 6/6 (filter gabungan + opsi server, has_account
+      dua arah, persist lintas halaman, scoping tenant, empty state, validasi status);
+      `EmployeeAccountLinkTest` 17/17 (3 baru: search by nama/email, paginasi 105
+      kandidat → total 105/last_page 11/page 2, gate 403; test lama diadaptasi ke
+      endpoint); `EmployeeIndexTest`/`EmployeeShowTest` regresi hijau; `tsc --noEmit`
+      bersih (wayfinder di-generate dengan `--with-form`).
 - [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound + slice 2
       sesi-per-tenant) — lihat section "WhatsApp Gateway slice 1" dan "slice 2" di
       bawah. Item ini tadinya "discovery dulu + di luar Non-Goals"; keputusan grill
@@ -49,7 +98,7 @@
 - [x] **Dokumen:** `AGENTS.md` 4 titik amendmen (Non-Goals email-only, Modul MVP + row
       WA, bagian Notifikasi, OQ settled #7 DIKECUALIKAN) + `docs/adr/0009-whatsapp-gateway.md`
       (**status: `draft` — menunggu review user; flip ke `accepted` setelah OK**).
-- [ ] **DEFECT PRE-EXISTING (baru ketahuan, di luar scope slice — butuh keputusan user):**
+- [x] **DEFECT PRE-EXISTING (baru ketahuan, di luar scope slice — butuh keputusan user):**
       `notify()` yang berjalan **tanpa tenant current** membuat job broadcast
       (tenant-aware by default) dilempar `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`
       dan **di-queue-delete** oleh spatie saat diproses — jalur command eskalasi di
@@ -58,6 +107,13 @@
       langsung untuk skenario tanpa tenant. Opsi perbaikan: masukkan event broadcast ke
       `multitenancy.not_tenant_aware_jobs` (payload broadcast tidak butuh tenant) —
       keputusan terpisah, jangan dikerjakan diam-diam.
+      **DONE 2026-10-22 (keputusan: masuk rencana langkah 5):** entry
+      `BroadcastNotificationCreated::class` (kelas **unwrapped** — probe spatie
+      membuka `BroadcastEvent` via `queueable_to_job` SEBELUM membaca daftar, jadi
+      nama wrapper = no-op sunyi) di `config/multitenancy.php` `not_tenant_aware_jobs`.
+      `SendWaMessageJob` sudah `NotTenantAware` dari slice 1 (WA tidak terdampak).
+      Test red-green di `EscalationTest` (12/12): tanpa entry → exception +
+      job di-delete; dengan entry → notify() lengkap 3 kanal, baris `notifications` tercatat.
 - [ ] Setelah user puas dengan gateway (dan ADR-0009 di-flip ke accepted): kerjakan
       item Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
       employee filters).

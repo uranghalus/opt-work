@@ -6,6 +6,7 @@ import {
     ClipboardList,
     Database,
     House,
+    KeyRound,
     LayoutGrid,
     LifeBuoy,
     Network,
@@ -19,6 +20,7 @@ import departments from '@/routes/departments';
 import divisions from '@/routes/divisions';
 import employees from '@/routes/employees';
 import { index as notificationsIndex } from '@/routes/notifications';
+import { index as permissionsIndex } from '@/routes/permissions';
 import { index as rolesIndex } from '@/routes/roles';
 import positions from '@/routes/positions';
 import { edit as profileEdit } from '@/routes/profile';
@@ -86,6 +88,11 @@ type NavContext = {
      * (ADR-0004), computed through the Gate — not the raw permission list.
      */
     canReadRoles?: boolean;
+    /**
+     * Izin (permissions) surface is gated by `can('permission.read')`
+     * (ADR-0004), computed through the same Gate — never raw permission list.
+     */
+    canReadPermissions?: boolean;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -138,6 +145,7 @@ export function navGroups({
     activeTenant = null,
     isSuperAdmin = false,
     canReadRoles = false,
+    canReadPermissions = false,
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
 
@@ -262,25 +270,34 @@ export function navGroups({
                           } satisfies OptiNavItem,
                       ]
                     : []),
+                ...(canReadPermissions
+                    ? [
+                          {
+                              title: 'Izin',
+                              shortTitle: 'Izin',
+                              href: permissionsIndex(),
+                              icon: KeyRound,
+                              tone: 'system',
+                          } satisfies OptiNavItem,
+                      ]
+                    : []),
             ],
         },
         {
             id: 'system',
             label: 'Sistem',
             tone: 'system',
-            items: [
-                ...(isSuperAdmin
-                    ? [
-                          {
-                              title: 'Pengaturan',
-                              shortTitle: 'Atur',
-                              href: profileEdit(),
-                              icon: Settings,
-                              tone: 'system',
-                          } satisfies OptiNavItem,
-                      ]
-                    : []),
-            ],
+            items: isSuperAdmin
+                ? [
+                      {
+                          title: 'Pengaturan',
+                          shortTitle: 'Atur',
+                          href: profileEdit(),
+                          icon: Settings,
+                          tone: 'system',
+                      } satisfies OptiNavItem,
+                  ]
+                : [],
         },
     ];
 

@@ -95,6 +95,7 @@ export function IconRail() {
                     activeTenant,
                     isSuperAdmin: auth?.isSuperAdmin,
                     canReadRoles: auth?.can?.['role.read'],
+                    canReadPermissions: auth?.can?.['permission.read'],
                 }).map((item) => (
                     <RailLink key={item.title} item={item} />
                 ))}

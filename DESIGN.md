@@ -126,6 +126,8 @@ sm: "8px"
 md: "12px"
 lg: "16px"
 xl: "20px"
+2xl: "24px"
+3xl: "28px"
 full: "999px"
 
 spacing:
@@ -144,16 +146,19 @@ shadows:
 none: "none"
 card: "0 1px 2px rgba(21,32,43,0.04), 0 0 0 1px rgba(21,32,43,0.04)"
 raised: "0 1px 2px rgba(21,32,43,0.06)"
+glass: "0 8px 32px -8px rgba(21,32,43,0.14)"
+glass-deep: "0 16px 48px -12px rgba(21,32,43,0.22)"
 popover: "0 4px 12px rgba(21,32,43,0.10)"
 modal: "0 12px 32px rgba(21,32,43,0.16)"
 
 components:
 button-primary:
 backgroundColor: "{colors.brand}"
+backgroundImage: "linear-gradient(90deg, {colors.brand}, {colors.brand-strong})"
 textColor: "{colors.on-brand}"
-rounded: "{rounded.sm}"
+rounded: "{rounded.xl}"
 padding: "12px 16px"
-height: "40px"
+height: "48px"
 button-neutral-emphasis:
 backgroundColor: "{colors.ink}"
 textColor: "{colors.on-brand}"
@@ -167,11 +172,11 @@ rounded: "{rounded.sm}"
 padding: "12px 16px"
 height: "40px"
 input:
-backgroundColor: "{colors.surface}"
+backgroundColor: "{colors.surface-raised}"
 textColor: "{colors.ink}"
-rounded: "{rounded.xs}"
+rounded: "{rounded.xl}"
 padding: "12px"
-height: "44px"
+height: "48px"
 task-card:
 backgroundColor: "{colors.surface}"
 textColor: "{colors.ink}"
@@ -198,6 +203,7 @@ The shift from the earlier "Dispatch Board" framing is deliberate: the product n
 - Two surface strata: a deep **contrast panel** for navigation over a quiet working canvas.
 - Grouped sidebar panel (Operasional · Data Master · Sistem) beside a sticky top bar.
 - **Shell-owned section heading band**: module chip · title or greeting · description · primary actions.
+- **Material depth by default**: hero and section surfaces are translucent glass (`bg-surface/70` + border + blur + shadow) over restrained ambient gradient blobs — never flat white on flat gray.
 - Light and dark themes ship together, each tuned by hand — never an inverted palette.
 - Module grid for role-scoped entry points (WO Baru, Verifikasi, Extend, Daily).
 - Board (kanban) view of Work Orders by status, with dense list view toggle.
@@ -307,15 +313,29 @@ The first viewport should prove the user's current work, not advertise the produ
 
 ## Elevation & Depth
 
-OptiWorks is card-first with restrained depth. Cards are the primary surface; borders and a whisper of shadow carry hierarchy. Stronger shadows are reserved for transient surfaces.
+OptiWorks is card-first with **layered depth**, not flat decoration. Every primary surface has at least two reads: a translucent glass panel plus a hairline `border` and a soft halo. Neutral surfaces still carry most of the screen; depth exists to explain structure, never to attract attention.
 
 ### Shadow Vocabulary
 
 - **Card** (`0 1px 2px rgba(21,32,43,0.04), 0 0 0 1px rgba(21,32,43,0.04)`): Default card surface — soft halo rather than a lifted object.
-- **Raised control** (`0 1px 2px rgba(21,32,43,0.06)`): Raised buttons, hovered cards.
+- **Raised control** (`0 1px 2px rgba(21,32,43,0.06)`): Raised controls, active chips.
+- **Glass** (`0 8px 32px -8px rgba(21,32,43,0.14)`): Standard translucent settings/operation card (`border` + `bg-surface/70` + `backdrop-blur-xl`).
+- **Glass deep** (`0 16px 48px -12px rgba(21,32,43,0.22)`): Hero surfaces, dialogs, high-attention panels.
 - **Popover** (`0 4px 12px rgba(21,32,43,0.10)`): Dropdowns and popovers.
 - **Modal** (`0 12px 32px rgba(21,32,43,0.16)`): Modals and bottom sheets.
 - **List rows inside a card:** No shadow; use a 1px bottom border (`border`) between rows.
+
+### Material Rules
+
+**The Depth Rule.** A card or section surface must have at least two depth signals: (1) a visible hairline and (2) a shadow or translucent glass background. A flat white card on a white/canvas card is a defect unless it is a list row inside a card.
+
+**The Glass Rule.** Primary action surfaces (settings, hero, dialog) use `bg-surface/70`–`bg-surface/85`, `border-border`, `backdrop-blur-xl`, and `shadow-glass`/`shadow-glass-deep`. Do not use literal `white/10` backgrounds or borders as the only contrast system; they disappear on light canvas and break dark mode.
+
+**The Ambient Rule.** Wide blurred gradient blobs are allowed behind a page for depth, but they must be decorative (`aria-hidden`), token-driven (`brand`, `brand-strong`, `info`), low opacity, and never encode status.
+
+**The Radius Rule.** Hero/feature surfaces use 28px (`3xl`); section cards use 24px (`2xl`); nested rows/controls use 12–20px. Buttons and inputs move up to 20px to match the softer workspace feel; pills remain reserved for badges, chips, dots, and avatar rings.
+
+**The Interactive Depth Rule.** Hover lift is for actually actionable surfaces only (buttons, theme cards, clickable module cards). Static information cards get static depth — they do not move on hover.
 
 ### Motion
 
@@ -323,19 +343,22 @@ OptiWorks is card-first with restrained depth. Cards are the primary surface; bo
 - Base: 200ms.
 - Slow: 320ms.
 - Standard easing: `cubic-bezier(0.2, 0.0, 0, 1)`.
-- Signature motions: (1) the deadline rail token crossfade on WO rows; (2) card hover lift (`translateY(-1px)` + raised shadow) over 120ms; (3) board column drop settle.
+- Signature motions: (1) the deadline rail token crossfade on WO rows; (2) card hover lift (`translateY(-1px)` + raised shadow) over 120ms; (3) board column drop settle; (4) glass entrance for settings/modals (`fade + 4px rise`, 200ms).
+- Async status (session, polling, save progress) is announced once as a contextual sentence, never as a bare number.
 - Reduced motion swaps instantly and disables hover lift.
 
 ## Shapes
 
 The shape language is soft and rounded to match the workspace feel, but never pill-shaped for primary actions.
 
-- **4px (`rounded.xs`):** Badges, chips, inputs.
-- **8px (`rounded.sm`):** Buttons, small controls.
+- **4px (`rounded.xs`):** Badges, compact chips.
+- **8px (`rounded.sm`):** List rows, nested controls.
 - **12px (`rounded.md`):** Tab pill container, list containers.
-- **16px (`rounded.lg`):** Cards, kanban columns, panels.
-- **20px (`rounded.xl`):** Modals and bottom sheets.
-- **999px (`rounded.full`):** Reserved for notification dots, avatar rings, and status dots only — never primary actions.
+- **16px (`rounded.lg`):** Kanban columns and classic panels.
+- **20px (`rounded.xl`):** Buttons, inputs, modals, bottom sheets.
+- **24px (`rounded.2xl`):** Section cards and cards with controls/forms.
+- **28px (`rounded.3xl`):** Hero/feature surfaces.
+- **999px (`rounded.full`):** Reserved for badges, chips, notification dots, avatar rings, and status dots only — never primary actions.
 
 Borders are 1px `Rule Gray` at rest and `Strong Rule` for focused inactive emphasis. Avoid heavy colored rails and decorative outlines; the deadline rail is a 3px top or left rule, never a full card border.
 
@@ -353,13 +376,13 @@ Touch targets are at least 44 by 44px. Mobile list rows are at least 56px high. 
 
 ### Buttons
 
-- **Shape:** 8px radius; 40px default height, 48px for mobile primary actions.
-- **Primary:** Execution Teal background with white text — Assign, Submit, Approve, and the next meaningful action.
+- **Shape:** 20px radius; 40px default height in dense board/list chrome, 48px for settings, forms, and mobile primary actions.
+- **Primary:** Execution Teal → brand-strong gradient with white text — Assign, Submit, Approve, and the next meaningful action. Solid teal remains valid where a page already has stronger depth.
 - **Neutral emphasis:** Operational Ink background with white text — the highest-emphasis action on a page (e.g. `+ Buat Work Order` on the board). Use at most one per view.
-- **Secondary:** White surface, ink text, Rule Gray border.
+- **Secondary:** Surface/raised glass, ink text, `border-border`.
 - **Ghost:** Transparent; hover fills with `surface-raised`.
 - **Danger / Warning:** For destructive or risk-confirming actions only; always pair with explicit label and a confirm dialog.
-- **States:** hover, active, focus-visible, loading (spinner + disabled, lock double-submit on Assign/Submit/Approve), disabled with reason on in-page forbidden actions.
+- **States:** hover, active, focus-visible, loading (spinner + disabled, lock double-submit on Assign/Submit/Approve), disabled with visible/hover reason on in-page forbidden actions.
 
 ### Greeting Header
 
@@ -419,15 +442,15 @@ Dense list view for desktop HOD queues: 48px height. Left 3px deadline rail; pri
 
 ### Cards / Containers
 
-- **Corner style:** 16px for cards and columns; 20px for modals and sheets.
-- **Background:** Clean Surface for cards; Raised Well for nested content and alternate rows; Sunken Well for board columns and quiet zones.
-- **Border:** Rule Gray at rest; Strong Rule for focused inactive emphasis.
+- **Corner style:** 16px for classic columns/panels; 20px for list rows and sheets; 24px for section cards; 28px for hero surfaces.
+- **Background:** Clean Surface for classic cards; translucent `bg-surface/70` for settings/modern surfaces; Raised Well for nested content and alternate rows; Sunken Well for board columns and quiet zones.
+- **Border:** Rule Gray at rest; Strong Rule for focused inactive emphasis. Glass surfaces still use a visible hairline.
 - **Internal padding:** 16px default; 20px on mobile; 24px for desktop section cards.
-- **Shadow strategy:** `shadow-card` at rest; `shadow-raised` on hover. No heavy drop shadows on ordinary cards.
+- **Shadow strategy:** `shadow-card` for classic cards, `shadow-glass` for section glass, `shadow-glass-deep` for hero/dialog. Hover lift only on actionable cards; otherwise static depth.
 
 ### Inputs / Fields
 
-- **Style:** 44px minimum height, white surface, 1px Rule Gray border, 4px radius, 12px internal padding.
+- **Style:** 48px minimum height, Surface/Raised or translucent raised surface, 1px Rule Gray border, 20px radius, 12px internal padding.
 - **Focus:** 2px Execution Teal ring with 2px offset.
 - **Error / Disabled:** Errors use text plus icon and a dark readable danger treatment. Disabled controls remain legible and explain the reason when the action is visible in-page.
 - **Evidence fields:** Camera capture preferred on mobile. Before/after slots explicit, with per-file progress, validation, retry, and offline states.
@@ -442,7 +465,8 @@ Submit Hasil and Verify Hasil use a two-column desktop layout and a stacked mobi
 
 - **Do** make status, category, and deadline readable in under two seconds without color alone.
 - **Do** shape home surfaces and primary actions around permissions and role workflows.
-- **Do** use soft card surfaces with subtle borders and a whisper of shadow.
+- **Do** use layered material depth — translucent glass, visible hairline, and soft shadow — on primary surfaces.
+- **Do** use soft card surfaces with subtle borders and a whisper of shadow for classic content.
 - **Do** use the pill-tab navigation and icon rail consistently across all role homes.
 - **Do** use Lucide icons consistently for icon-only actions and provide accessible names.
 - **Do** use Bahasa Indonesia for user-facing copy and operational verbs.
@@ -451,6 +475,7 @@ Submit Hasil and Verify Hasil use a two-column desktop layout and a stacked mobi
 
 ### Don't:
 
+- **Don't** ship flat white/canvas cards in primary surfaces: no hairline, no shadow, no translucent layering, or literal white borders that vanish in dark mode.
 - **Don't** use purple or indigo SaaS gradients, neon dark mode, glow edges, or decorative washes.
 - **Don't** use oversized metric heroes, advanced BI charts, or KPI tiles in MVP homes.
 - **Don't** use pastel status pills without labels or rely on red versus green alone.

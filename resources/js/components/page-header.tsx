@@ -31,6 +31,7 @@ export function PageHeader({
         activeTenant: tenant,
         isSuperAdmin: page.props.auth?.isSuperAdmin,
         canReadRoles: page.props.auth?.can?.['role.read'],
+        canReadPermissions: page.props.auth?.can?.['permission.read'],
     })
         .flatMap((group) => group.items)
         .find((item) => !item.disabled && isCurrentOrParentUrl(item.href));

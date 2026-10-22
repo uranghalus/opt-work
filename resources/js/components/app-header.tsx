@@ -158,6 +158,7 @@ function MobileMenu() {
                             activeTenant,
                             isSuperAdmin: auth?.isSuperAdmin,
                             canReadRoles: auth?.can?.['role.read'],
+                            canReadPermissions: auth?.can?.['permission.read'],
                         }).map((item) => (
                             <SheetNavLink key={item.title} item={item} />
                         ))}
@@ -168,17 +169,20 @@ function MobileMenu() {
                         </p>
                         <div className="flex flex-col gap-1">
                             {utilityNavItems
-                                .filter((item): item is ActiveOptiNavItem => !item.disabled)
+                                .filter(
+                                    (item): item is ActiveOptiNavItem =>
+                                        !item.disabled,
+                                )
                                 .map((item) => (
-                                <SheetClose key={item.title} asChild>
-                                    <Link
-                                        href={toUrl(item.href)}
-                                        className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-ink-muted transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
-                                    >
-                                        {item.title}
-                                    </Link>
-                                </SheetClose>
-                            ))}
+                                    <SheetClose key={item.title} asChild>
+                                        <Link
+                                            href={toUrl(item.href)}
+                                            className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-ink-muted transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+                                        >
+                                            {item.title}
+                                        </Link>
+                                    </SheetClose>
+                                ))}
                         </div>
                     </div>
                 </div>
@@ -232,7 +236,7 @@ function NotificationButton() {
             variant="ghost"
             size="icon"
             asChild
-            className="relative size-9 cursor-pointer rounded-full text-ink-muted hover:bg-white/70 hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
+            className="relative size-9 cursor-pointer rounded-full text-ink-muted after:absolute after:-inset-0.5 after:content-[''] hover:bg-white/70 hover:text-foreground"
         >
             <Link
                 href={notificationsIndex()}
@@ -242,7 +246,7 @@ function NotificationButton() {
                 {unread > 0 && (
                     <span
                         aria-hidden="true"
-                        className="absolute -top-0.5 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-brand-strong to-brand px-1 text-[0.625rem] leading-none font-bold text-on-brand ring-2 ring-white shadow-glow-brand"
+                        className="absolute -top-0.5 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-brand-strong to-brand px-1 text-[0.625rem] leading-none font-bold text-on-brand shadow-glow-brand ring-2 ring-white"
                     >
                         {label}
                     </span>
@@ -264,7 +268,7 @@ function AppearanceMenu() {
                     variant="ghost"
                     size="icon"
                     aria-label="Ganti tema tampilan"
-                    className="size-9 cursor-pointer rounded-full text-ink-muted hover:bg-white/70 hover:text-foreground after:absolute after:-inset-0.5 after:content-['']"
+                    className="size-9 cursor-pointer rounded-full text-ink-muted after:absolute after:-inset-0.5 after:content-[''] hover:bg-white/70 hover:text-foreground"
                 >
                     {isDark ? (
                         <Sun
@@ -408,6 +412,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                         activeTenant,
                         isSuperAdmin: auth?.isSuperAdmin,
                         canReadRoles: auth?.can?.['role.read'],
+                        canReadPermissions: auth?.can?.['permission.read'],
                     })}
                 />
 

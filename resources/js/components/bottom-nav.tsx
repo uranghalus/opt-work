@@ -88,12 +88,14 @@ export function BottomNav() {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const tenantsArray = Array.isArray(tenants) ? tenants : [];
     const tenantLabel =
-        tenantsArray.find((item) => item.id === activeTenant)?.name ?? activeTenant;
+        tenantsArray.find((item) => item.id === activeTenant)?.name ??
+        activeTenant;
     const items = mobileNavItems({ activeTenant });
     const groups = navGroups({
         activeTenant,
         isSuperAdmin: auth?.isSuperAdmin,
         canReadRoles: auth?.can?.['role.read'],
+        canReadPermissions: auth?.can?.['permission.read'],
     });
 
     return (

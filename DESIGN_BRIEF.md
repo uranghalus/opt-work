@@ -32,6 +32,8 @@ Unchanged. `WoCard` surfaces a camera icon with photo count in the meta row so p
 
 **"Ruang Kerja Operasional" (Operations Workspace)** — the calm, rounded, card-based comfort of a modern task workspace applied to serious operational work. Shell vocabulary (2026-10-05): a dark ink-teal navigation panel beside a light-or-dark canvas, a sticky top bar carrying breadcrumb + appearance + bell + identity, and a shell-owned section heading band. Inside the content: greeting, module grid, soft cards (12–16px radius), pill-shaped badges, segmented progress bars, avatar stacks. Committed teal + full signal set with pastel/alpha tints, group hues for navigation identity only.
 
+**Material depth directive (2026-10-21)** — surfaces are intentionally non-flat but enterprise-grade: hero and section surfaces use translucent glass (`bg-surface/70` + hairline + `backdrop-blur-xl` + soft shadow) over restrained ambient gradient blobs. Depth explains hierarchy; it never becomes neon, glow, or a rainbow. Theme cards, settings, and modals are the reference implementation; signal colours still stay semantic.
+
 ### References (craft, not clone)
 
 - Noteflow dashboard: shell (icon rail + top bar with pill tabs), greeting header, module grid, board columns, task card anatomy (priority badge, progress bar, due row, avatar stack, meta counts).
@@ -41,6 +43,8 @@ Unchanged. `WoCard` surfaces a camera icon with photo count in the meta row so p
 
 | Avoid                                                      | Why                                                |
 | ---------------------------------------------------------- | -------------------------------------------------- |
+| Flat white/canvas cards with no hairline or shadow         | Reads unfinished and breaks darkmode separation    |
+| Literal `white/10` borders as the only contrast system     | Vanishes on light canvas; opacity not tokenized    |
 | Purple / indigo SaaS gradients, neon dark mode, glow edges | Wrong for facility ops                             |
 | Warm cream paper + terracotta + display serif              | Editorial lifestyle default; not industrial        |
 | Gamified badges, confetti, playful illustration            | Undermines audit/SLA seriousness                   |
@@ -138,22 +142,26 @@ Touch targets: **min 44×44px**; list row min height **56px** mobile; card min h
 
 | Token         | Value | Use                                                                 |
 | ------------- | ----- | ------------------------------------------------------------------- |
-| `radius-xs`   | 4px   | Badges, chips, inputs                                               |
-| `radius-sm`   | 8px   | Buttons, small controls                                             |
-| `radius-md`   | 12px  | Tab pill container, list containers, module icon squares            |
-| `radius-lg`   | 16px  | Cards, kanban columns, panels                                       |
-| `radius-xl`   | 20px  | Modals, bottom sheets                                               |
+| `radius-xs`   | 4px   | Dense badges/chips, tabs, list containers                           |
+| `radius-sm`   | 8px   | List rows, small controls                                           |
+| `radius-md`   | 12px  | Nested icon squares, chips, alternate rows                          |
+| `radius-lg`   | 16px  | Classic cards, kanban columns, panels                               |
+| `radius-xl`   | 20px  | Buttons, inputs, modals, bottom sheets                              |
+| `radius-2xl`  | 24px  | Section cards, settings cards, form cards                           |
+| `radius-3xl`  | 28px  | Hero surfaces, feature panels, high-attention cards                 |
 | `radius-full` | 999px | **Badges, dots, avatar rings only.** Forbidden for primary actions. |
 
 ### Shadows
 
-| Token            | Value                                                          | Use                         |
-| ---------------- | -------------------------------------------------------------- | --------------------------- |
-| `shadow-none`    | none                                                           | Rows inside a card          |
-| `shadow-card`    | `0 1px 2px rgba(21,32,43,0.04), 0 0 0 1px rgba(21,32,43,0.04)` | Default card                |
-| `shadow-raised`  | `0 1px 2px rgba(21,32,43,0.06)`                                | Hover lift, raised controls |
-| `shadow-popover` | `0 4px 12px rgba(21,32,43,0.10)`                               | Dropdowns, popovers         |
-| `shadow-modal`   | `0 12px 32px rgba(21,32,43,0.16)`                              | Modals, bottom sheets       |
+| Token               | Value                                   | Use                                        |
+| ------------------- | --------------------------------------- | ------------------------------------------ |
+| `shadow-none`       | none                                    | Rows inside a card                         |
+| `shadow-card`       | `0 1px 2px rgba(21,32,43,0.04)`         | Classic card at rest                       |
+| `shadow-raised`     | `0 1px 2px rgba(21,32,43,0.06)`         | Raised control/active chip                 |
+| `shadow-glass`      | `0 8px 32px -8px rgba(21,32,43,0.14)`   | Settings/section glass surfaces            |
+| `shadow-glass-deep` | `0 16px 48px -12px rgba(21,32,43,0.22)` | Hero cards, dialogs, high-attention panels |
+| `shadow-popover`    | `0 4px 12px rgba(21,32,43,0.10)`        | Dropdowns, popovers                        |
+| `shadow-modal`      | `0 12px 32px rgba(21,32,43,0.16)`       | Modals, bottom sheets                      |
 
 Philosophy: **cards allowed, shadows restrained.** The card halo (border + whisper shadow) is the default surface; heavier shadows are for overlays only.
 
@@ -392,11 +400,12 @@ Unchanged. Additions:
 ## Explicit Anti-Goals (UI)
 
 - No Inventory / Surat / Tenant management screens in MVP
-- No WhatsApp/email preference centers until channel confirmed
+- No external notification preference centers until channel is fully confirmed
 - No advanced BI charts
 - No un-authored dark mode (dark ships, but never as an inverted light palette)
 - No gamification
 - No pill-shaped primary CTAs
+- No flat surfaces in primary settings/hero areas: every primary surface gets a hairline plus glass/shadow depth
 
 ## Next step
 

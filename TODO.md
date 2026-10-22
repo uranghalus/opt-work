@@ -1,5 +1,134 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Redesign halaman Department — "Registry" (2026-10-22) — DONE
+
+- [x] **Diagnosis + arah "Registry"** — critique `.scratch/department-page/research/`
+      (light+dark+390px, ukur DOM): flatness bukan selera, tapi cacat token
+      (canvas↔card 1.06:1, 0 elevasi, ink fraction tabel 45%, void 221px,
+      detail 49% lebar). Arah: pita pengukuran gelap + tabel dua tingkat +
+      meter headcount + chip exception + detail split penuh.
+- [x] **Token layer** (`resources/css/app.css`): canvas `#EEF1F4`, accent
+      `#E6EBEF`, `border-strong` `#8894A2` (3:1 di putih), `shadow-card` /
+      `shadow-raised` dua lapis, `warning-ink` (6.4:1) + `warning-bright` untuk
+      pita gelap; mirror dark theme.
+- [x] **`RegistryBand`** (`resources/js/components/registry-band.tsx`):
+      satu pita `panel` 3 sel, numeral tabular 2rem (1.5rem mobile), ikon mint,
+      rail 2px `brand-strong`, tone amber untuk exception; dipakai index+show.
+- [x] **Index** (`resources/js/pages/departments/index.tsx`): band; tabel
+      4 kolom di `xl` (Department/HOD/Divisi/Karyawan) dengan `colgroup`
+      `20rem/15rem/auto/8rem`; grid kartu 2 kolom di `lg`, 1 kolom di bawah;
+      meter headcount (max halaman); chip "Tanpa HOD" `warning-ink`; timestamp
+      server-side; paginasi hanya bila >1 halaman; focus ring di nama, angka,
+      dan kartu.
+- [x] **Detail** (`resources/js/pages/departments/show.tsx`): full width,
+      split 5/7; kartu HOD + deputy/manager + link karyawan; Divisi di kiri,
+      Posisi di kanan; kedua relation list link ke `employees` terfilter;
+      deskripsi layout nyata (kode · N divisi · N karyawan · status HOD);
+      focus ring di semua baris.
+- [x] **Backend** (`app/Http/Controllers/MasterData/DepartmentController.php`):
+      `stats` (departments/employees/without_hod/max_employees), eager-load
+      `divisions` di index, `positions.division` di show, `per_page` 50,
+      `last_synced_label` diformat server (hindari hydration mismatch).
+- [x] **DESIGN.md**: elevation levels 0–3, Registry Band/Table, Metric type,
+      master-data layout rules, Two-Strata exception, Registry/Meter rules,
+      Do/Don't; section Timeline sesi paralel dipertahankan.
+- [x] **Verifikasi**: `tests/Feature/DepartmentPageTest.php` 10 test /
+      51 assertion; `npm run types:check`, `vendor/bin/pint`, `npm run build`
+      hijau. Capture 1440/1280/1100/390 light+dark: band 99px (74px mobile),
+      row 62px, tabel 1118px, grid fill 95%, tanpa error browser.
+- [x] **Cleanup**: tenant fixture `ui-dept` (7 users, 126 employees,
+      37 positions, 18 divisions, 9 departments) dihapus; script seed/probe
+      sementara dihapus; dev server sesi ini dihentikan; tenant asli
+      (`bm`/`dmb`/`dmp`) tidak disentuh.
+- [ ] **Sisa (opsional):** search/sort/filter di index (audit #8); baris
+      tabel 56px; ekspos Divisi di kartu tablet bila datanya panjang.
+
+## Audit UI halaman Department + slice #1–#5 (2026-10-22) — DONE
+
+- [x] **Audit UI halaman Department** (index + show), penilaian bebas tanpa
+      `DESIGN.md`/`DESIGN_BRIEF.md` sebagai standar. Output:
+      **`.scratch/department-page/research/department-page-ui-audit.md`**
+      (audit + bukti ukur + tangkapan layar). Metode: render nyata di Chrome
+      headless dengan fixture org realistis (9 department, 126 karyawan,
+      HOD sebagian terisi), ukur DOM, hitung rasio kontras WCAG.
+      **2 critical + 3 high + 7 medium/low**, antara lain: department ke-11
+      tidak terjangkau (DMB punya 11 department, `paginate(10)` tanpa UI
+      paginasi), 3 dari 6 kolom off-screen di 390px, hydration mismatch di
+      setiap load, halaman detail tanpa `<h1>`/breadcrumb/tombol kembali,
+      "Belum di-set" 3.10:1 (gagal AA), link nama tanpa focus ring.
+- [x] **Slice #1–#5** (dipilih user) — semua hijau:
+      - **A1** tanggal sinkron diformat di server (`last_synced_label`,
+        timezone app, label "Sinkron terakhir:") → hydration mismatch hilang.
+      - **C1** `per_page` 50 + footer paginasi → semua department terjangkau.
+      - **M1** `<768px` ganti ke **card list** (kode, nama, HOD, karyawan,
+        divisi); sel HOD diberi `truncate` + `max-w-[20rem]`.
+      - **A2+A3** `show.tsx` pakai `.layout` **callback** → `<h1>` + breadcrumb
+        `Data Master › Department › <nama>` + link balik ke daftar.
+      - **A5** link nama dapat ring fokus 2px + offset 2px (teal).
+      Verifikasi: `tests/Feature/DepartmentPageTest.php` 7 test (format
+      tanggal + anti-regresi "Okt" dibaca sebagai specifier format, paginasi
+      51 department → 2 halaman, detail & divisi render). **Full suite 503:
+      495 passed, 8 skipped, 0 gagal.** `pint --dirty` bersih, `tsc` 0,
+      `npm run build` hijau. Bukti: `.impeccable/review/dept-*.png`
+      (light, dark, mobile, detail, fokus) + `capture-departments.mjs` +
+      `measure-departments.mjs`.
+- [x] **Bonus — `divisions/show.tsx` crash** (ditemukan saat audit): pola
+      `layout: { title: (division) => division.nama_division }` **rusak** —
+      Inertia v3 menyalin nilai layout apa adanya, jadi `title` jadi function
+      dan React melempar *"Functions are not valid as a React child"*; `<h1>`
+      kosong di setiap load halaman detail Divisi. Diganti ke
+      `layout: (props) => ({...})`. Lihat
+      `Mistakes/inertia-layout-title-fungsi-render-crash.md` di vault.
+- [ ] **Sisa audit (belum dikerjakan):** search/sort/filter di index.
+      Item #6–#8 versi visual (chip "Tanpa HOD", headcount link, detail dua
+      kolom, divisi/posisi link, bobot kolom) diselesaikan di section
+      "Redesign halaman Department — Registry" di atas.
+
+## Timeline view (2026-10-22) — DONE
+
+- [x] **Timeline mingguan Work Order** —surface jadwal baru di
+      `/{tenant}/work-orders/timeline` (`work-orders.timeline`), grid 7 kolom
+      hari (Senin–Minggu) berisi WO yang punya `scheduled_date` di minggu itu.
+      **Tanpa tabel/kolom baru** — memakai `work_orders.scheduled_date` yang
+      sudah ada. Trigger: user minta "bisa diimplementasikan?" untuk referensi
+      visual dashboard "Jiron" (research: `.scratch/design/research/jiron-dashboard-style-reference.md`).
+- [x] **Backend:** `WorkOrderController@timeline()` — scope visibilitas sama
+      dengan `index()` (requester + department yang di-HOD/di-deputi user),
+      filter `scheduled_date` BETWEEN awal–akhir minggu, group per hari.
+      Minggu travels sebagai query param `?week=YYYY-MM-DD` (deep-linkable,
+      back button jalan); param tak bisa diparse atau >1 tahun dari minggu
+      ini → fallback ke minggu berjalan. Deadline state dihitung server-side
+      dari `deadline_date` (on_track / due_soon / overdue / escalated ≥H+3)
+      supaya label rail tidak dihitung ulang di client.
+- [x] **Frontend:** `resources/js/pages/work-orders/timeline.tsx` — heading
+      band shell (breadcrumb Work Order › Timeline, aksi "Buat Work Order"),
+      navigator minggu (‹ / › / "Minggu ini"), grid `md:2` → `xl:7` dengan
+      `overflow-x` di dalam region sendiri (bukan scroll halaman — DESIGN.md
+      "board scrolls horizontally inside its own region"), min-width 1388px
+      supaya trio status + kategori + deadline (P1) tidak terpotong.
+      Kolom "hari ini" ditandai **teks + rule** (`aria-current="date"`, badge
+      "Hari ini", garis brand) — bukan warna saja (WCAG 1.4.1/1.4.11).
+      Region scroll bisa fokus keyboard + `role="region"` berlabel (WCAG 2.1.1).
+- [x] **Nav:** item "Terjadwal" (Operasional) diarahkan ke route timeline —
+      sebelumnya salah nunjuk ke `work-orders.index` (daftar, bukan jadwal).
+      Item "Work Order" tetap ke daftar.
+- [x] **Test:** `tests/Feature/WorkOrderTimelineTest.php` 12 test — 7 kolom per
+      minggu, group per tanggal, WO di luar minggu tidak muncul, WO tanpa
+      scheduled_date tidak muncul, WO department milik user terlihat, WO
+      department lain tidak terlihat, isolasi tenant, fallback param tak valid
+      & jauh, penanda hari ini, deadline state (overdue/escalated/due_soon),
+      dan butuh auth. **Full suite 481: 473 passed, 8 skipped, 0 gagal.**
+      `pint --dirty` bersih, `tsc --noEmit` 0, `npm run build` hijau.
+- [x] **Bukti visual:** `.impeccable/review/timeline-*.png` (desktop light,
+      desktop dark, minggu kosong, mobile 390px, fokus keyboard) +
+      `.impeccable/review/capture-timeline.mjs`. Fixture sementara
+      (tenant/user/department/WO) sudah dibersihkan dari DB dev.
+- [ ] **Catatan Architect (tab Timeline di ViewSwitcher):** DESIGN.md masih
+      menyebut `Timeline · Kalender` sebagai tab ViewSwitcher di home HOD.
+      Yang dibangun hari ini = route timeline terpisah (nav "Terjadwal"),
+      bukan tab di dashboard (dashboard masih mock data). Kalau mau tab
+      ViewSwitcher sungguhan, itu pekerjaan terpisah.
+
 ## Rencana 2026-10-22 (besok) - NEXT
 
 - [x] **Q7 - semantik ban/login:** putuskan `banned_at` hanya penanda record atau benar-benar memblokir login. Jika blokir: gate di SAML/middleware, cabut sesi aktif, dan test regresi.

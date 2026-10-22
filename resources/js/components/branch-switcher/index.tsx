@@ -42,8 +42,11 @@ interface BranchSwitcherProps {
 /*  ink-subtle: #8494A7 | focus-ring: #0C6B58                        */
 /* ------------------------------------------------------------------ */
 const light = {
-    surface: 'bg-white',
-    surfaceHover: 'hover:bg-slate-50',
+    // The branch switcher is deliberately a light card on the dark panel, in
+    // both themes. The Select base carries `dark:bg-input/30`, which would
+    // otherwise turn the trigger dark and leave the slate-900 label unreadable.
+    surface: 'bg-white!',
+    surfaceHover: 'hover:bg-slate-50!',
     surfaceOpen: 'data-[state=open]:bg-slate-50',
     border: 'border-slate-200',
     borderHover: 'hover:border-slate-300',

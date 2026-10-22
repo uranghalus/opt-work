@@ -132,13 +132,20 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
     Route::resource('work-orders', WorkOrderController::class)
+        ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
     Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
         ->name('work-orders.assign');
-    Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+    Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
+        ->name('work-orders.submit');
+    Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
+        ->name('work-orders.verify');
+    Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
+        ->name('work-orders.reject');
+    Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

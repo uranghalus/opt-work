@@ -7,6 +7,7 @@ use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderEvent;
 use App\Services\WorkOrderService;
 use App\WorkOrderCategory;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderController extends Controller
 {
+
     public function __construct(private WorkOrderService $workOrderService) {}
 
     public function index(Request $request): Response
@@ -52,7 +54,10 @@ class WorkOrderController extends Controller
     public function create(): Response
     {
         return Inertia::render('work-orders/create', [
-            'departments' => Department::query()->orderBy('nama_department')->get(['id', 'nama_department']),
+            'departments' => Department::query()
+                ->where('is_active', true)
+                ->orderBy('nama_department')
+                ->get(['id', 'nama_department']),
             'categories' => WorkOrderCategory::options(),
         ]);
     }
@@ -131,6 +136,80 @@ class WorkOrderController extends Controller
             ->with('success', 'Penugasan WO '.$workOrder->nomor_wo.' tersimpan.');
     }
 
+    public function submit(Request $request): RedirectResponse
+    {
+        Gate::authorize('work-order.submit');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'result_notes' => ['required', 'string', 'max:2000'],
+            'result_attachments' => ['nullable', 'array', 'max:3'],
+            'result_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        $attachments = collect($request->file('result_attachments', []))
+            ->map(fn ($file) => Storage::disk('public')->putFile('work-orders/'.tenant()?->getTenantKey(), $file))
+            ->all();
+
+        $this->workOrderService->submit(
+            $request->user(),
+            $workOrder,
+            $validated['result_notes'],
+            $attachments,
+        );
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' diserahkan — menunggu verifikasi HOD.');
+    }
+
+    public function verify(Request $request): RedirectResponse
+    {
+        Gate::authorize('work-order.verify');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->workOrderService->approve($request->user(), $workOrder);
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' terverifikasi dan ditutup.');
+    }
+
+    public function reject(Request $request): RedirectResponse
+    {
+        Gate::authorize('work-order.verify');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'revision_notes' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $this->workOrderService->reject(
+            $request->user(),
+            $workOrder,
+            $validated['revision_notes'],
+        );
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' dikembalikan untuk revisi.');
+    }
+
     public function show(Request $request): Response
     {
         $workOrderId = $request->route('workOrder');
@@ -163,10 +242,27 @@ class WorkOrderController extends Controller
                 ->get(['id', 'nama_employee'])
             : collect();
 
+        // FR-1.9: full audit trail of the WO, newest first — every recorded
+        // WorkOrderEvent with its actor.
+        $events = $workOrderModel->events()
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (WorkOrderEvent $event): array => [
+                'id' => $event->id,
+                'action' => $event->action,
+                'from_status' => $event->from_status,
+                'to_status' => $event->to_status,
+                'meta' => $event->meta,
+                'user_name' => $event->user?->name,
+                'created_at' => $event->created_at->toIso8601String(),
+            ]);
+
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrderModel,
             'employees' => $employees,
             'assignees' => $assignees,
+            'events' => $events,
         ]);
     }
 
@@ -189,7 +285,10 @@ class WorkOrderController extends Controller
         $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
             ->firstOrFail();
-        $path = $workOrderModel->attachments[(int) $index] ?? null;
+        $path = match ($request->route('type')) {
+            'result' => $workOrderModel->result_attachments[(int) $index] ?? null,
+            default => $workOrderModel->attachments[(int) $index] ?? null,
+        };
 
         abort_if($path === null || ! Storage::disk('public')->exists($path), 404);
 

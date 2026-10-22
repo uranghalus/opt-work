@@ -127,6 +127,14 @@ class WorkOrder extends Model
     }
 
     /**
+     * @return HasMany<ExtendRequest, $this>
+     */
+    public function extendRequests(): HasMany
+    {
+        return $this->hasMany(ExtendRequest::class);
+    }
+
+    /**
      * Resolve route binding for implicit model binding.
      * The route parameter is `work_order` (snake_case from resource route).
      */

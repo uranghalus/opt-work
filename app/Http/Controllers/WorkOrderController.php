@@ -6,6 +6,7 @@ use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\ExtendRequest;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
 use App\Services\WorkOrderService;
@@ -451,11 +452,27 @@ class WorkOrderController extends Controller
                 'created_at' => $event->created_at->toIso8601String(),
             ]);
 
+        // FR-2.3: pengajuan extend deadline WO telat — panel keputusan dan
+        // status pengajuan di halaman detail, terbaru dulu.
+        $extendRequests = $workOrderModel->extendRequests()
+            ->with('requester:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (ExtendRequest $request): array => [
+                'id' => $request->id,
+                'days' => $request->days,
+                'reason' => $request->reason,
+                'status' => $request->status->value,
+                'requester_name' => $request->requester?->name,
+                'created_at' => $request->created_at->toIso8601String(),
+            ]);
+
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrderModel,
             'employees' => $employees,
             'assignees' => $assignees,
             'events' => $events,
+            'extend_requests' => $extendRequests,
         ]);
     }
 

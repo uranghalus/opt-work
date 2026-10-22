@@ -1,8 +1,21 @@
 import { Head, usePage, useForm } from '@inertiajs/react';
 import type { InertiaConfig } from '@inertiajs/core';
-import { ClipboardCheck, History, Send, ShieldCheck, UserCheck } from 'lucide-react';
+import {
+    CalendarClock,
+    ClipboardCheck,
+    History,
+    Hourglass,
+    Send,
+    ShieldCheck,
+    UserCheck,
+} from 'lucide-react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
 import { assign, reject, review, submit, verify } from '@/routes/work-orders';
+import {
+    approve as approveExtendRequest,
+    reject as rejectExtendRequest,
+    store as storeExtendRequest,
+} from '@/routes/work-orders/extend-requests';
 import { CategoryBadge } from '@/components/category-badge';
 import {
     StatusBadge,
@@ -32,6 +45,9 @@ type WorkOrder = {
     assigned_employees: string[] | null;
     assignment_notes: string | null;
     deadline_date: string | null;
+    extend_count: number;
+    extend_reason: string | null;
+    extended_at: string | null;
     attachments: string[] | null;
     result_notes: string | null;
     result_attachments: string[] | null;
@@ -53,11 +69,22 @@ type WoEvent = {
     created_at: string;
 };
 
+/** One extend-deadline request row (FR-2.3), newest first. */
+type ExtendRequestView = {
+    id: string;
+    days: number;
+    reason: string;
+    status: 'pending_team_leader' | 'pending_hod' | 'approved' | 'rejected';
+    requester_name: string | null;
+    created_at: string;
+};
+
 type PageProps = InertiaConfig['sharedPageProps'] & {
     workOrder: WorkOrder;
     employees: EmployeeOption[];
     assignees: EmployeeOption[];
     events: WoEvent[];
+    extend_requests: ExtendRequestView[];
 };
 
 /** Statuses where the HOD review decision is still open. */
@@ -72,6 +99,14 @@ const SUBMITTABLE: WoStatus[] = ['assigned', 'revision'];
 /** Statuses where the HOD may verify the submitted result (FR-1.8). */
 const VERIFYABLE: WoStatus[] = ['pending_verify'];
 
+/** Statuses where an extend deadline may still be requested (FR-2.3). */
+const EXTENDABLE: WoStatus[] = [
+    'assigned',
+    'in_progress',
+    'pending_verify',
+    'revision',
+];
+
 /** Human wording per recorded WorkOrderEvent action (FR-1.9). */
 const actionLabel: Record<string, string> = {
     created: 'Work Order dibuat',
@@ -80,6 +115,10 @@ const actionLabel: Record<string, string> = {
     submitted: 'Hasil diserahkan',
     verified: 'Hasil terverifikasi — WO ditutup',
     rejected: 'Hasil dikembalikan untuk revisi',
+    extend_requested: 'Pengajuan extend deadline',
+    extend_tl_approved: 'Team Leader menyetujui extend',
+    extend_approved: 'Extend disetujui — deadline bergeser',
+    extend_rejected: 'Pengajuan extend ditolak',
 };
 
 const formatDate = (value: string): string =>
@@ -113,11 +152,29 @@ export default function ShowWorkOrder(props: PageProps) {
     const canAssign = auth.can?.['work-order.assign'] ?? false;
     const canSubmit = auth.can?.['work-order.submit'] ?? false;
     const canVerify = auth.can?.['work-order.verify'] ?? false;
+    const canExtend = auth.can?.['work-order.extend'] ?? false;
+    const canExtendApprove =
+        auth.can?.['work-order.extend-approve'] ?? false;
     const isAccident = workOrder.category === 'accident';
     const reviewable = REVIEWABLE.includes(workOrder.status);
     const assignable = ASSIGNABLE.includes(workOrder.status);
     const submittable = SUBMITTABLE.includes(workOrder.status);
     const verifyable = VERIFYABLE.includes(workOrder.status);
+
+    // FR-2.3: telat = deadline sudah terlewat (konsisten dengan ambang
+    // eskalasi server-side; deadline hari ini ikut dihitung telat).
+    const overdue =
+        workOrder.deadline_date !== null &&
+        new Date(`${workOrder.deadline_date}T00:00:00`) < new Date();
+    const pendingExtend = props.extend_requests.find(
+        (request) =>
+            request.status === 'pending_team_leader' ||
+            request.status === 'pending_hod',
+    );
+    const extendable =
+        EXTENDABLE.includes(workOrder.status) &&
+        overdue &&
+        workOrder.extend_count < 3;
 
     return (
         <>
@@ -256,6 +313,23 @@ export default function ShowWorkOrder(props: PageProps) {
                                     </dd>
                                 </div>
                             )}
+                            {workOrder.extend_count > 0 && (
+                                <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                                    <dt className="text-sm text-muted-foreground">
+                                        Extend Deadline
+                                    </dt>
+                                    <dd className="text-sm">
+                                        {workOrder.extend_count}
+                                        {'×'}
+                                        {workOrder.extend_reason !== null && (
+                                            <span className="text-muted-foreground">
+                                                {' — '}
+                                                {workOrder.extend_reason}
+                                            </span>
+                                        )}
+                                    </dd>
+                                </div>
+                            )}
                             {workOrder.assignment_notes && (
                                 <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                                     <dt className="text-sm text-muted-foreground">
@@ -341,6 +415,18 @@ export default function ShowWorkOrder(props: PageProps) {
                     <VerifyPanel workOrderId={workOrder.id} />
                 )}
 
+                {canExtend && extendable && !pendingExtend && (
+                    <ExtendRequestPanel workOrderId={workOrder.id} />
+                )}
+
+                {pendingExtend && (canExtend || canExtendApprove) && (
+                    <ExtendStatusPanel
+                        workOrderId={workOrder.id}
+                        pendingRequest={pendingExtend}
+                        canDecide={canExtendApprove}
+                    />
+                )}
+
                 {events.length > 0 && (
                     <section className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -381,6 +467,14 @@ export default function ShowWorkOrder(props: PageProps) {
                                                 <>
                                                     {' — '}
                                                     {event.meta.notes as string}
+                                                </>
+                                            )}
+                                            {typeof event.meta?.reason ===
+                                                'string' && (
+                                                <>
+                                                    {' — '}
+                                                    {event.meta
+                                                        .reason as string}
                                                 </>
                                             )}
                                         </p>
@@ -840,6 +934,256 @@ function VerifyPanel({ workOrderId }: { workOrderId: string }) {
                     Tolak &amp; Kembalikan untuk Revisi
                 </Button>
             </form>
+        </section>
+    );
+}
+
+/**
+ * FR-2.3: pengajuan extend deadline WO telat — maks 3 hari per request,
+ * maks 3 approved per WO. Approval berjenjang Team Leader (jika ada) →
+ * HOD. The server guards (telat, batas, duplikat, rantai) are the source
+ * of truth; this form is only the mirror for the requester.
+ */
+function ExtendRequestPanel({ workOrderId }: { workOrderId: string }) {
+    const tenant = useRequiredTenant('work-orders.extend-requests.store');
+
+    const form = useForm<{
+        days: number;
+        reason: string;
+    }>({
+        days: 1,
+        reason: '',
+    });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <CalendarClock aria-hidden className="size-4 text-warning" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Ajukan Extend Deadline
+                </h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                WO sudah melewati deadline. Maksimal 3 hari per pengajuan dan
+                3 pengajuan disetujui per WO. Pengajuan diperiksa Team Leader
+                (bila ada) lalu HOD.
+            </p>
+
+            <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    form.post(
+                        storeExtendRequest({
+                            tenant,
+                            workOrder: workOrderId,
+                        }).url,
+                        {
+                            preserveScroll: true,
+                            onSuccess: () => form.reset(),
+                        },
+                    );
+                }}
+            >
+                <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">
+                        Tambahan hari kerja
+                    </legend>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {[1, 2, 3].map((value) => (
+                            <div
+                                key={value}
+                                className="flex items-center gap-2"
+                            >
+                                <input
+                                    type="radio"
+                                    id={`extend-days-${value}`}
+                                    name="days"
+                                    checked={form.data.days === value}
+                                    onChange={() =>
+                                        form.setData('days', value)
+                                    }
+                                    className="accent-primary"
+                                />
+                                <Label htmlFor={`extend-days-${value}`}>
+                                    {value} hari
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                    {form.errors.days && (
+                        <p className="text-xs text-danger">
+                            {form.errors.days}
+                        </p>
+                    )}
+                </fieldset>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="extend_reason">Alasan (wajib)</Label>
+                    <Textarea
+                        id="extend_reason"
+                        rows={3}
+                        value={form.data.reason}
+                        onChange={(event) =>
+                            form.setData('reason', event.target.value)
+                        }
+                        aria-invalid={Boolean(form.errors.reason)}
+                    />
+                    {form.errors.reason && (
+                        <p className="text-xs text-danger">
+                            {form.errors.reason}
+                        </p>
+                    )}
+                </div>
+
+                <Button type="submit" disabled={form.processing}>
+                    Ajukan Extend
+                </Button>
+            </form>
+        </section>
+    );
+}
+
+/**
+ * FR-2.3: status pengajuan extend yang masih berjalan — pengaju melihat
+ * status, approver berizin memutuskan (Setujui / Tolak dengan alasan).
+ * Posisi rantai (TL → HOD) ditegakkan server; tombol hanya cermin.
+ */
+function ExtendStatusPanel({
+    workOrderId,
+    pendingRequest,
+    canDecide,
+}: {
+    workOrderId: string;
+    pendingRequest: ExtendRequestView;
+    canDecide: boolean;
+}) {
+    const tenant = useRequiredTenant('work-orders.extend-requests.approve');
+
+    const approveForm = useForm({});
+    const rejectForm = useForm<{ reason: string }>({
+        reason: '',
+    });
+
+    const stageLabel =
+        pendingRequest.status === 'pending_team_leader'
+            ? 'Menunggu persetujuan Team Leader'
+            : 'Menunggu persetujuan HOD';
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <Hourglass aria-hidden className="size-4 text-warning" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Pengajuan Extend Deadline
+                </h3>
+            </div>
+
+            <dl className="overflow-hidden rounded-lg border">
+                <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                    <dt className="text-sm text-muted-foreground">Status</dt>
+                    <dd className="text-sm font-semibold">{stageLabel}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                    <dt className="text-sm text-muted-foreground">Diajukan</dt>
+                    <dd className="text-sm">
+                        {pendingRequest.requester_name ?? '—'}
+                        {' — '}
+                        {formatDateTime(pendingRequest.created_at)}
+                    </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                    <dt className="text-sm text-muted-foreground">
+                        Tambahan
+                    </dt>
+                    <dd className="text-sm font-semibold tabular-nums">
+                        {pendingRequest.days} hari kerja
+                    </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 px-4 py-3">
+                    <dt className="text-sm text-muted-foreground">Alasan</dt>
+                    <dd className="max-w-md text-right text-sm">
+                        {pendingRequest.reason}
+                    </dd>
+                </div>
+            </dl>
+
+            {canDecide && (
+                <>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            approveForm.post(
+                                approveExtendRequest({
+                                    tenant,
+                                    workOrder: workOrderId,
+                                    extendRequest: pendingRequest.id,
+                                }).url,
+                                { preserveScroll: true },
+                            );
+                        }}
+                    >
+                        <Button
+                            type="submit"
+                            disabled={approveForm.processing}
+                        >
+                            Setujui Extend
+                        </Button>
+                    </form>
+
+                    <Separator />
+
+                    <form
+                        className="space-y-3"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            rejectForm.post(
+                                rejectExtendRequest({
+                                    tenant,
+                                    workOrder: workOrderId,
+                                    extendRequest: pendingRequest.id,
+                                }).url,
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () => rejectForm.reset(),
+                                },
+                            );
+                        }}
+                    >
+                        <div className="space-y-1.5">
+                            <Label htmlFor="extend_reject_reason">
+                                Alasan Penolakan (wajib)
+                            </Label>
+                            <Textarea
+                                id="extend_reject_reason"
+                                rows={2}
+                                value={rejectForm.data.reason}
+                                onChange={(event) =>
+                                    rejectForm.setData(
+                                        'reason',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-invalid={Boolean(
+                                    rejectForm.errors.reason,
+                                )}
+                            />
+                            {rejectForm.errors.reason && (
+                                <p className="text-xs text-danger">
+                                    {rejectForm.errors.reason}
+                                </p>
+                            )}
+                        </div>
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={rejectForm.processing}
+                        >
+                            Tolak Pengajuan
+                        </Button>
+                    </form>
+                </>
+            )}
         </section>
     );
 }

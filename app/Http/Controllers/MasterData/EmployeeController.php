@@ -50,8 +50,23 @@ class EmployeeController extends Controller
             ->withQueryString()
             ->through(fn (Employee $employee) => EmployeeResource::make($employee)->resolve());
 
+        // Summary reflects the current filters across the whole tenant, not
+        // just the visible page — otherwise the metric would change meaning
+        // whenever the user changes "Per halaman".
+        $summaryQuery = (new EmployeeQuery)->build(
+            $request->search(),
+            $request->sort(),
+            $request->direction(),
+            $filters
+        );
+
         return Inertia::render('employees/index', [
             'employees' => $employees,
+            'summary' => [
+                'total' => $summaryQuery->count(),
+                'with_account' => (clone $summaryQuery)->whereHas('user')->count(),
+                'missing_department' => (clone $summaryQuery)->whereNull('department_id')->count(),
+            ],
             'filters' => array_merge([
                 'search' => $request->search() ?? '',
                 'per_page' => $perPage,

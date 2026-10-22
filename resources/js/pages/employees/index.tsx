@@ -17,6 +17,11 @@ import {
     Phone,
     Calendar,
     Building2,
+    Briefcase,
+    Hash,
+    Users,
+    ShieldCheck,
+    TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { index, show, sync, ban, unban } from "@/routes/employees";
@@ -56,6 +61,15 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+    AccountStatusBadge,
+    BannedBadge,
+    DepartmentValue,
+    EmployeeAvatar,
+    MissingDataChip,
+    OrganizationValue,
+    TextValue,
+} from "@/components/employees/employee-display";
 import { cn } from "@/lib/utils";
 import type { InertiaConfig } from "@inertiajs/core";
 
@@ -129,8 +143,15 @@ type FilterOptions = {
     positions: { id: string; nama_position: string }[];
 };
 
+type Summary = {
+    total: number;
+    with_account: number;
+    missing_department: number;
+};
+
 type PageProps = {
     employees: Paginator;
+    summary: Summary;
     filters: Filters;
     filter_options: FilterOptions;
     errors?: Record<string, string>;
@@ -165,15 +186,6 @@ function formatDate(value: string | null): string {
     });
 }
 
-function getInitials(name: string): string {
-    return name
-        .split(" ")
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-}
-
 function Avatar({
     src,
     name,
@@ -183,102 +195,38 @@ function Avatar({
     name: string;
     size?: number;
 }) {
-    const initials = getInitials(name);
-    const bgColors = [
-        "bg-brand-soft text-brand",
-        "bg-info-subtle text-info",
-        "bg-warning-subtle text-warning",
-        "bg-success-subtle text-success",
-        "bg-danger-subtle text-danger",
-        "bg-escalation-subtle text-escalation",
-    ];
-    const colorIndex = initials.charCodeAt(0) % bgColors.length;
-
-    if (src) {
-        return (
-            <img
-                src={src}
-                alt={name}
-                className={cn(
-                    "rounded-full object-cover",
-                    `w-${size / 4} h-${size / 4}`,
-                )}
-            />
-        );
-    }
-
     return (
-        <div
-            className={cn(
-                "flex items-center justify-center rounded-full text-xs font-medium",
-                `w-${size / 4} h-${size / 4}`,
-                bgColors[colorIndex],
-            )}
-            aria-label={name}
-        >
-            {initials}
-        </div>
+        <EmployeeAvatar
+            src={src}
+            name={name}
+            size={size >= 40 ? "size-10" : "size-8"}
+        />
     );
 }
 
-function AccountBadge({ hasAccount }: { hasAccount: boolean }) {
-    return (
-        <span
-            className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
-                hasAccount
-                    ? "border-success/30 bg-success/10 text-success"
-                    : "border-border bg-surface-raised text-ink-muted",
-            )}
-        >
-            {hasAccount ? (
-                <UserCheck aria-hidden className="size-3" />
-            ) : (
-                <UserX aria-hidden className="size-3" />
-            )}
-            {hasAccount ? "Punya akun" : "Tanpa akun"}
-        </span>
-    );
-}
-
-function BannedBadge() {
-    return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-danger">
-            <Ban aria-hidden className="size-3" />
-            Diblokir
-        </span>
-    );
-}
-
-function SkeletonRow() {
+function SkeletonRow({
+    visibleColumns,
+}: {
+    visibleColumns: ColumnKey[];
+}) {
     return (
         <TableRow>
-            <TableCell className="font-mono text-sm">
-                <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell className="font-semibold">
-                <Skeleton className="h-5 w-32" />
-            </TableCell>
-            <TableCell className="font-mono text-sm text-muted-foreground">
-                <Skeleton className="h-4 w-20" />
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-                <Skeleton className="h-4 w-28" />
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-                <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-                <Skeleton className="h-4 w-32" />
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-                <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell>
-                <Skeleton className="h-5 w-20" />
-            </TableCell>
-            <TableCell className="w-24">
-                <Skeleton className="h-8 w-20" />
+            {visibleColumns.map((column) => {
+                const width =
+                    column === "name"
+                        ? "h-5 w-32"
+                        : column === "akun"
+                          ? "h-5 w-20"
+                          : "h-4 w-24";
+
+                return (
+                    <TableCell key={column} className="text-muted-foreground">
+                        <Skeleton className={width} />
+                    </TableCell>
+                );
+            })}
+            <TableCell className="w-28">
+                <Skeleton className="h-8 w-16" />
             </TableCell>
         </TableRow>
     );
@@ -288,16 +236,196 @@ const COLUMN_DEFINITIONS: Record<
     ColumnKey,
     { label: string; icon?: React.ReactNode }
 > = {
-    nik: { label: "NIK", icon: <User className="size-3" /> },
+    nik: { label: "NIK", icon: <Hash className="size-3" /> },
     name: { label: "Nama", icon: <User className="size-3" /> },
-    department: { label: "Department", icon: <Building2 className="size-3" /> },
-    position: { label: "Position", icon: <User className="size-3" /> },
-    division: { label: "Division", icon: <Building2 className="size-3" /> },
+    department: { label: "Departemen", icon: <Building2 className="size-3" /> },
+    position: { label: "Posisi", icon: <Briefcase className="size-3" /> },
+    division: { label: "Divisi", icon: <Building2 className="size-3" /> },
     phone: { label: "Telepon", icon: <Phone className="size-3" /> },
     email: { label: "Email", icon: <Mail className="size-3" /> },
-    joined: { label: "Bergabung", icon: <Calendar className="size-3" /> },
+    joined: { label: "Data dibuat", icon: <Calendar className="size-3" /> },
     akun: { label: "Akun", icon: <UserCheck className="size-3" /> },
 };
+
+function SummaryMetric({
+    icon: Icon,
+    label,
+    value,
+    tone,
+}: {
+    icon: typeof Users;
+    label: string;
+    value: number;
+    tone: "brand" | "success" | "warning";
+}) {
+    const toneClass = {
+        brand: "border-brand/25 bg-brand-soft text-brand",
+        success: "border-success/25 bg-success-subtle text-success",
+        warning: "border-warning/25 bg-warning-subtle text-warning-ink",
+    }[tone];
+
+    return (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+            <div className="flex items-center gap-3">
+                <span
+                    className={`grid size-9 place-items-center rounded-lg border ${toneClass}`}
+                >
+                    <Icon aria-hidden className="size-4" />
+                </span>
+                <div>
+                    <p className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                        {label}
+                    </p>
+                    <p className="text-2xl leading-none font-semibold tabular-nums text-ink">
+                        {value}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function EmployeeSummary({ summary }: { summary: Summary }) {
+    return (
+        <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryMetric
+                icon={Users}
+                label="Total karyawan"
+                value={summary.total}
+                tone="brand"
+            />
+            <SummaryMetric
+                icon={UserCheck}
+                label="Dengan akun"
+                value={summary.with_account}
+                tone="success"
+            />
+            <SummaryMetric
+                icon={TriangleAlert}
+                label="Tanpa departemen"
+                value={summary.missing_department}
+                tone="warning"
+            />
+        </div>
+    );
+}
+
+function EmployeeCard({
+    employee,
+    tenant,
+    onBanToggle,
+    canBan,
+}: {
+    employee: Employee;
+    tenant: string;
+    onBanToggle: (employee: Employee) => void;
+    canBan: boolean;
+}) {
+    return (
+        <article className="rounded-xl border border-border bg-card p-4 shadow-card">
+            <div className="flex items-start gap-3">
+                <Avatar
+                    src={employee.photo_url}
+                    name={employee.nama_employee}
+                    size={40}
+                />
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <Link
+                            href={show({ tenant, employee: employee.id })}
+                            className="truncate font-semibold text-ink hover:text-brand hover:underline"
+                        >
+                            {employee.nama_employee}
+                        </Link>
+                        {employee.is_banned && <BannedBadge />}
+                    </div>
+
+                    <p className="mt-0.5 font-mono text-xs text-ink-muted">
+                        {employee.nik_employee ?? "NIK belum ada"}
+                    </p>
+
+                    <OrganizationValue
+                        department={employee.department}
+                        position={employee.position}
+                        division={employee.division}
+                        className="mt-1"
+                    />
+                </div>
+            </div>
+
+            <dl className="mt-4 space-y-3">
+                <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                        Departemen
+                    </dt>
+                    <dd className="mt-1">
+                        <DepartmentValue department={employee.department} />
+                    </dd>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                            Email
+                        </dt>
+                        <dd className="mt-1 text-sm text-ink-muted">
+                            {employee.email ?? "Belum ada data"}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                            Telepon
+                        </dt>
+                        <dd className="mt-1 text-sm text-ink-muted">
+                            {employee.number ?? "Belum ada data"}
+                        </dd>
+                    </div>
+                </div>
+            </dl>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                <AccountStatusBadge hasAccount={employee.has_account} />
+
+                <div className="ml-auto flex items-center gap-2">
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="h-10"
+                        aria-label={`Lihat ${employee.nama_employee}`}
+                    >
+                        <Link href={show({ tenant, employee: employee.id })}>
+                            <Eye aria-hidden className="size-4" />
+                            Lihat
+                        </Link>
+                    </Button>
+
+                    {canBan && (
+                        <Button
+                            variant={
+                                employee.is_banned ? "outline" : "ghost"
+                            }
+                            onClick={() => onBanToggle(employee)}
+                            className="h-10"
+                        >
+                            {employee.is_banned ? (
+                                <>
+                                    <Undo2 aria-hidden className="size-4" />
+                                    Batal blokir
+                                </>
+                            ) : (
+                                <>
+                                    <Ban aria-hidden className="size-4" />
+                                    Blokir
+                                </>
+                            )}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </article>
+    );
+}
 
 /**
  * Post to the sync endpoint, which re-runs the Optigate employee import for
@@ -370,7 +498,7 @@ function ColumnVisibilityDropdown({
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="h-10 gap-1.5">
                     <Columns className="size-4" />
                     Kolom
                 </Button>
@@ -443,28 +571,40 @@ function EmployeeRow({
                 </TableCell>
             )}
             {visibleColumns.includes("department") && (
-                <TableCell className="font-mono text-sm text-muted-foreground">
-                    {employee.department?.kode_department ?? "—"}
+                <TableCell>
+                    <DepartmentValue department={employee.department} />
                 </TableCell>
             )}
             {visibleColumns.includes("position") && (
-                <TableCell className="text-muted-foreground">
-                    {employee.position?.nama_position ?? "—"}
+                <TableCell>
+                    <TextValue
+                        value={employee.position?.nama_position}
+                        fallbackLabel="Posisi belum ada"
+                    />
                 </TableCell>
             )}
             {visibleColumns.includes("division") && (
-                <TableCell className="text-muted-foreground">
-                    {employee.division?.nama_division ?? "—"}
+                <TableCell>
+                    <TextValue
+                        value={employee.division?.nama_division}
+                        fallbackLabel="Divisi belum ada"
+                    />
                 </TableCell>
             )}
             {visibleColumns.includes("phone") && (
-                <TableCell className="text-muted-foreground">
-                    {employee.number ?? "—"}
+                <TableCell>
+                    <TextValue
+                        value={employee.number}
+                        fallbackLabel="Telepon belum ada"
+                    />
                 </TableCell>
             )}
             {visibleColumns.includes("email") && (
-                <TableCell className="text-muted-foreground">
-                    {employee.email ?? "—"}
+                <TableCell>
+                    <TextValue
+                        value={employee.email}
+                        fallbackLabel="Email belum ada"
+                    />
                 </TableCell>
             )}
             {visibleColumns.includes("joined") && (
@@ -474,7 +614,9 @@ function EmployeeRow({
             )}
             {visibleColumns.includes("akun") && (
                 <TableCell>
-                    <AccountBadge hasAccount={employee.has_account} />
+                    <AccountStatusBadge
+                        hasAccount={employee.has_account}
+                    />
                 </TableCell>
             )}
             <TableCell className="w-28">
@@ -483,6 +625,7 @@ function EmployeeRow({
                         variant="ghost"
                         size="icon"
                         asChild
+                        className="h-10 w-10"
                         aria-label={`Lihat ${employee.nama_employee}`}
                     >
                         <Link href={show({ tenant, employee: employee.id })}>
@@ -493,16 +636,17 @@ function EmployeeRow({
                         <Button
                             variant="ghost"
                             size="icon"
+                            className={cn(
+                                "h-10 w-10",
+                                employee.is_banned
+                                    ? "text-success hover:bg-success/10"
+                                    : "text-destructive hover:bg-destructive/10",
+                            )}
                             onClick={() => onBanToggle(employee)}
                             aria-label={
                                 employee.is_banned
                                     ? `Batalkan blokir ${employee.nama_employee}`
                                     : `Blokir ${employee.nama_employee}`
-                            }
-                            className={
-                                employee.is_banned
-                                    ? "text-success hover:bg-success/10"
-                                    : "text-destructive hover:bg-destructive/10"
                             }
                         >
                             {employee.is_banned ? (
@@ -570,6 +714,7 @@ BanConfirmDialog.displayName = "BanConfirmDialog";
 
 export default function Employees({
     employees,
+    summary,
     filters,
     filter_options,
     errors,
@@ -646,6 +791,23 @@ export default function Employees({
         );
     }, [appliedFilters, tenant]);
 
+    const clearSearch = () => {
+        setSearchTerm("");
+        setAppliedFilters(current =>
+            current.search === ""
+                ? current
+                : { ...current, search: "", page: 1 },
+        );
+    };
+
+    const activeFilterCount = [
+        appliedFilters.department_id !== null,
+        appliedFilters.division_id !== null,
+        appliedFilters.position_id !== null,
+        appliedFilters.has_account !== null,
+        appliedFilters.status !== "all",
+    ].filter(Boolean).length;
+
     const clearFilters = () => {
         setSearchTerm("");
         setAppliedFilters({
@@ -705,6 +867,13 @@ export default function Employees({
         }));
     };
 
+    const ariaSortFor = (column: string) => {
+        if (appliedFilters.sort !== column) return "none";
+        return appliedFilters.direction === "asc"
+            ? "ascending"
+            : "descending";
+    };
+
     const sortIcon = (column: string) => {
         if (appliedFilters.sort !== column)
             return <ChevronUpIcon className="size-4 text-ink-subtle" />;
@@ -747,6 +916,8 @@ export default function Employees({
                     </Alert>
                 )}
 
+                <EmployeeSummary summary={summary} />
+
                 {/* Sticky Action Bar */}
                 <div className="sticky top-16 z-40 flex flex-col gap-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between lg:px-6">
                     <div className="relative w-full max-w-xs sm:max-w-md">
@@ -765,15 +936,15 @@ export default function Employees({
                             onChange={(event) =>
                                 setSearchTerm(event.target.value)
                             }
-                            className="h-10 pl-9"
+                            className="h-11 pl-9"
                         />
                         {searchTerm && (
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="absolute top-1/2 right-2 -translate-y-1/2 text-ink-subtle hover:text-ink"
-                                onClick={clearFilters}
+                                className="absolute top-1/2 right-2 h-11 w-11 -translate-y-1/2 text-ink-muted hover:text-ink"
+                                onClick={clearSearch}
                                 aria-label="Bersihkan pencarian"
                             >
                                 <SearchX className="size-4" />
@@ -797,7 +968,11 @@ export default function Employees({
                                 }))
                             }
                         >
-                            <SelectTrigger size="sm" className="w-[110px]">
+                            <SelectTrigger
+                                size="sm"
+                                aria-label="Jumlah per halaman"
+                                className="h-10 w-[110px]"
+                            >
                                 <SelectValue placeholder="Per halaman" />
                             </SelectTrigger>
                             <SelectContent>
@@ -826,7 +1001,11 @@ export default function Employees({
                             )
                         }
                     >
-                        <SelectTrigger size="sm" className="w-[170px]">
+                        <SelectTrigger
+                            size="sm"
+                            aria-label="Filter departemen"
+                            className="h-10 w-[170px]"
+                        >
                             <SelectValue placeholder="Departemen" />
                         </SelectTrigger>
                         <SelectContent>
@@ -850,7 +1029,11 @@ export default function Employees({
                             )
                         }
                     >
-                        <SelectTrigger size="sm" className="w-[170px]">
+                        <SelectTrigger
+                            size="sm"
+                            aria-label="Filter divisi"
+                            className="h-10 w-[170px]"
+                        >
                             <SelectValue placeholder="Divisi" />
                         </SelectTrigger>
                         <SelectContent>
@@ -872,7 +1055,11 @@ export default function Employees({
                             )
                         }
                     >
-                        <SelectTrigger size="sm" className="w-[150px]">
+                        <SelectTrigger
+                            size="sm"
+                            aria-label="Filter posisi"
+                            className="h-10 w-[150px]"
+                        >
                             <SelectValue placeholder="Posisi" />
                         </SelectTrigger>
                         <SelectContent>
@@ -900,7 +1087,11 @@ export default function Employees({
                             )
                         }
                     >
-                        <SelectTrigger size="sm" className="w-[160px]">
+                        <SelectTrigger
+                            size="sm"
+                            aria-label="Filter status akun"
+                            className="h-10 w-[160px]"
+                        >
                             <SelectValue placeholder="Akun" />
                         </SelectTrigger>
                         <SelectContent>
@@ -914,7 +1105,11 @@ export default function Employees({
                         value={appliedFilters.status}
                         onValueChange={(value) => setFilter("status", value)}
                     >
-                        <SelectTrigger size="sm" className="w-[140px]">
+                        <SelectTrigger
+                            size="sm"
+                            aria-label="Filter status karyawan"
+                            className="h-10 w-[140px]"
+                        >
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -924,30 +1119,86 @@ export default function Employees({
                         </SelectContent>
                     </Select>
 
-                    {hasActiveFilters && (
+                    {activeFilterCount > 0 && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={clearFilters}
-                            className="text-ink-subtle"
+                            className="text-ink-muted hover:text-ink"
                         >
                             <SearchX className="size-3" />
-                            Bersihkan filter
+                            Reset filter ({activeFilterCount})
                         </Button>
                     )}
                 </div>
 
-                {/* Table */}
+                {/* Mobile card list — a wide table is unusable below lg. */}
+                <div className="space-y-3 px-4 lg:hidden lg:px-6">
+                    {navigating && employeesData.length > 0 ? (
+                        [...Array(3)].map((_, index) => (
+                            <Skeleton
+                                key={index}
+                                className="h-44 rounded-xl"
+                            />
+                        ))
+                    ) : employeesData.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+                            <p className="text-sm font-semibold text-ink">
+                                {hasActiveFilters
+                                    ? "Tidak ada karyawan yang cocok."
+                                    : "Belum ada karyawan."}
+                            </p>
+                            <p className="mt-1 text-sm text-ink-muted">
+                                {hasActiveFilters
+                                    ? "Coba kata kunci lain atau reset filter."
+                                    : "Sinkronkan data dari Optigate untuk menampilkan daftar karyawan."}
+                            </p>
+                            <div className="mt-4 flex justify-center">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={
+                                        hasActiveFilters
+                                            ? clearFilters
+                                            : runSync
+                                    }
+                                    className="h-10"
+                                >
+                                    {hasActiveFilters
+                                        ? "Reset filter"
+                                        : syncing
+                                          ? "Menyinkronkan…"
+                                          : "Sinkronkan"}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        employeesData.map((employee) => (
+                            <EmployeeCard
+                                key={employee.id}
+                                employee={employee}
+                                tenant={tenant}
+                                onBanToggle={handleBanToggle}
+                                canBan={canBan}
+                            />
+                        ))
+                    )}
+                </div>
+
+                {/* Desktop table */}
                 <div
-                    className="overflow-hidden rounded-lg border bg-card transition-opacity duration-150 aria-busy:pointer-events-none aria-busy:opacity-60"
+                    className="hidden overflow-hidden rounded-lg border bg-card shadow-card transition-opacity duration-150 lg:block aria-busy:pointer-events-none aria-busy:opacity-60"
                     aria-busy={navigating}
                 >
                     <Table>
                         <TableHeader className="bg-surface-sunken">
                             <TableRow className="hover:bg-transparent">
                                 {visibleColumns.includes("nik") && (
-                                    <TableHead className="w-32">
+                                    <TableHead
+                                        className="w-32"
+                                        aria-sort={ariaSortFor("nik_employee")}
+                                    >
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -957,7 +1208,7 @@ export default function Employees({
                                             }
                                         >
                                             <div className="flex items-center gap-1.5">
-                                                <User className="size-3" />
+                                                <Hash className="size-3" />
                                                 NIK
                                                 {sortIcon("nik_employee")}
                                             </div>
@@ -965,7 +1216,10 @@ export default function Employees({
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("name") && (
-                                    <TableHead className="min-w-[200px]">
+                                    <TableHead
+                                        className="min-w-[200px]"
+                                        aria-sort={ariaSortFor("nama_employee")}
+                                    >
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -983,65 +1237,58 @@ export default function Employees({
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("department") && (
-                                    <TableHead className="w-40">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
-                                        >
-                                            <div className="flex items-center gap-1.5">
-                                                <Building2 className="size-3" />
-                                                Department
-                                            </div>
-                                        </Button>
+                                    <TableHead className="w-44">
+                                        <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
+                                            <Building2 className="size-3" />
+                                            Departemen
+                                        </span>
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("position") && (
-                                    <TableHead className="min-w-[160px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
-                                        >
-                                            Position
-                                        </Button>
+                                    <TableHead
+                                        className="min-w-[160px]"
+                                        aria-sort="none"
+                                    >
+                                        <span className="text-xs font-semibold text-ink-muted">
+                                            Posisi
+                                        </span>
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("division") && (
-                                    <TableHead className="min-w-[160px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
-                                        >
-                                            Division
-                                        </Button>
+                                    <TableHead
+                                        className="min-w-[160px]"
+                                        aria-sort="none"
+                                    >
+                                        <span className="text-xs font-semibold text-ink-muted">
+                                            Divisi
+                                        </span>
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("phone") && (
-                                    <TableHead className="min-w-[140px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
-                                        >
+                                    <TableHead
+                                        className="min-w-[140px]"
+                                        aria-sort="none"
+                                    >
+                                        <span className="text-xs font-semibold text-ink-muted">
                                             Telepon
-                                        </Button>
+                                        </span>
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("email") && (
-                                    <TableHead className="min-w-[200px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto w-full justify-start p-0 text-xs font-semibold"
-                                        >
+                                    <TableHead
+                                        className="min-w-[200px]"
+                                        aria-sort="none"
+                                    >
+                                        <span className="text-xs font-semibold text-ink-muted">
                                             Email
-                                        </Button>
+                                        </span>
                                     </TableHead>
                                 )}
                                 {visibleColumns.includes("joined") && (
-                                    <TableHead className="w-40">
+                                    <TableHead
+                                        className="w-40"
+                                        aria-sort={ariaSortFor("created_at")}
+                                    >
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -1052,7 +1299,7 @@ export default function Employees({
                                         >
                                             <div className="flex items-center gap-1.5">
                                                 <Calendar className="size-3" />
-                                                Bergabung
+                                                Data dibuat
                                                 {sortIcon("created_at")}
                                             </div>
                                         </Button>
@@ -1073,7 +1320,10 @@ export default function Employees({
                         <TableBody>
                             {navigating && employeesData.length > 0 ? (
                                 [...Array(5)].map((_, i) => (
-                                    <SkeletonRow key={i} />
+                                    <SkeletonRow
+                                        key={i}
+                                        visibleColumns={visibleColumns}
+                                    />
                                 ))
                             ) : employeesData.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">

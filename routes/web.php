@@ -131,6 +131,11 @@ Route::prefix('saml')->group(function () {
 Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
+    // Registered before the resource: the {workOrder} wildcard would otherwise
+    // swallow the literal "timeline" segment.
+    Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
+        ->name('work-orders.timeline');
+
     Route::resource('work-orders', WorkOrderController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')

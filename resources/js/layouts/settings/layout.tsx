@@ -26,10 +26,6 @@ const sidebarNavItems: NavItem[] = [
     },
     // Unit Bisnis lives at its own /tenants root (platform-level, super admin
     // only), kept here so super admins still find it from the settings nav.
-    {
-        title: 'Unit Bisnis',
-        href: indexTenants(),
-    },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
@@ -42,12 +38,12 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
     const navItems: NavItem[] = canSeeWhatsApp
         ? [
-              ...sidebarNavItems,
-              {
-                  title: 'WhatsApp',
-                  href: indexWhatsapp(),
-              },
-          ]
+            ...sidebarNavItems,
+            {
+                title: 'WhatsApp',
+                href: indexWhatsapp(),
+            },
+        ]
         : sidebarNavItems;
 
     return (
@@ -87,7 +83,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 </aside>
 
                 <div className="min-w-0 flex-1">
-                    <section className="max-w-xl space-y-10">
+                    <section className="w-full space-y-10">
                         {children}
                     </section>
                 </div>

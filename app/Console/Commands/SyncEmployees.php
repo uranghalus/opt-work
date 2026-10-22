@@ -101,6 +101,22 @@ class SyncEmployees extends Command
                     'optigate_user_id' => $employee['id'],
                 ]);
 
+                // Position: portal position UUID -> local position UUID.
+                $localPosition = filled($employee['position_id'] ?? null)
+                    ? $positionsByPortalId->get((string) $employee['position_id'])
+                    : null;
+
+                $positionId = $localPosition?->getKey();
+
+                // Department: the current /api/users payload does not carry
+                // department_id, only position_id. The department link must
+                // therefore follow the already-synced local position's
+                // department. Portal department_id is still honoured when the
+                // payload provides it (older/expanded payloads).
+                $departmentId = filled($employee['department_id'] ?? null)
+                    ? $departmentsByPortalId->get((string) $employee['department_id'])?->getKey()
+                    : $localPosition?->department_id;
+
                 $record->forceFill([
                     'tenant_id' => $tenant->id,
                     'optigate_user_id' => $employee['id'],
@@ -110,20 +126,10 @@ class SyncEmployees extends Command
                     'number' => $employee['whatsapp_number'] ?? null,
                     'photo_url' => $employee['photo_url'] ?? null,
                     'last_login_ip' => $employee['last_login_ip'] ?? null,
-                    // Portal mengirim department_id (ID department portal);
-                    // petakan ke department lokal lewat optigate_department_id
-                    // agar relasi karyawan -> department terisi.
-                    'department_id' => filled($employee['department_id'] ?? null)
-                        ? $departmentsByPortalId->get((string) $employee['department_id'])?->getKey()
-                        : null,
-                    // Position: portal position UUID -> local position UUID.
-                    'position_id' => filled($employee['position_id'] ?? null)
-                        ? $positionsByPortalId->get((string) $employee['position_id'])?->getKey()
-                        : null,
+                    'department_id' => $departmentId,
+                    'position_id' => $positionId,
                     // Division: resolved from position's division if available.
-                    'division_id' => filled($employee['position_id'] ?? null)
-                        ? $positionsByPortalId->get((string) $employee['position_id'])?->division_id
-                        : null,
+                    'division_id' => $localPosition?->division_id,
                 ])->save();
                 $count++;
             }

@@ -8,6 +8,7 @@ use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderCreated;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -146,10 +147,11 @@ it('falls back to the department manager when no hod is set', function () {
 });
 
 it('falls back to hod-role users assigned to the department when no direct hod or manager is set', function () {
+    (new RoleAndPermissionSeeder)->run();
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-EL', 'nama_department' => 'Electrical']);
     $hodUser = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    makeHod($hodUser);
+    $hodUser->assignRole('hod');
     $employee = Employee::create(['nik_employee' => 'NIK-HOD-1', 'nama_employee' => 'HOD Dept']);
     $employee->update(['department_id' => $department->getKey()]);
     $hodUser->update(['employee_id' => $employee->getKey()]);

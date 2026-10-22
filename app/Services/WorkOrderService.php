@@ -166,6 +166,8 @@ class WorkOrderService
 
             $firstAssignment = $workOrder->assigned_at === null;
 
+            $previousIds = collect($workOrder->assigned_employees ?? []);
+
             $workOrder->update([
                 'assigned_employees' => $employees->modelKeys(),
                 'assignment_notes' => $data['assignment_notes'] ?? null,
@@ -177,6 +179,7 @@ class WorkOrderService
             ]);
 
             $employeeIds = $employees->modelKeys();
+            $removedIds = $previousIds->diff($employeeIds)->values()->all();
             $recipients = $employees
                 ->map(fn (Employee $employee) => $employee->user)
                 ->filter();
@@ -193,6 +196,7 @@ class WorkOrderService
                 WorkOrderStatus::Assigned->value,
                 [
                     'employee_ids' => $employeeIds,
+                    'removed_employee_ids' => $removedIds,
                     'notified_user_ids' => $recipients->pluck('id')->all(),
                     'unlinked_employee_ids' => $unlinkedIds,
                     'assignment_notes' => $data['assignment_notes'] ?? null,

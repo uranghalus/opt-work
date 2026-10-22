@@ -50,6 +50,14 @@ class ExtendRequestService
     public function request(User $requester, WorkOrder $workOrder, int $days, string $reason): ExtendRequest
     {
         return DB::transaction(function () use ($requester, $workOrder, $days, $reason): ExtendRequest {
+            // Kunci baris WO (aggregate root) sebagai statement pertama —
+            // serialisasi concurrent request per WO: cek pending-duplikat,
+            // ceiling extend_count, dan insert tidak bisa interleave.
+            $workOrder = WorkOrder::query()
+                ->whereKey($workOrder->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $from = $workOrder->status;
 
             if (! in_array($from, self::extendableStatuses(), true)) {
@@ -85,9 +93,17 @@ class ExtendRequestService
                 abort(409, 'Masih ada pengajuan extend yang menunggu persetujuan untuk WO ini.');
             }
 
-            $stage = $this->departmentTeamLeaders($workOrder)->isNotEmpty()
+            // TL yang mengaju sendiri tidak dihitung — rantai tidak boleh
+            // buntu di tahap yang hanya bisa diputuskan pengajunya sendiri.
+            $stage = $this->departmentTeamLeaders($workOrder)
+                ->contains(fn (User $leader) => $leader->getKey() !== $requester->getKey())
                 ? ExtendRequestStatus::PendingTeamLeader
                 : ExtendRequestStatus::PendingHod;
+
+            if (! $this->stageApprovers($workOrder, $stage)
+                ->contains(fn (User $approver) => $approver->getKey() !== $requester->getKey())) {
+                abort(409, 'Tidak ada approver yang tersedia untuk pengajuan extend ini.');
+            }
 
             $extendRequest = ExtendRequest::create([
                 'work_order_id' => $workOrder->getKey(),
@@ -127,16 +143,36 @@ class ExtendRequestService
     public function approve(User $actor, ExtendRequest $extendRequest): ExtendRequest
     {
         return DB::transaction(function () use ($actor, $extendRequest): ExtendRequest {
-            $extendRequest->loadMissing('workOrder');
-            $workOrder = $extendRequest->workOrder;
+            // Kunci WO dulu (urutan kunci konsisten dengan request()), lalu
+            // baca ulang baris pengajuan di bawah lock — dua approve/reject
+            // konkuren tidak bisa sama-sama lolos cek pending.
+            $workOrder = WorkOrder::query()
+                ->whereKey($extendRequest->work_order_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $this->assertDecider($actor, $extendRequest);
+            $extendRequest = ExtendRequest::query()
+                ->whereKey($extendRequest->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if (! $extendRequest->status->isPending()) {
                 abort(409, 'Pengajuan extend sudah diputuskan.');
             }
 
-            if ($extendRequest->status === ExtendRequestStatus::PendingTeamLeader) {
+            // TL mengundurkan diri setelah pengajuan dibuat → tahap TL
+            // diambil alih rantai HOD (semangat: "jika tidak ada TL,
+            // langsung HOD").
+            $stage = $extendRequest->status;
+
+            if ($stage === ExtendRequestStatus::PendingTeamLeader
+                && $this->departmentTeamLeaders($workOrder)->isEmpty()) {
+                $stage = ExtendRequestStatus::PendingHod;
+            }
+
+            $this->assertDecider($actor, $extendRequest, $stage);
+
+            if ($stage === ExtendRequestStatus::PendingTeamLeader) {
                 $extendRequest->update([
                     'team_leader_user_id' => $actor->getKey(),
                     'team_leader_approved_at' => now(),
@@ -162,6 +198,12 @@ class ExtendRequestService
                 return $extendRequest;
             }
 
+            // Keputusan final hanya relevan selama WO masih dieksekusi —
+            // WO yang sudah closed tidak boleh deadline-nya bergeser.
+            if (! in_array($workOrder->status, self::extendableStatuses(), true)) {
+                abort(409, 'WO sudah meninggalkan tahap eksekusi — pengajuan extend tidak dapat disetujui.');
+            }
+
             $newDeadline = app(DeadlineCalculator::class)
                 ->addBusinessDays($workOrder->deadline_date, $extendRequest->days);
 
@@ -170,6 +212,12 @@ class ExtendRequestService
                 'extend_count' => $workOrder->extend_count + 1,
                 'extend_reason' => $extendRequest->reason,
                 'extended_at' => now(),
+                // Deadline baru = siklus eskalasi baru; marker lama di-reset
+                // agar H+3/H+5/H+6 menghitung ulang dari jadwal baru.
+                'escalation_h3_sent_at' => null,
+                'escalation_h5_sent_at' => null,
+                'escalation_h6_sent_at' => null,
+                'is_escalated' => false,
             ]);
 
             $extendRequest->update([
@@ -206,10 +254,26 @@ class ExtendRequestService
     public function reject(User $actor, ExtendRequest $extendRequest, string $reason): ExtendRequest
     {
         return DB::transaction(function () use ($actor, $extendRequest, $reason): ExtendRequest {
-            $extendRequest->loadMissing('workOrder');
-            $workOrder = $extendRequest->workOrder;
+            // Urutan kunci konsisten (WO → pengajuan) — lihat approve().
+            $workOrder = WorkOrder::query()
+                ->whereKey($extendRequest->work_order_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $this->assertDecider($actor, $extendRequest);
+            $extendRequest = ExtendRequest::query()
+                ->whereKey($extendRequest->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // TL keluar setelah filing → rantai HOD mengambil alih keputusan.
+            $stage = $extendRequest->status;
+
+            if ($stage === ExtendRequestStatus::PendingTeamLeader
+                && $this->departmentTeamLeaders($workOrder)->isEmpty()) {
+                $stage = ExtendRequestStatus::PendingHod;
+            }
+
+            $this->assertDecider($actor, $extendRequest, $stage);
 
             if (! $extendRequest->status->isPending()) {
                 abort(409, 'Pengajuan extend sudah diputuskan.');
@@ -258,15 +322,18 @@ class ExtendRequestService
 
     /**
      * Pengaju tidak boleh memutuskan pengajuannya sendiri, dan aktor harus
-     * berada pada rantai tahap berjalan.
+     * berada pada rantai tahap berjalan (stage efektif — TL yang keluar
+     * digantikan rantai HOD).
      */
-    private function assertDecider(User $actor, ExtendRequest $extendRequest): void
+    private function assertDecider(User $actor, ExtendRequest $extendRequest, ?ExtendRequestStatus $stage = null): void
     {
         if ($actor->getKey() === $extendRequest->requested_by_user_id) {
             abort(403, 'Pengaju tidak dapat menyetujui atau menolak pengajuannya sendiri.');
         }
 
-        $eligible = $this->stageApprovers($extendRequest->workOrder, $extendRequest->status);
+        $effectiveStage = $stage ?? $extendRequest->status;
+
+        $eligible = $this->stageApprovers($extendRequest->workOrder, $effectiveStage);
 
         if ($eligible->first(fn (User $user) => $user->getKey() === $actor->getKey()) === null) {
             abort(403, 'Anda tidak berada pada tahap approval pengajuan extend ini.');

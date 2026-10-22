@@ -382,3 +382,152 @@ it('skips weekends and holidays when extending the deadline', function () {
     // Dari Jumat 23: Sabtu+Minggu dilompati, Senin 26 libur → +1 = Selasa 27, +2 = Rabu 28.
     expect($workOrder->deadline_date->toDateString())->toBe('2026-10-28');
 });
+
+it('refuses a request when the 3-approved ceiling is reached', function () {
+    $workOrder = makeOverdueWorkOrder(['extend_count' => 3]);
+    $actor = extendRequester();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 1,
+        'reason' => 'Batas tercapai.',
+    ])->assertConflict();
+
+    $this->assertDatabaseCount('extend_requests', 0);
+});
+
+it('refuses a request for a WO that is not yet late', function () {
+    $workOrder = makeOverdueWorkOrder(['deadline_date' => now()->addDays(3)]);
+    $actor = extendRequester();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 1,
+        'reason' => 'Belum telat.',
+    ])->assertConflict();
+
+    $this->assertDatabaseCount('extend_requests', 0);
+});
+
+it('refuses a request outside the execution stage', function () {
+    $workOrder = makeOverdueWorkOrder(['status' => WorkOrderStatus::WaitingHod]);
+    $actor = extendRequester();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 1,
+        'reason' => 'Status salah.',
+    ])->assertConflict();
+});
+
+it('hides the extend routes from another cabang', function () {
+    $workOrder = makeOverdueWorkOrder();
+    Tenant::forgetCurrent();
+    initTenant('plant-1');
+    $foreign = makeOverdueWorkOrder();
+    Tenant::forgetCurrent();
+    initTenant('hq');
+    $actor = extendRequester();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $foreign->getKey(),
+    ]), ['days' => 1, 'reason' => 'Lintas cabang.'])->assertNotFound();
+
+    // Approver berizin lintas cabang tetap 404 — scope tenant mengunci WO.
+    $approver = extendApprover();
+    $this->actingAs($approver)->post(route('work-orders.extend-requests.approve', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+        'extendRequest' => $foreign->getKey(),
+    ]))->assertNotFound();
+
+    $this->assertDatabaseCount('extend_requests', 0);
+});
+
+it('lets the HOD chain decide when the team leader left after filing', function () {
+    Notification::fake();
+    $workOrder = makeOverdueWorkOrder();
+    $teamLeader = makeDepartmentTeamLeader($workOrder->targetDepartment);
+    $extendRequest = makePendingExtendRequest($workOrder, status: 'pending_team_leader', days: 2);
+
+    // TL keluar dari department setelah pengajuan dibuat.
+    $teamLeader->removeRole('team_leader');
+
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->givePermissionTo('work-order.extend-approve');
+
+    $this->actingAs($hod)->post(route('work-orders.extend-requests.approve', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+        'extendRequest' => $extendRequest->getKey(),
+    ]))->assertRedirect();
+
+    expect($extendRequest->refresh()->status)->toBe(ExtendRequestStatus::Approved)
+        ->and($workOrder->refresh()->extend_count)->toBe(1);
+});
+
+it('refuses a request when no eligible approver remains', function () {
+    // Pengaju = satu-satunya user di rantai HOD (hod_user_id department),
+    // tanpa TL — tidak ada yang bisa memutuskan.
+    $workOrder = makeOverdueWorkOrder();
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->givePermissionTo('work-order.extend');
+
+    $this->actingAs($hod)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 2,
+        'reason' => 'Tidak ada approver lain.',
+    ])->assertConflict();
+
+    $this->assertDatabaseCount('extend_requests', 0);
+});
+
+it('refuses to approve after the WO left the execution stage', function () {
+    $workOrder = makeOverdueWorkOrder();
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->givePermissionTo('work-order.extend-approve');
+    $extendRequest = makePendingExtendRequest($workOrder, status: 'pending_hod', days: 2);
+
+    $workOrder->update(['status' => WorkOrderStatus::Closed]);
+
+    $this->actingAs($hod)->post(route('work-orders.extend-requests.approve', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+        'extendRequest' => $extendRequest->getKey(),
+    ]))->assertConflict();
+
+    expect($workOrder->refresh()->extend_count)->toBe(0)
+        ->and($extendRequest->refresh()->status)->toBe(ExtendRequestStatus::PendingHod);
+});
+
+it('resets the escalation markers when the extend is approved', function () {
+    $workOrder = makeOverdueWorkOrder([
+        'escalation_h3_sent_at' => now()->subDays(4),
+        'escalation_h5_sent_at' => now()->subDays(2),
+        'is_escalated' => true,
+    ]);
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->givePermissionTo('work-order.extend-approve');
+    $extendRequest = makePendingExtendRequest($workOrder, status: 'pending_hod', days: 2);
+
+    $this->actingAs($hod)->post(route('work-orders.extend-requests.approve', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+        'extendRequest' => $extendRequest->getKey(),
+    ]))->assertRedirect();
+
+    $workOrder->refresh();
+    // Deadline baru = siklus eskalasi baru (ruling: siklus dihitung dari jadwal baru).
+    expect($workOrder->escalation_h3_sent_at)->toBeNull()
+        ->and($workOrder->escalation_h5_sent_at)->toBeNull()
+        ->and($workOrder->is_escalated)->toBeFalse();
+});

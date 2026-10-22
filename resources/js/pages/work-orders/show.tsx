@@ -163,9 +163,15 @@ export default function ShowWorkOrder(props: PageProps) {
 
     // FR-2.3: telat = deadline sudah terlewat (konsisten dengan ambang
     // eskalasi server-side; deadline hari ini ikut dihitung telat).
+    // `deadline_date` ter-serialisasi ISO-8601 ("2026-10-20T00:00:00.000000Z")
+    // — ambil bagian tanggalnya saja sebelum di-parse sebagai tengah malam
+    // lokal, kalau tidak concat-nya menghasilkan Invalid Date dan panel
+    // extend tidak pernah muncul.
     const overdue =
         workOrder.deadline_date !== null &&
-        new Date(`${workOrder.deadline_date}T00:00:00`) < new Date();
+        new Date(
+            `${workOrder.deadline_date.slice(0, 10)}T00:00:00`,
+        ) < new Date();
     const pendingExtend = props.extend_requests.find(
         (request) =>
             request.status === 'pending_team_leader' ||

@@ -5,6 +5,7 @@ use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderRejected;
 use App\Notifications\WorkOrderVerified;
 use App\WorkOrderCategory;
@@ -197,7 +198,7 @@ it('cannot assign a closed work order', function () {
 
 it('allows re-assign while the WO is assigned and keeps the SLA clock', function () {
     Notification::fake();
-    [$workOrder] = makeVerifiableWorkOrder(['status' => WorkOrderStatus::Assigned]);
+    [$workOrder, , $assigneeUser] = makeVerifiableWorkOrder(['status' => WorkOrderStatus::Assigned]);
     $assigner = verifyActor();
     $assigner->givePermissionTo('work-order.assign');
 
@@ -227,6 +228,15 @@ it('allows re-assign while the WO is assigned and keeps the SLA clock', function
         'work_order_id' => $workOrder->getKey(),
         'action' => 'assigned',
     ]);
+
+    // Audit FR-1.9: pelaksana yang digantikan tercatat di meta event.
+    $assigneeUser->refresh();
+    $event = WorkOrderEvent::query()
+        ->where('work_order_id', $workOrder->getKey())
+        ->where('action', 'assigned')
+        ->orderByDesc('created_at')
+        ->first();
+    expect($event->meta['removed_employee_ids'])->toBe([$assigneeUser->employee_id]);
 });
 
 it('still refuses assign from pending_verify', function () {

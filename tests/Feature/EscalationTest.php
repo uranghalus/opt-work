@@ -2,6 +2,7 @@
 
 use App\Models\Department;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\WorkOrderDeadlineEscalated;
 use App\Services\DeadlineCalculator;
@@ -11,6 +12,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Multitenancy\Exceptions\CurrentTenantCouldNotBeDeterminedInTenantAwareJob;
 
 /**
  * FR-2.x: Staged deadline escalation (H+3/5/6)
@@ -379,4 +381,37 @@ it('skips closed work orders', function () {
     Artisan::call('app:check-deadline-escalation');
 
     Notification::assertNotSentTo($hod, WorkOrderDeadlineEscalated::class);
+});
+
+/**
+ * Defect broadcast pre-existing (rencana 2026-10-22 langkah 5): notify()
+ * tanpa tenant current (jalur command eskalasi) hanya mengantre saluran
+ * broadcast — spatie unwraps `BroadcastEvent` ke `BroadcastNotificationCreated`
+ * sebelum membaca `not_tenant_aware_jobs`, jadi tanpa entry kelas inner itu
+ * job-nya di-delete dan saluran broadcast hilang diam-diam.
+ */
+it('would drop the broadcast channel if the unwrapped event were tenant-aware (red)', function () {
+    config()->set('multitenancy.not_tenant_aware_jobs', []);
+
+    $workOrder = createOverdueWorkOrder();
+    $recipient = User::query()->findOrFail($workOrder->requester_user_id);
+
+    Tenant::forgetCurrent(); // console context — nol tenant current
+
+    expect(fn () => $recipient->notify(new WorkOrderDeadlineEscalated($workOrder, 'h3')))
+        ->toThrow(CurrentTenantCouldNotBeDeterminedInTenantAwareJob::class);
+});
+
+it('keeps the broadcast channel for notifications dispatched without a current tenant (green)', function () {
+    $workOrder = createOverdueWorkOrder();
+    $recipient = User::query()->findOrFail($workOrder->requester_user_id);
+
+    Tenant::forgetCurrent(); // console context — nol tenant current
+
+    $recipient->notify(new WorkOrderDeadlineEscalated($workOrder, 'h3'));
+
+    $this->assertDatabaseHas('notifications', [
+        'notifiable_type' => $recipient->getMorphClass(),
+        'notifiable_id' => $recipient->getKey(),
+    ]);
 });

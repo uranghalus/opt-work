@@ -4,6 +4,7 @@ use App\Models\Tenant;
 use App\TenantFinder;
 use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Mail\SendQueuedMailable;
+use Illuminate\Notifications\Events\BroadcastNotificationCreated;
 use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Queue\CallQueuedClosure;
 use Spatie\Multitenancy\Actions\ForgetCurrentTenantAction;
@@ -78,5 +79,14 @@ return [
         ProbeTenantContext::class,
     ],
 
-    'not_tenant_aware_jobs' => [],
+    'not_tenant_aware_jobs' => [
+        // Broadcast payload sudah dihitung saat dispatch dan broadcaster-nya
+        // tidak menyentuh DB tenant saat worker run — jalur command (mis.
+        // eskalasi deadline) notify tanpa tenant current dan tanpa entry ini
+        // saluran broadcast-nya dibuang spatie (job di-delete + exception).
+        // The awareness probe unwraps `BroadcastEvent` via `queueable_to_job`
+        // BEFORE consulting this list, so the entry must name the INNER
+        // event class — the wrapper name would be a silent no-op.
+        BroadcastNotificationCreated::class,
+    ],
 ];

@@ -9,8 +9,12 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderAssigned;
 use App\Notifications\WorkOrderCreated;
+use App\Notifications\WorkOrderRejected;
 use App\Notifications\WorkOrderReviewed;
+use App\Notifications\WorkOrderSubmitted;
+use App\Notifications\WorkOrderVerified;
 use App\WorkOrderStatus;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -202,6 +206,136 @@ class WorkOrderService
 
             return $workOrder;
         });
+    }
+
+    /**
+     * FR-1.7: pelaksana menyerahkan hasil pekerjaan — catatan wajib, foto
+     * opsional (maks 3). From assigned or revision → pending_verify; hasil
+     * attempt sebelumnya ditimpa (histori attempt = FR-3.x Work Data).
+     * Authorization is permission-based (work-order.submit), same shape as
+     * review/assign — not restricted to the recorded assignees.
+     *
+     * @param  array<int, string>  $attachments  stored result photo paths
+     */
+    public function submit(User $actor, WorkOrder $workOrder, string $notes, array $attachments = []): WorkOrder
+    {
+        return DB::transaction(function () use ($actor, $workOrder, $notes, $attachments): WorkOrder {
+            $from = $workOrder->status;
+
+            if (! in_array($from, [WorkOrderStatus::Assigned, WorkOrderStatus::Revision], true)) {
+                abort(409, 'Work Order belum ditugaskan atau sedang menunggu hasil verifikasi.');
+            }
+
+            $workOrder->update([
+                'result_notes' => $notes,
+                'result_attachments' => $attachments === [] ? null : $attachments,
+                'status' => WorkOrderStatus::PendingVerify->value,
+            ]);
+
+            WorkOrderEvent::record(
+                $workOrder,
+                $actor,
+                'submitted',
+                $from->value,
+                WorkOrderStatus::PendingVerify->value,
+                [
+                    'notes_preview' => str($notes)->limit(120)->toString(),
+                    'attachment_count' => count($attachments),
+                ],
+            );
+
+            $this->hodNotificationResolver
+                ->resolve($workOrder->targetDepartment)
+                ->each(fn (User $recipient) => $recipient->notify(new WorkOrderSubmitted($workOrder)));
+
+            return $workOrder;
+        });
+    }
+
+    /**
+     * FR-1.8: HOD menyetujui hasil submit → closed. Notifications reach
+     * the assigned pelaksana and the requester (Q2, grill 2026-10-22).
+     */
+    public function approve(User $hod, WorkOrder $workOrder): WorkOrder
+    {
+        return DB::transaction(function () use ($hod, $workOrder): WorkOrder {
+            $from = $workOrder->status;
+
+            if ($from !== WorkOrderStatus::PendingVerify) {
+                abort(409, 'Work Order tidak dalam tahap verifikasi hasil.');
+            }
+
+            $workOrder->update(['status' => WorkOrderStatus::Closed->value]);
+
+            WorkOrderEvent::record(
+                $workOrder,
+                $hod,
+                'verified',
+                $from->value,
+                WorkOrderStatus::Closed->value,
+            );
+
+            $this->verifyResultRecipients($workOrder)
+                ->each(fn (User $recipient) => $recipient->notify(new WorkOrderVerified($workOrder)));
+
+            return $workOrder;
+        });
+    }
+
+    /**
+     * FR-1.8: HOD menolak hasil → revision, catatan revisi wajib. The
+     * deadline is NOT reset — the SLA clock keeps running; extending is
+     * the separate extend flow (issue 06).
+     */
+    public function reject(User $hod, WorkOrder $workOrder, string $notes): WorkOrder
+    {
+        return DB::transaction(function () use ($hod, $workOrder, $notes): WorkOrder {
+            $from = $workOrder->status;
+
+            if ($from !== WorkOrderStatus::PendingVerify) {
+                abort(409, 'Work Order tidak dalam tahap verifikasi hasil.');
+            }
+
+            $workOrder->update([
+                'status' => WorkOrderStatus::Revision->value,
+                'hod_notes' => $notes,
+            ]);
+
+            WorkOrderEvent::record(
+                $workOrder,
+                $hod,
+                'rejected',
+                $from->value,
+                WorkOrderStatus::Revision->value,
+                ['notes' => $notes],
+            );
+
+            $this->verifyResultRecipients($workOrder)
+                ->each(fn (User $recipient) => $recipient->notify(new WorkOrderRejected($workOrder, $notes)));
+
+            return $workOrder;
+        });
+    }
+
+    /**
+     * Verify-result notification receivers: the assigned pelaksana with a
+     * linked akun, plus the requester (Q2, grill 2026-10-22).
+     *
+     * @return Collection<int, User>
+     */
+    private function verifyResultRecipients(WorkOrder $workOrder): Collection
+    {
+        $assignees = Employee::query()
+            ->whereIn('id', $workOrder->assigned_employees ?? [])
+            ->with('user')
+            ->get()
+            ->map(fn (Employee $employee) => $employee->user);
+
+        return $assignees
+            ->push($workOrder->requester)
+            ->filter()
+            ->unique('id')
+            ->values();
     }
 
     private function generateNomorWo(Department $targetDepartment): string

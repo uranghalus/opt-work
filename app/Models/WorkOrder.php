@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -39,6 +40,8 @@ use Illuminate\Support\Carbon;
  * @property int $extend_count
  * @property string|null $extend_reason
  * @property Carbon|null $extended_at
+ * @property string|null $result_notes
+ * @property array<int, string>|null $result_attachments
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -66,6 +69,8 @@ use Illuminate\Support\Carbon;
     'extend_count',
     'extend_reason',
     'extended_at',
+    'result_notes',
+    'result_attachments',
 ])]
 class WorkOrder extends Model
 {
@@ -93,6 +98,7 @@ class WorkOrder extends Model
             'escalation_h6_sent_at' => 'datetime',
             'is_escalated' => 'boolean',
             'extended_at' => 'datetime',
+            'result_attachments' => 'array',
         ];
     }
 
@@ -110,6 +116,14 @@ class WorkOrder extends Model
     public function targetDepartment(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'target_department_id');
+    }
+
+    /**
+     * @return HasMany<WorkOrderEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(WorkOrderEvent::class);
     }
 
     /**

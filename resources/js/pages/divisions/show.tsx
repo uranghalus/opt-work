@@ -1,4 +1,6 @@
 import { Head } from '@inertiajs/react';
+import { index } from '@/routes/divisions';
+import type { InertiaConfig } from '@inertiajs/core';
 
 type Division = {
     id: string;
@@ -52,8 +54,21 @@ export default function ShowDivision({ division }: PageProps) {
     );
 }
 
-ShowDivision.layout = {
-    breadcrumbs: [{ title: 'Data Master' }, { title: 'Divisi' }],
-    title: (division: Division) => division.nama_division,
-    description: 'Detail divisi',
+ShowDivision.layout = (
+    props: PageProps & InertiaConfig['sharedPageProps'],
+) => {
+    const tenant = props.activeTenant ?? undefined;
+
+    return {
+        breadcrumbs: [
+            { title: 'Data Master' },
+            {
+                title: 'Divisi',
+                href: tenant ? index({ tenant }) : undefined,
+            },
+            { title: props.division.nama_division },
+        ],
+        title: props.division.nama_division,
+        description: 'Detail divisi',
+    };
 };

@@ -187,7 +187,7 @@ const kpiCards: KpiCard[] = [
                 <span className="truncate text-ink-subtle">
                     MEP · BMS · Sipil · IT
                 </span>
-                <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[0.6875rem] font-semibold text-brand">
+                <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
                     6 standby
                 </span>
             </div>
@@ -427,13 +427,13 @@ const auditEntries: AuditEntry[] = [
                 <span className="mt-1.5 flex gap-1.5">
                     <button
                         type="button"
-                        className="h-7 cursor-pointer rounded-md bg-brand px-2.5 text-xs font-semibold text-on-brand hover:bg-brand-hover"
+                        className="h-9 cursor-pointer rounded-md bg-brand px-2.5 text-xs font-semibold text-on-brand hover:bg-brand-hover"
                     >
                         Setujui +2 jam
                     </button>
                     <button
                         type="button"
-                        className="h-7 cursor-pointer rounded-md border border-border bg-surface px-2.5 text-xs font-semibold text-ink hover:bg-surface-raised"
+                        className="h-9 cursor-pointer rounded-md border border-border bg-surface px-2.5 text-xs font-semibold text-ink hover:bg-surface-raised"
                     >
                         Tolak
                     </button>
@@ -508,7 +508,7 @@ function Th({
         <th
             scope="col"
             className={cn(
-                'px-3 py-2.5 text-[0.6875rem] font-semibold tracking-wider whitespace-nowrap text-ink-subtle uppercase',
+                'px-3 py-2.5 text-xs font-semibold tracking-wider whitespace-nowrap text-ink-subtle uppercase',
                 align === 'center' && 'text-center',
                 align === 'right' && 'text-right',
             )}
@@ -522,7 +522,7 @@ function AvatarStack({ people }: { people: string }) {
     const getInitials = useInitials();
 
     return (
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand ring-1 ring-border">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand ring-1 ring-border">
             {getInitials(people)}
         </span>
     );
@@ -573,7 +573,7 @@ export default function Dashboard() {
                                 aria-pressed={range === option}
                                 onClick={() => setRange(option)}
                                 className={cn(
-                                    'h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none',
+                                    'h-9 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none',
                                     range === option
                                         ? 'bg-surface text-ink shadow-card'
                                         : 'text-ink-muted hover:text-ink',
@@ -583,7 +583,7 @@ export default function Dashboard() {
                             </button>
                         ))}
                     </div>
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
                         <Upload aria-hidden="true" className="size-3.5" />
                         Ekspor
                     </Button>
@@ -600,7 +600,7 @@ export default function Dashboard() {
                         >
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                    <p className="text-[0.6875rem] font-semibold tracking-wider text-ink-subtle uppercase">
+                                    <p className="text-xs font-semibold tracking-wider text-ink-subtle uppercase">
                                         {card.label}
                                     </p>
                                     <p className="mt-0.5 truncate text-xs text-ink-subtle">
@@ -631,7 +631,7 @@ export default function Dashboard() {
 
                             <span
                                 className={cn(
-                                    'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ring-1 ring-inset',
+                                    'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset',
                                     card.chip.className,
                                 )}
                             >
@@ -656,7 +656,7 @@ export default function Dashboard() {
                                             }}
                                         />
                                     </div>
-                                    <p className="text-[0.6875rem] text-ink-subtle">
+                                    <p className="text-xs text-ink-subtle">
                                         {card.progress.caption}
                                     </p>
                                 </div>
@@ -706,7 +706,7 @@ export default function Dashboard() {
                             >
                                 <span
                                     className={cn(
-                                        'text-[0.6875rem] font-semibold tabular-nums',
+                                        'text-xs font-semibold tabular-nums',
                                         day.sla >= 95
                                             ? 'text-success'
                                             : 'text-warning',
@@ -734,7 +734,7 @@ export default function Dashboard() {
                                     <p className="text-xs font-medium text-ink">
                                         {day.day}
                                     </p>
-                                    <p className="text-[0.625rem] text-ink-subtle">
+                                    <p className="text-xs text-ink-subtle">
                                         {day.date}
                                     </p>
                                 </div>
@@ -757,7 +757,7 @@ export default function Dashboard() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 gap-1.5"
+                                    className="h-9 gap-1.5"
                                 >
                                     <ListFilter
                                         aria-hidden="true"
@@ -945,7 +945,7 @@ export default function Dashboard() {
                                                     </span>
                                                     <span
                                                         className={cn(
-                                                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+                                                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
                                                             style.badge,
                                                         )}
                                                     >
@@ -1002,7 +1002,7 @@ export default function Dashboard() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 gap-1 text-xs"
+                                                        className="h-9 gap-1 text-xs"
                                                     >
                                                         <Eye
                                                             aria-hidden="true"
@@ -1012,7 +1012,7 @@ export default function Dashboard() {
                                                     </Button>
                                                     <Button
                                                         size="sm"
-                                                        className="h-7 text-xs"
+                                                        className="h-9 text-xs"
                                                     >
                                                         Tangani
                                                     </Button>
@@ -1048,7 +1048,7 @@ export default function Dashboard() {
                                     <div className="flex items-center justify-between gap-2">
                                         <span
                                             className={cn(
-                                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+                                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
                                                 entry.tagClass,
                                             )}
                                         >
@@ -1058,7 +1058,7 @@ export default function Dashboard() {
                                             />
                                             {entry.tag}
                                         </span>
-                                        <span className="font-mono text-[0.6875rem] text-ink-subtle tabular-nums">
+                                        <span className="font-mono text-xs text-ink-subtle tabular-nums">
                                             {entry.time}
                                         </span>
                                     </div>
@@ -1085,7 +1085,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
                         <Upload aria-hidden="true" className="size-3.5" />
                         Impor
                     </Button>
@@ -1098,10 +1098,10 @@ export default function Dashboard() {
                         <input
                             type="search"
                             placeholder="Cari…"
-                            className="h-8 w-40 rounded-md border border-border bg-card pl-8 text-sm text-ink placeholder:text-ink-subtle focus:ring-2 focus:ring-brand/40 focus:outline-none"
+                            className="h-9 w-40 rounded-md border border-border bg-card pl-8 text-sm text-ink placeholder:text-ink-subtle focus:ring-2 focus:ring-brand/40 focus:outline-none"
                         />
                     </label>
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
                         Urutkan
                         <ChevronDown
                             aria-hidden="true"

@@ -23,6 +23,7 @@ Detail/rationale lengkap: vault `Planning/2026-10-22-rencana-inti-alur-wo-dan-de
 Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-status.md) (bukti `file:line`/test per FR). Status hidup per section: [PRD.md](PRD.md). Checklist ini = semua 🟡/⬜ yang belum punya entri DONE di bawah.
 
 **Inti alur WO (prioritas MVP):**
+
 - [ ] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** alur berhenti di `assigned`; enum `InProgress`/`PendingVerify`/`Revision`/`Closed` belum pernah tercapai. Issue siap: `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
 - [ ] **FR-2.3–2.5 — extend deadline (`extend_requests`):** aturan settled (maks 3 hari/request, maks 3 approved, blokir pending duplikat) tapi **nol kode** (hanya kolom `extend_count`/`extend_reason`/`extended_at` di `work_orders`). Issue: `06-extend-work-order-schedule.md`.
 - [ ] **FR-2.4 + WO Terjadwal lanjutan — `work_planning` + Extend Work Schedule (approval DGM/GM):** nol kode (keputusan jadwal HOD sudah ✅).
@@ -31,6 +32,7 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
 - [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
 
 **Defect / keputusan kecil (temuan audit):**
+
 - [ ] **Eskalasi H+6 → DGM/GM:** kini H+6 masih dikirim ke rantai fallback HOD (`CheckDeadlineEscalation.php:141-153`); `EscalationTest:321` meng-assert perilaku lama — ganti sekalian dengan resolve `general_manager`/`deputy_general_manager` dulu.
 - [ ] **Route WO tanpa method (latent 500):** `work-orders.edit/update/destroy` terdaftar (`routes/web.php:134-136`) tapi `WorkOrderController` tidak punya methodnya → `->only([...])` atau implement.
 - [ ] **Revisi assign pasc-assign:** panel revisi tampil (`show.tsx:49` ASSIGNABLE termasuk `assigned`) tapi backend 409 (`WorkOrderService.php:122-124`) → putuskan: izinkan re-assign (jaga `assigned_at`/deadline) atau sembunyikan panel.
@@ -85,8 +87,7 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 - [x] **Test:** `tests/Feature/WahaGatewayTest.php` 14 + `tests/Unit/WahaClientTest.php` 4 —
       unconfigured → nol baris/nol HTTP; sent (payload, chatId, X-Api-Key, session);
       skipped tanpa nomor; preferensi employee number; channel tanpa tenant current; job
-      dispatch tanpa tenant current; template reviewed/assigned; gagal kirim → last_error
-      + rethrow (retry), `failed()` → failed; eskalasi `app:check-deadline-escalation` →
+      dispatch tanpa tenant current; template reviewed/assigned; gagal kirim → last_error + rethrow (retry), `failed()` → failed; eskalasi `app:check-deadline-escalation` →
       outbox per penerima (payload `H+3`); ping exit code 0/1 + status WORKING/UNREACHABLE.
       **Full suite 438: 430 passed, 8 skipped, 0 gagal, 0 warning** (warning awal dari
       `use RuntimeException` di file test tanpa namespace — dihapus). `pint --dirty` bersih.
@@ -238,8 +239,6 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 - [x] Verifikasi akhir: full suite 369 (361 passed, 8 skipped, 0 failed), pint, tsc,
       `npm run build` hijau, push ke origin/main.
 
-
-
 ## Department/HOD sync relations (2026-10-17) — DONE, commit `b0be63f`
 
 - [x] **Relasi department ↔ karyawan ↔ HOD lewat sync Optigate:** `SyncDepartments` fetch
@@ -286,7 +285,7 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 - [x] **Role assignment ticket 01 (ADR-0005):** scope dippersempit via grill — assignment pada akun lewat halaman karyawan. Katalog `akun.*` + release grant ke admin_tenant; payload `akun` di `employees.show` ber-gate `akun.read` (resolusi manual mengikuti pola ban/WorkOrderController); section "Peran Akun" read-only. Ticket 02 (sync guarded) & 03 (can flags) siap di `.scratch/role-assignment/issues/`. Verifikasi: 277 tests (269 passed, 8 skipped), pint bersih, build exit 0. WIP sesi 11-10 (drop CRUD lokal karyawan) ikut di-commit.
 - [x] **Per-release grant command `app:grant-default-permissions`:** menutup gap seeder (default hanya disync saat role pertama dibuat → izin katalog baru tidak pernah sampai ke role existing). Additive-only (tidak pernah mencabut, kustomisasi Hak Akses selamat), membuat izin katalog yang hilang (firstOrCreate), provisioning 9 role kanonik + invarian `is_system`, tidak pernah memberi apa-apa ke super_admin (bypass gate), `--dry-run`, idempoten. Seeder `catalogue()`/`roleDefaults()` dipromosikan public static sebagai sumber kebenaran bersama. Verifikasi: 18/18 test (7 baru) + full suite 272 tests (264 passed, 8 skipped, 0 failed), pint bersih, dry-run live di DB dev = 0 perubahan. Commit `5071fec`.
 - [x] **Halaman Peran di-revamp total + keluar dari settings (Vault Console):** URL `/settings/roles` → `/hak-akses` (route names `roles.*` tetap), controller `Settings\RoleController` → `RoleController`, requests → `App\Http\Requests\Role\*`, routes dipindah ke `routes/hak-akses.php`, page `settings/roles/index.tsx` → `pages/roles/index.tsx` (AppLayout, bukan SettingsLayout), nav: grup baru "Hak Akses" (item "Peran") di antara Data Master dan Sistem. Desain baru: dark console stratum (panel tokens, gelap di kedua theme) — rail token peran (nama + mono id + mini coverage strip 12 segmen + count izin/pengguna, urutan hierarki PRD) + stage bank izin per resource (LED tri-state Penuh/Parsial/Kosong + count, master checkbox tri-state, verb chips ber-LED), super_admin = sealed plate tanpa switch, commit bar dirty-state + sweep animation, search debounce server-side + paginasi rail. Tabel dihapus. Verifikasi: `RoleControllerTest` 19/19, `npm run build` hijau, detector impeccable 0 temuan, screenshot Chrome headless (desktop/dirty/sealed/dark/mobile) via playwright-core --no-save (user sementara sudah dihapus). Bukti: `.impeccable/review/*.png`.
-- [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion). ← *desain Peran di atas sudah digantikan Vault Console; komponen vendor tetap dipakai di Izin.*
+- [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion). ← _desain Peran di atas sudah digantikan Vault Console; komponen vendor tetap dipakai di Izin._
 - [x] Full suite 265 tests: 257 passed, 8 skipped (2FA), 0 failed. `npm run build` hijau (wayfinder + tsc + vp build). Impeccable mechanical detector pada 6 file UI: 0 temuan.
 - [x] Root-cause fix baseline merah: `types:check` gagal 44 error di HEAD (7 file pakai `usePage()` tanpa generic `InertiaConfig['sharedPageProps']`) → semua ditambahkan generic, tsc kini EXIT=0 di seluruh codebase.
 - [x] Bugfix `settings/tenants/index.tsx`: 4 tombol paginasi mengandung artifact backtick-n (JSX text nyasar) yang membuat Radix Slot crash saat paginasi Unit Bisnis — diperbaiki.
@@ -299,29 +298,29 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 4. [x] Verifikasi visual sisa slice 8 `/settings/permissions` — **Done 2026-10-17, automated:** user temp (role `viewer` + `role.read`/`permission.read` langsung; role wajib karena LoginLanding menolak user tanpa role) + screenshot headless via `.impeccable/review/capture-permissions.mjs`. Bukti: `perm-light.png`, `perm-dark.png` (tombol aksi tersembunyi tanpa permission — ticket 03 tervalidasi visual), `perm-dialog-error.png` (dialog Tambah Izin, submit kosong → field merah + pesan error). User temp + script temp dihapus. Catatan minor: pesan validasi dialog masih English (pre-existing), teks "Head Office" di tenant switcher kontras rendah di dark (pre-existing).
 5. [x] Vault sync — **Done 2026-10-17:** ADR-0005 → `Decisions/user-role-assignment-akun.md`, link dari `Index.md` (Last updated diubah). Catatan route `/hak-akses` ternyata sudah ada di `Decisions/peran-page-vault-console` — tidak diduplikasi.
 6. [x] **WO slice 1 selesai 2026-10-17** (issue 03 wms-mvp = review → assign + deadline + histori) —
-   tiket per seam di `.scratch/wo-slice-1/` (spec + 4 issues, semua done):
-   - `6e47cf3` foundation: migration hod_action/scheduled_date/assigned_at/hod_notes,
-     enum `HodApproved` ("Disetujui HOD"), `config/holidays.php` + `DeadlineCalculator`
-     (urgent 3 / normal 6 hari kerja dari tanggal assign; fixed Y-m-d + recurring MM-DD),
-     **fix cross-tenant read** di show()/attachment() (withoutGlobalScope dibuang; test
-     regresi: WO tenant lain → 404, sebelumnya 200)
-   - `ea6779d` review endpoint: POST .../review gated `work-order.review` (allowlist
-     dikeluarkan), Accident dipaksa eksekusi langsung, 409 pasca-review-stage,
-     `work_order_events` append-only + `WorkOrderReviewed` ke requester; **root-cause fix
-     config/multitenancy.php queueable_to_job tertukar** (BroadcastEvent→'mailable', dst —
-     setiap broadcast/mail queue crash di probe; kini event/mailable/notification)
-   - `937a474` assign endpoint: POST .../assign gated `work-order.assign` (allowlist
-     dikeluarkan), `assigned_employees` json + assignment_notes, assigned_at + deadline
-     hanya sekali (revisi mengganti orang tanpa geser SLA), `WorkOrderAssigned` ke akun
-     link saja (tanpa akun → meta event + log warning), 409 assign sebelum review
-   - `553c775` panel frontend: flag `can` work-order.review/assign, panel Keputusan
-     Review (Accident tanpa opsi jadwal), panel Assign (revisi mode), kartu Keputusan
-     HOD, badge hod_approved; bukti headless `.impeccable/review/wo-panel-*.png`
-   - Verifikasi: tsc + build hijau; suite 313/305/0 failed (6 failure = WIP merah sesi
-     paralel SyncEmployees, bukan slice ini); pint bersih; slice-1 komit bersih dari WIP
-     sesi paralel
-   - Sisa allowlist honesty test: work-order.create/read/update/delete/submit/verify
-     (gating menyusul saat permukaannya disentuh — issue 04+)
+       tiket per seam di `.scratch/wo-slice-1/` (spec + 4 issues, semua done):
+    - `6e47cf3` foundation: migration hod_action/scheduled_date/assigned_at/hod_notes,
+      enum `HodApproved` ("Disetujui HOD"), `config/holidays.php` + `DeadlineCalculator`
+      (urgent 3 / normal 6 hari kerja dari tanggal assign; fixed Y-m-d + recurring MM-DD),
+      **fix cross-tenant read** di show()/attachment() (withoutGlobalScope dibuang; test
+      regresi: WO tenant lain → 404, sebelumnya 200)
+    - `ea6779d` review endpoint: POST .../review gated `work-order.review` (allowlist
+      dikeluarkan), Accident dipaksa eksekusi langsung, 409 pasca-review-stage,
+      `work_order_events` append-only + `WorkOrderReviewed` ke requester; **root-cause fix
+      config/multitenancy.php queueable_to_job tertukar** (BroadcastEvent→'mailable', dst —
+      setiap broadcast/mail queue crash di probe; kini event/mailable/notification)
+    - `937a474` assign endpoint: POST .../assign gated `work-order.assign` (allowlist
+      dikeluarkan), `assigned_employees` json + assignment_notes, assigned_at + deadline
+      hanya sekali (revisi mengganti orang tanpa geser SLA), `WorkOrderAssigned` ke akun
+      link saja (tanpa akun → meta event + log warning), 409 assign sebelum review
+    - `553c775` panel frontend: flag `can` work-order.review/assign, panel Keputusan
+      Review (Accident tanpa opsi jadwal), panel Assign (revisi mode), kartu Keputusan
+      HOD, badge hod_approved; bukti headless `.impeccable/review/wo-panel-*.png`
+    - Verifikasi: tsc + build hijau; suite 313/305/0 failed (6 failure = WIP merah sesi
+      paralel SyncEmployees, bukan slice ini); pint bersih; slice-1 komit bersih dari WIP
+      sesi paralel
+    - Sisa allowlist honesty test: work-order.create/read/update/delete/submit/verify
+      (gating menyusul saat permukaannya disentuh — issue 04+)
 
 ### Bonus 2026-10-16 (commit `74d2a6c`) — role-aware login + superadmin
 
@@ -341,7 +340,7 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 
 ### Deferred
 
-- [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
+- [x] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S) — **selesai 2026-10-22**: review/assign digate + dihapus di slice sebelumnya, submit/verify digate + dihapus di sesi ini; allowlist kini kosong untuk semua verb work-order.
 - [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
 - [ ] Akun CRUD surface (link/unlink login) — owns `akun.create`/`akun.delete`, currently allowlisted "gated when the Akun surface lands"
 
@@ -373,6 +372,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 **Full suite: 143 tests, 135 passed, 8 skipped, 0 failures.** Sync tests: 9/9 with `Http::fake`.
 
 `app:sync-tenants` rewritten from pre-migration legacy to spec:
+
 - Matches on **`optigate_company_id`** (was: API id written as tenant id — would have failed on NOT NULL `code`)
 - Sets `code` (lowercased slug) + `name` + `is_active`; landlord-side (no `Tenant::current()` requirement — the old version could never run from the scheduler)
 - **Pagination** loop (`paginate=true&per_page=100`, `meta.total` driven, MAX_PAGES guard)
@@ -386,6 +386,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 Follow-up (not started): `.scratch/optigate-sync/issues/01-align-department-employee-syncs.md`
 
 ## Completed
+
 - ✅ Replaced manual tenant CRUD with Optigate API sync approach
 - ✅ Tenant model uses ULID primary key, `optigate_company_id` (unique), `code` (URL slug)
 - ✅ Migration: Restructured tenants table with ULID id, optigate_company_id, code
@@ -408,9 +409,11 @@ Follow-up (not started): `.scratch/optigate-sync/issues/01-align-department-empl
 **Full suite: 134 tests, 126 passed, 8 skipped (intentional 2FA), 0 failures.**
 
 ### Root cause of the "queue bug"
+
 The bug was a phantom: `ProbeTenantContext` crashed mid-`handle()` on two v3-era leftovers,
 so every query capture below the crash point never ran and `visibleWorkOrders` stayed at its
 reset default `[]`:
+
 1. `tenancy()` helper — removed in Spatie v4 (v3-only) → "Call to undefined function"
 2. Undeclared static property `$visibleWorkOrdersWithoutScope` → fatal in PHP 8.2+
 
@@ -418,6 +421,7 @@ Tenancy itself worked end to end the whole time: container tenant restored at `J
 scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 
 ### Also fixed (surfaced by the full-suite run, all pre-existing)
+
 - `SamlController::acs()` had a committed `dd($samlUser)` — killed every SAML login AND
   segfaulted the test process (PHP crash dumping the LightSaml object graph). Removed.
 - `SamlTest` asserted `route('dashboard')` — stale: dashboard now requires `{tenant}`.
@@ -427,6 +431,7 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
   tenant-creation fallout from the Spatie migration. Repaired to committed behavior.
 
 ### Follow-ups (decisions needed, NOT started)
+
 - `config('fortify.home')` = `/dashboard` points at a dead route — where should password-login
   users land? Tied to the tenant-less-user landing gap below.
 - Tenant-less non-admin users land on `admin.dashboard` → 403 (EnsurePlatformTenantAccess).
@@ -438,10 +443,12 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
   are unaffected; avoid that chain when debugging SQL.
 
 ### Reference
+
 - Scratch issue: `.scratch/tenancy-reconfig/issues/06-enable-queue-tenancy-bootstrapper.md`
 - Vault plan: `Planning/2026-10-10-queue-tenant-awareness-fix` (status: done)
 
 ## Files Modified
+
 - app/Models/Tenant.php
 - database/migrations/2026_10_09_121502_restructure_tenants_table.php
 - app/TenantFinder.php
@@ -450,15 +457,15 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 - app/Http/Controllers/EnsureTenantAccess.php
 - app/Http/Controllers/WorkOrderController.php
 - app/Services/WorkOrderService.php
-- app/Http/Controllers/SamlController.php  ← 2026-10-10: removed committed dd() in acs()
+- app/Http/Controllers/SamlController.php ← 2026-10-10: removed committed dd() in acs()
 - routes/web.php
 - database/factories/TenantFactory.php
 - config/multitenancy.php
-- tests/Feature/DashboardTest.php  ← 2026-10-10: stale dashboard route + tenant-less user fixes
+- tests/Feature/DashboardTest.php ← 2026-10-10: stale dashboard route + tenant-less user fixes
 - tests/Feature/MultitenancyTest.php
-- tests/Feature/QueueTenancyBootstrapperTest.php  ← 2026-10-10: rewritten (see DONE section)
-- tests/Feature/AuthenticationTest.php  ← 2026-10-10: stale dashboard route fix
-- tests/Feature/Auth/SamlTest.php  ← 2026-10-10: stale redirect assertion fix
-- tests/Feature/NotificationTest.php  ← 2026-10-10: tenants table required-field fix
-- tests/Support/ProbeTenantContext.php  ← 2026-10-10: removed v3-era helpers, declared statics
+- tests/Feature/QueueTenancyBootstrapperTest.php ← 2026-10-10: rewritten (see DONE section)
+- tests/Feature/AuthenticationTest.php ← 2026-10-10: stale dashboard route fix
+- tests/Feature/Auth/SamlTest.php ← 2026-10-10: stale redirect assertion fix
+- tests/Feature/NotificationTest.php ← 2026-10-10: tenants table required-field fix
+- tests/Support/ProbeTenantContext.php ← 2026-10-10: removed v3-era helpers, declared statics
 - tests/Pest.php (createTestTenant, initTenant helpers)

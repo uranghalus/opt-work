@@ -99,7 +99,11 @@ Route::prefix('saml')->group(function () {
             'inactive' => 'Unit bisnis Anda sedang tidak aktif. Hubungi administrator untuk mengaktifkannya kembali.',
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
+<<<<<<< HEAD
             'banned' => 'Akses Anda diblokir oleh administrator. Hubungi administrator cabang Anda untuk informasi lebih lanjut.',
+=======
+            'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
         ];
 
         $reason = session('saml.denial_reason');
@@ -131,14 +135,26 @@ Route::prefix('saml')->group(function () {
 Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
+    // Registered before the resource: the {workOrder} wildcard would otherwise
+    // swallow the literal "timeline" segment.
+    Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
+        ->name('work-orders.timeline');
+
     Route::resource('work-orders', WorkOrderController::class)
+        ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
     Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
         ->name('work-orders.assign');
-    Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+    Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
+        ->name('work-orders.submit');
+    Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
+        ->name('work-orders.verify');
+    Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
+        ->name('work-orders.reject');
+    Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');
@@ -151,10 +167,16 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     // controller authorizes via Gate::authorize('akun.update').
     Route::post('employees/{employee}/akun/roles', [EmployeeController::class, 'syncAkunRoles'])
         ->name('employees.akun.roles.sync');
+<<<<<<< HEAD
     // Server-side search over linkable akun candidates (replaces the old
     // static limit(100) list baked into the show payload).
     Route::get('employees/{employee}/akun/search', [EmployeeController::class, 'searchAkun'])
         ->name('employees.akun.search');
+=======
+    Route::get('employees/{employee}/akun/search', [EmployeeController::class, 'akunSearch'])
+        ->name('employees.akun.search');
+
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     Route::post('employees/{employee}/akun', [EmployeeController::class, 'linkAkun'])
         ->name('employees.akun.link');
     Route::delete('employees/{employee}/akun', [EmployeeController::class, 'unlinkAkun'])

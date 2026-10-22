@@ -11,7 +11,7 @@ ink: "#15202B"
 ink-muted: "#5B6B7C"
 ink-subtle: "#8494A7"
 border: "#D5DCE5"
-border-strong: "#A8B4C4"
+border-strong: "#8894A2"
 brand: "#0C6B58"
 brand-hover: "#095445"
 on-brand: "#FFFFFF"
@@ -19,6 +19,8 @@ info: "#2A5F8F"
 info-subtle: "#E4EDF6"
 warning: "#B86E00"
 warning-subtle: "#F7ECDA"
+warning-ink: "#7A4A00"
+warning-bright: "#F0BE6A"
 danger: "#C0392B"
 danger-subtle: "#F7E2DF"
 escalation: "#7A1F3D"
@@ -201,11 +203,13 @@ The shift from the earlier "Dispatch Board" framing is deliberate: the product n
 **Key Characteristics:**
 
 - Two surface strata: a deep **contrast panel** for navigation over a quiet working canvas.
+- **Real elevation**: the canvas sits one step below the card, and every card carries a two-layer resting shadow. Flatness is a bug, not a style.
 - Grouped sidebar panel (Operasional · Data Master · Sistem) beside a sticky top bar.
 - **Shell-owned section heading band**: module chip · title or greeting · description · primary actions.
 - **Material depth by default**: hero and section surfaces are translucent glass (`bg-surface/70` + border + blur + shadow) over restrained ambient gradient blobs — never flat white on flat gray.
 - Light and dark themes ship together, each tuned by hand — never an inverted palette.
 - Module grid for role-scoped entry points (WO Baru, Verifikasi, Extend, Daily).
+- **Registry band**: a compact dark measurement plate at the top of master-data pages — three large tabular numbers on the navigation stratum.
 - Board (kanban) view of Work Orders by status, with dense list view toggle.
 - Task cards with priority badge, progress bar, due row, avatar stack, meta counts.
 - Bahasa Indonesia UI copy with concise operational verbs.
@@ -229,6 +233,8 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 ### Tertiary
 
 - **Deadline Amber** (#B86E00) / tint (#F7ECDA): Approaching deadline, "In Progress"-style attention states.
+- **Warning Ink** (#7A4A00): The only warning text colour allowed on `warning-subtle` (6.4:1). `warning` itself is a fill/icon token, not a text token on its own tint.
+- **Warning Bright** (#F0BE6A): Warning numerals and icons on the dark Registry band and other `panel` surfaces. Never used on white.
 - **Accident Red** (#C0392B) / tint (#F7E2DF): Urgent by Accident, overdue, reject, "Not Started"-style urgency.
 - **Escalation Wine** (#7A1F3D) / tint (#F2E2E8): Team Leader, HOD, DGM/GM escalation tiers.
 - **Owner Amber-Brown** (#8A4B12) / tint (#F3E5D6): Urgent Request by Owner.
@@ -236,15 +242,15 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 
 ### Neutral
 
-- **Concrete Canvas** (#EEF1F4): App background.
+- **Concrete Canvas** (#EEF1F4): App background and the content canvas.
 - **Clean Surface** (#FFFFFF): Cards, panels, sheets, forms.
-- **Raised Well** (#F7F9FB): Nested wells, alternate table rows, module icon squares.
-- **Sunken Well** (#E8ECF1): Column backgrounds, drop targets, quiet zones.
+- **Raised Well** (#F7F9FB): Nested wells, table header bands, alternate rows, module icon squares.
+- **Sunken Well** (#E8ECF1): Column backgrounds, meters/tracks, drop targets, quiet zones.
 - **Operational Ink** (#15202B): Primary text and data.
 - **Muted Ink** (#5B6B7C): Secondary labels and metadata.
-- **Subtle Ink** (#8494A7): Placeholders and disabled hints only.
-- **Rule Gray** (#D5DCE5): Card borders, dividers, default input borders.
-- **Strong Rule** (#A8B4C4): Focused inactive emphasis.
+- **Subtle Ink** (#8494A7): Placeholders and disabled hints only — never meaningful copy such as an empty field.
+- **Rule Gray** (#D5DCE5): Dividers and default input borders.
+- **Strong Rule** (#8894A2): A boundary that must be seen at 3:1 against white (WCAG 1.4.11) — table header rules, focused inactive emphasis, scrollbar thumbs.
 
 ### Named Rules
 
@@ -254,7 +260,11 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 
 **The Pastel Pair Rule.** When a signal color is used as a background tint (badge, column wash, module icon square), it must always use the paired `*-subtle` token with the full-strength token as foreground/icon, and always include a text label.
 
-**The Two-Strata Rule.** Navigation lives on the ink-teal panel (`panel`); work lives on the canvas. Content surfaces never sit on the panel stratum, and the panel is never tinted with a signal colour.
+**The Two-Strata Rule.** Navigation lives on the ink-teal panel (`panel`); work lives on the canvas. Content surfaces never sit on the panel stratum, and the panel is never tinted with a signal colour. **One exception:** a master-data index may open with a **Registry band** — a single compact `panel` plate that carries the page's three measurements. It is a measurement plate, not a content card: no lists, no forms, no navigation inside it.
+
+**The Registry Rule.** A master-data index earns a Registry band only when the page has three real numbers to report. The band is one row of three numbers, set at metric size; the table below is the record list. Never add a fourth cell, a sparkline, or a second band to fill space. The band replaces the "summary sentence" — it does not sit beside one.
+
+**The Meter Rule.** A count may carry one thin bar whose length is proportional to the page's largest value. The number is always printed; the bar is `aria-hidden` decoration that helps comparison. A meter never replaces the number and never gets a legend.
 
 **The Twin-Tune Rule (dark mode).** Dark is authored, not inverted: teal and every signal colour are re-picked for their own contrast, `*-subtle` becomes an alpha tint over the card, and elevation shifts from hairline borders to deeper shadows. Both themes hold the same floors (body text ≥4.5:1).
 
@@ -273,6 +283,7 @@ The palette is restrained neutrals plus one structural teal accent, a small sema
 ### Hierarchy
 
 - **Display** (600, 2rem, 1.2): Greeting header ("Selamat pagi, Budi") — larger than the previous scale to match the reference's friendly greeting.
+- **Metric** (600, 2rem, 1.0, tabular-nums, -0.03em): The three Registry values. On phones it steps down to 1.5rem; it never drops below the largest body size on the page.
 - **Title** (600, 1.375rem, 1.3): Card titles and modal titles.
 - **Heading** (600, 1.125rem, 1.35): Section headers, column headers, module group labels.
 - **Body** (400, 1rem, 1.5): Forms, descriptions, task instructions.
@@ -293,6 +304,8 @@ The system uses a two-strata shell: a dark navigation panel beside a light-or-da
 - **Top bar (64px, sticky).** Inside the content stratum: panel trigger, breadcrumb trail (current section only on phones), then the account cluster — appearance switch (Terang · Gelap · Sistem), notification bell with unread count, and the avatar menu. The bar is calm at rest and gains a hairline and soft shadow once content scrolls beneath it.
 - **Section heading band.** Rendered by the shell from the page's layout props: module icon chip in the module's identity tint, `h1` (either the page title or the time-aware greeting), one supporting line capped at 65ch, and the page's primary actions right-aligned. Pages never render their own page heading or padding.
 - **Content column.** Max width 1400px, centered, padding 16px (phone) / 24px (sm) / 32px (lg), bottom padding 7rem on phones to clear the floating bar.
+- **Master-data index.** Opens with the Registry band (three cells, one row), then one registry card. The four-column table appears from `xl` up; between `lg` and `xl` the same records become a two-column card grid, and below `lg` a single column. The heading description stays one short line (≤48 characters) — no "(hanya sync)" implementation notes and no "Detail X" filler.
+- **Master-data detail.** Full width and left-aligned with the `h1` — never a centered `max-w-xl` column. A Registry band, then a 5/7 split: the person card and the division list on the left, the position list on the right. A detail page with 800px of empty canvas below one card is unfinished, not minimal.
 - **Top of every role home.**
     1. **Greeting header** — display-size "Selamat pagi/siang/sore, {Nama}" + caption subtitle.
     2. **Info banner** — one rounded pill, brand or ink emphasis, single message and one link ("Lihat detail"). One per page maximum.
@@ -407,6 +420,32 @@ Touch targets are at least 44 by 44px. Mobile list rows are at least 56px high. 
 - Active tab: raised white chip with `Strong Rule` border.
 - Placed on a row with the page-level CTAs on the right.
 
+### Registry Band
+
+The signature plate of a master-data index or detail page. It answers "what is the shape of this thing?" before the record list starts.
+
+- **Surface:** `panel` with a 1px `panel-border` ring, `shadow-raised`, radius `rounded.xl` (16px). It sits on the canvas, not inside a card.
+- **Signature:** a 2px `brand-strong` rail across the top edge, full width. One rail per page.
+- **Cells:** exactly three, in one row at every breakpoint. `grid-cols-3`, divided by 1px `panel-border` hairlines. Phone padding 14px, desktop 20–24px.
+- **Value:** **metric** type — 2rem, 600, `tabular-nums`, `-0.03em`, `panel-ink`. Phones step down to 1.5rem, never below the largest body size.
+- **Label:** 11px, 600, uppercase, `0.14em` tracking, `panel-ink-muted`; a 14px Lucide icon in `brand-strong` sits before it. On phones the label drops to 9.5px.
+- **Exception:** a cell whose number is a real problem (for example departments without an HOD) switches its icon and value to `warning-bright`. The label still names the condition; colour is never the only signal.
+- **Never:** a fourth cell, a trend line, a sparkline, a gradient, or a second band on the same page.
+
+### Registry Table
+
+The record list below the Registry band. It is a table, not a grid of cards, from `xl` up.
+
+- **Container:** one `surface` card, radius 16px, 1px `border`, `shadow-card`.
+- **Header:** `surface-raised` band, 36–40px tall, 10px uppercase labels with `0.14em` tracking, and a **1px `border-strong` bottom rule**. The header must read as a header without relying on colour alone.
+- **Columns:** four. Primary (department/record name + identifier), Owner (identity with avatar), Divisi (the actual division names), Measure (count + meter). No "Aksi" column: the name is the link. The Divisi column is what closes the horizontal void a three-column registry leaves at desktop width — a count alone is not enough to hold the column.
+- **Primary cell:** identifier as a **10px mono eyebrow** (`tracking-[0.14em]`, uppercase, `ink-muted`) followed by the name at 15px/600. The eyebrow may carry one related count (`N posisi`), separated by a mid-dot in `border-strong`; it must not repeat the Divisi column.
+- **Owner cell:** 32px avatar + 13px/500 name + 11px email. Empty is a **chip**: `warning-subtle` fill, `warning-ink` text, 6px warning dot, label "Tanpa HOD". Empty data is a condition, not a footnote in `ink-subtle`.
+- **Divisi cell:** 12.5px `ink-muted`, names joined with a mid-dot, one line and truncated with a `title`; an em dash when empty. The detail page carries the complete list.
+- **Measure cell:** right-aligned 17px/600 `tabular-nums` above a 4px meter (64px wide, `surface-sunken` track, `brand` fill, width = count / page maximum, minimum 4%). The number is the data; the meter is `aria-hidden`.
+- **Row:** 56–64px, 1px `border` divider, hover wash `surface-raised`. On hover/focus the row shows a 2px `brand` rail on its leading edge and the name shifts to `brand`.
+- **Below `xl`:** the table becomes cards — two columns at `lg`, one column below. Same fields, identifier eyebrow, name, owner, and the count + meter at the top right. No horizontal scrolling and no 780px-wide single card.
+
 ### Kanban Board
 
 - Column background: `surface-sunken`, radius 16px, padding 12px.
@@ -433,6 +472,16 @@ The card is the same information model as the dense `WoListRow`; only the presen
 ### Work Order Row (`WoListRow`)
 
 Dense list view for desktop HOD queues: 48px height. Left 3px deadline rail; primary work label; Work Order number in **mono**; category and status badges; deadline proximity text. No card chrome; rows are separated by 1px `border` inside a single card container.
+
+### Timeline (`/{tenant}/work-orders/timeline`)
+
+A week grid of scheduled Work Orders, reached from the `Terjadwal` navigation item. The **day column** is the unit, not the hour: `work_orders.scheduled_date` is a DATE column and the model carries no time-of-day column, so a time-of-day gutter has no data behind it. The date-level equivalent of a current-time indicator is the **today column**.
+
+- **Grid:** seven columns, Monday first. `grid-cols-1` (phone) → `md:grid-cols-2` (tablet) → `xl:grid-cols-7` (desktop). The desktop grid scrolls **inside its own region** (`overflow-x`, minimum column width 1388px) rather than widening the page; the region is focusable and labelled so keyboard users can scroll it.
+- **Column header:** day name (**micro**, tracked caps), date in **body-strong**, and — for today only — a text badge (`Hari ini`), an `aria-current="date"` marker, a 2px `brand` rule, and a `brand` border. The today cue is **never colour alone**: a tint near white fails non-text contrast, and colour-only fails Use of Color.
+- **Event card:** the WoCard anatomy, compressed for a narrow column — mono WO number, title (two-line clamp), `StatusBadge` (compact) + `CategoryBadge`, then the deadline line with its `DeadlineRail`. The card links to the Work Order detail.
+- **Deadline state** is derived server-side from `deadline_date` so the rail and its label never disagree: `on_track`, `due_soon` (today/tomorrow), `overdue` (H+1–2), `escalated` (H+3+, or `is_escalated`).
+- **Empty day:** `surface-sunken` well reading "Tidak ada WO terjadwal" — no illustration.
 
 ### Status and Category Badges
 
@@ -477,7 +526,9 @@ Submit Hasil and Verify Hasil use a two-column desktop layout and a stacked mobi
 
 - **Don't** ship flat white/canvas cards in primary surfaces: no hairline, no shadow, no translucent layering, or literal white borders that vanish in dark mode.
 - **Don't** use purple or indigo SaaS gradients, neon dark mode, glow edges, or decorative washes.
-- **Don't** use oversized metric heroes, advanced BI charts, or KPI tiles in MVP homes.
+- **Don't** use oversized metric heroes, advanced BI charts, or KPI walls. A compact three-number Registry band on a master-data index is the sanctioned exception — a measurement plate, not a dashboard.
+- **Don't** set a whole page at one type size. If every node is 13–14px, hierarchy is missing, no matter how good the spacing is.
+- **Don't** center a record page in `max-w-xl`. It breaks the left axis of the `h1` and leaves dead gutters on both sides.
 - **Don't** use pastel status pills without labels or rely on red versus green alone.
 - **Don't** use Inter, Roboto, system-ui, display serifs, or handwritten faces as the brand voice.
 - **Don't** use gamified badges, confetti, playful illustrations, or consumer-style pill CTAs (pill shape reserved for badges and dots, not primary buttons).

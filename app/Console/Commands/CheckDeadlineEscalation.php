@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('app:check-deadline-escalation')]
-#[Description('检查逾期 Work Order 并发送分级 escalations: H+3→Team Leader, H+5→HOD, H+6→DGM/GM')]
+#[Description('Cek Work Order terlambat dan kirim eskalasi berjenjang: H+3→Team Leader, H+5→HOD, H+6→DGM/GM')]
 class CheckDeadlineEscalation extends Command
 {
     private const ESCALATION_H3_DAYS = 3;
@@ -43,18 +43,18 @@ class CheckDeadlineEscalation extends Command
             ->get();
 
         if ($overdueWOs->isEmpty()) {
-            $this->info('没有逾期的 Work Order。');
+            $this->info('Tidak ada Work Order terlambat.');
 
             return Command::SUCCESS;
         }
 
-        $this->info("检查到 {$overdueWOs->count()} 个逾期 WO，开始处理 escalations...");
+        $this->info("Ditemukan {$overdueWOs->count()} WO terlambat, memproses eskalasi...");
 
         foreach ($overdueWOs as $workOrder) {
             $this->processEscalation($workOrder, $calculator);
         }
 
-        $this->info('Escalation 检查完成。');
+        $this->info('Pemeriksaan eskalasi selesai.');
 
         return Command::SUCCESS;
     }
@@ -64,7 +64,7 @@ class CheckDeadlineEscalation extends Command
         $department = Department::withoutGlobalScope('tenant')
             ->find($workOrder->target_department_id);
         if (! $department) {
-            Log::error('Escalation: 找不到部门', ['work_order_id' => $workOrder->id]);
+            Log::error('Escalation: departemen tidak ditemukan', ['work_order_id' => $workOrder->id]);
 
             return;
         }
@@ -106,7 +106,7 @@ class CheckDeadlineEscalation extends Command
         $recipients = $this->resolveRecipients($workOrder, $department, $level);
 
         if ($recipients->isEmpty()) {
-            Log::critical('Escalation: 没有可通知的接收者', [
+            Log::critical('Escalation: tidak ada penerima yang bisa diberitahu', [
                 'work_order_id' => $workOrder->id,
                 'level' => $level,
                 'department_id' => $department->id,
@@ -148,7 +148,35 @@ class CheckDeadlineEscalation extends Command
             return $this->getTeamLeaderOrFallback($department);
         }
 
-        // H+5 and H+6: HOD fallback chain
+        if ($level === 'h6') {
+            // H+6: DGM/GM in the WO's tenant first, then the HOD chain
+            return $this->getManagementOrFallbackRecipients($workOrder, $department);
+        }
+
+        // H+5: HOD fallback chain
+        return $this->getHodFallbackRecipients($department);
+    }
+
+    /**
+     * H+6 recipients: users holding general_manager/deputy_general_manager
+     * roles in the work order's tenant (inclusive — mirroring the hod-role
+     * fallback below); empty → the HOD fallback chain.
+     *
+     * @return Collection<int, User>
+     */
+    private function getManagementOrFallbackRecipients(WorkOrder $workOrder, Department $department): Collection
+    {
+        // NB: whereHas('roles'), never whereHasRoles() — that name degrades to a
+        // dynamic `has_roles` where: empty on sqlite, QueryException on MySQL.
+        $management = User::withoutGlobalScope('tenant')
+            ->where('tenant_id', $workOrder->tenant_id)
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['general_manager', 'deputy_general_manager']))
+            ->get();
+
+        if (! $management->isEmpty()) {
+            return $management;
+        }
+
         return $this->getHodFallbackRecipients($department);
     }
 
@@ -162,7 +190,7 @@ class CheckDeadlineEscalation extends Command
             ->whereHas('employee', function ($q) use ($department) {
                 $q->withoutGlobalScope('tenant')->where('department_id', $department->getKey());
             })
-            ->whereHasRoles('team_leader')
+            ->whereHas('roles', fn ($q) => $q->where('name', 'team_leader'))
             ->get();
 
         if (! $teamLeaders->isEmpty()) {
@@ -203,7 +231,7 @@ class CheckDeadlineEscalation extends Command
                 ->whereHas('employee', function ($q) use ($department) {
                     $q->withoutGlobalScope('tenant')->where('department_id', $department->getKey());
                 })
-                ->whereHasRoles('hod')
+                ->whereHas('roles', fn ($q) => $q->where('name', 'hod'))
                 ->get();
         }
 
@@ -214,7 +242,7 @@ class CheckDeadlineEscalation extends Command
                 ->where('tenant_id', $department->tenant_id)
                 ->get();
 
-            Log::critical('Escalation HOD fallback: 没有合适的接收者，发送给 super admin', [
+            Log::critical('Escalation HOD fallback: tidak ada penerima yang cocok, mengirim ke super admin', [
                 'department_id' => $department->id,
                 'tenant_id' => $department->tenant_id,
             ]);

@@ -24,7 +24,10 @@ import { index as permissionsIndex } from '@/routes/permissions';
 import { index as rolesIndex } from '@/routes/roles';
 import positions from '@/routes/positions';
 import { edit as profileEdit } from '@/routes/profile';
-import { index as workOrdersIndex } from '@/routes/work-orders';
+import {
+    index as workOrdersIndex,
+    timeline as workOrdersTimeline,
+} from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
 import type { NavItem } from '@/types';
 
@@ -216,7 +219,7 @@ export function navGroups({
                         tone: 'ops',
                     },
                     tenant,
-                    (t) => workOrdersIndex({ tenant: t }),
+                    (t) => workOrdersTimeline({ tenant: t }),
                 ),
                 modulePending(
                     {

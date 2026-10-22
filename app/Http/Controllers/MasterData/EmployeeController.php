@@ -11,13 +11,16 @@ use App\Http\Resources\EmployeeResource;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Queries\EmployeeQuery;
 use App\Services\AuditLogger;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +39,8 @@ class EmployeeController extends Controller
     {
         Gate::authorize('employee.read');
 
+        $filters = $request->filters();
+
         $query = (new EmployeeQuery)->build(
             $request->search(),
             $request->sort(),
@@ -51,6 +56,16 @@ class EmployeeController extends Controller
         $employees = $query->paginate($perPage)
             ->withQueryString()
             ->through(fn (Employee $employee) => EmployeeResource::make($employee)->resolve());
+
+        // Summary reflects the current filters across the whole tenant, not
+        // just the visible page — otherwise the metric would change meaning
+        // whenever the user changes "Per halaman".
+        $summaryQuery = (new EmployeeQuery)->build(
+            $request->search(),
+            $request->sort(),
+            $request->direction(),
+            $filters
+        );
 
         return Inertia::render('employees/index', [
             'employees' => $employees,
@@ -180,7 +195,9 @@ class EmployeeController extends Controller
 
     /**
      * Diblokir a karyawan (record-level block, superadmin only). The block
-     * survives portal syncs; the linked akun, if any, is untouched.
+     * survives portal syncs; the linked akun, if any, keeps its roles and
+     * link — but its live sessions are revoked here, and the web-stack
+     * guard (EnsureEmployeeNotBanned) bounces anything that slips through.
      */
     public function ban(Request $request): RedirectResponse
     {
@@ -362,12 +379,8 @@ class EmployeeController extends Controller
             ]);
         }
 
-        $akun = User::query()
+        $akun = $this->linkCandidates($employee)
             ->whereKey($request->integer('user_id'))
-            ->where('tenant_id', $employee->tenant_id)
-            ->whereNull('employee_id')
-            ->where('is_super_admin', false)
-            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'super_admin'))
             ->first();
 
         if ($akun === null) {
@@ -377,6 +390,7 @@ class EmployeeController extends Controller
         }
 
         try {
+            DB::transaction(function () use ($akun, $employee, $request): void {
             DB::transaction(function () use ($akun, $employee, $request): void {
                 $akun->forceFill(['employee_id' => $employee->id])->save();
 

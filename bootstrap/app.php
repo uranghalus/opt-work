@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureTenantAccess;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
+use App\Services\AccessDeniedAuditor;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -52,8 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             IdentifyTenant::class,
+<<<<<<< HEAD
             // Q7: blokir per-request — menutup login baru DAN sesi aktif di
             // satu choke point (lihat docblock middleware).
+=======
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
             EnsureEmployeeNotBanned::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
@@ -76,5 +81,25 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        // FR-6.3: setiap akses yang ditolak (403) tercatat di audit_events —
+        // render hook, bukan event gate, supaya probe can() tidak membanjiri
+        // audit. Return null = lanjut ke render default (halaman/JSON 403).
+        //
+        // NB: dinotisasi sebagai HttpException 403, bukan AuthorizationException
+        // — Handler::prepareException mengonversi AuthorizationException →
+        // AccessDeniedHttpException SEBELUM render callbacks dijalankan
+        // (Handler.php:777), dan spatie UnauthorizedException memang
+        // HttpException(403). AuthorizationException asli tersedia via
+        // getPrevious() untuk ekstraksi izin di AccessDeniedAuditor.
+        $exceptions->render(
+            function (HttpException $exception, Request $request) {
+                if ($exception->getStatusCode() === 403) {
+                    AccessDeniedAuditor::record($exception, $request);
+                }
+
+                return null;
+            },
         );
     })->create();

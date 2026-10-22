@@ -53,11 +53,11 @@ class WorkOrderDeadlineEscalated extends Notification
             'escalation_target' => $levelLabel,
             'target_department_id' => $this->workOrder->target_department_id,
             'message' => sprintf(
-                'WO %s ("%s") 已逾期，请及时处理。%s 请注意跟进。%s',
+                'WO %s ("%s") melewati deadline — segera tindak lanjuti. Eskalasi ke %s.%s',
                 $this->workOrder->nomor_wo,
                 $this->workOrder->title,
                 $levelLabel,
-                $deadline === null ? '' : '截止日期: '.$deadline,
+                $deadline === null ? '' : ' Deadline: '.$deadline,
             ),
         ];
     }
@@ -70,7 +70,7 @@ class WorkOrderDeadlineEscalated extends Notification
     /**
      * Outbox WhatsApp (ADR-0009): eskalasi keterlambatan berjenjang.
      * Template sendiri dalam Bahasa Indonesia — payload in-app (toArray)
-     * memakai teks campuran dan di luar scope perubahan ini.
+     * ikut Bahasa Indonesia sejak 2026-10-22.
      */
     public function toWhatsApp(object $notifiable): string
     {

@@ -4,12 +4,14 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderCreated;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -417,4 +419,71 @@ it('returns 404 for an attachment index that does not exist', function () {
         ->actingAs(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]))
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/5")
         ->assertNotFound();
+});
+
+it('registers only the work order routes backed by controller methods', function () {
+    expect(Route::has('work-orders.index'))->toBeTrue()
+        ->and(Route::has('work-orders.create'))->toBeTrue()
+        ->and(Route::has('work-orders.store'))->toBeTrue()
+        ->and(Route::has('work-orders.show'))->toBeTrue()
+        ->and(Route::has('work-orders.timeline'))->toBeTrue()
+        ->and(Route::has('work-orders.assign'))->toBeTrue()
+        ->and(Route::has('work-orders.edit'))->toBeFalse()
+        ->and(Route::has('work-orders.update'))->toBeFalse()
+        ->and(Route::has('work-orders.destroy'))->toBeFalse();
+});
+
+it('passes the WO event history on the detail page', function () {
+    initTenant('hq');
+    $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $department = Department::create([
+        'kode_department' => 'DEP-IT',
+        'nama_department' => 'IT',
+    ]);
+    $workOrder = WorkOrder::create([
+        'nomor_wo' => 'WO-HIST-0001',
+        'requester_user_id' => $requester->getKey(),
+        'target_department_id' => $department->getKey(),
+        'category' => WorkOrderCategory::Normal,
+        'title' => 'Histori WO',
+        'description' => 'Test riwayat',
+        'status' => WorkOrderStatus::Assigned,
+    ]);
+
+    $created = WorkOrderEvent::record($workOrder, $requester, 'created', null, WorkOrderStatus::WaitingHod->value);
+    $created->forceFill(['created_at' => now()->subMinutes(5)])->save();
+    WorkOrderEvent::record($workOrder, $requester, 'assigned', WorkOrderStatus::WaitingHod->value, WorkOrderStatus::Assigned->value);
+
+    $this->actingAs($requester)
+        ->get(route('work-orders.show', ['tenant' => 'hq', 'workOrder' => $workOrder->getKey()]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/show')
+            ->has('events', 2)
+            ->where('events.0.action', 'assigned')
+            ->where('events.0.user_name', $requester->name)
+            ->where('events.1.action', 'created'));
+});
+
+it('lists only active departments on the WO create page', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    Department::create([
+        'kode_department' => 'DEP-AKTIF',
+        'nama_department' => 'Aktif',
+        'is_active' => true,
+    ]);
+    Department::create([
+        'kode_department' => 'DEP-NONAKTIF',
+        'nama_department' => 'Nonaktif',
+        'is_active' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('work-orders.create', ['tenant' => 'hq']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/create')
+            ->has('departments', 1)
+            ->where('departments.0.nama_department', 'Aktif'));
 });

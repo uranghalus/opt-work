@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\AuditEvent;
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -175,7 +177,11 @@ it('prevents duplicate employee links at the database level', function () {
     ]))->toThrow(QueryException::class);
 });
 
+<<<<<<< HEAD
 it('offers only unlinked same-cabang accounts via the search endpoint (Q6)', function () {
+=======
+it('offers only unlinked same-cabang accounts through akun/search', function () {
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
     $available = User::factory()->create([
         'tenant_id' => $this->hq->id,
@@ -224,6 +230,144 @@ it('offers only unlinked same-cabang accounts via the search endpoint (Q6)', fun
         ->assertInertia(fn ($page) => $page
             ->component('employees/show')
             ->where('employee.has_account', false));
+
+    // Candidates now come from the paginated akun/search endpoint, which
+    // applies the same constraints linkAkun does.
+    $this->actingAs($editor)
+        ->get(accountLinkRoute($employee, 'employees.akun.search'))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.email', $available->email);
+});
+
+it('provisions the zero-permission guest role when linking a roleless account', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs(accountEditor())
+        ->post(accountLinkRoute($employee), ['user_id' => $akun->id])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $audit = AuditEvent::query()->where('action', 'akun.link')->sole();
+
+    // Q4 + ADR-0008 amendment: the link itself provisions `guest`, so the
+    // account clears LoginLanding's no_role gate with zero permissions.
+    expect($akun->fresh()->getRoleNames()->all())->toBe(['guest'])
+        ->and(Role::findByName('guest')->permissions)->toHaveCount(0)
+        ->and($audit->after['auto_role'])->toBe('guest');
+});
+
+it('leaves the roles of an account that already has one untouched when linking', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
+    $akun->assignRole('karyawan');
+
+    $this->actingAs(accountEditor())
+        ->post(accountLinkRoute($employee), ['user_id' => $akun->id])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $audit = AuditEvent::query()->where('action', 'akun.link')->sole();
+
+    expect($akun->fresh()->getRoleNames()->all())->toBe(['karyawan'])
+        ->and($audit->after)->not->toHaveKey('auto_role');
+});
+
+it('keeps a provisioned guest through unlink and lands it on the dashboard at login', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
+    $editor = accountEditor();
+
+    $this->actingAs($editor)
+        ->post(accountLinkRoute($employee), ['user_id' => $akun->id])
+        ->assertSessionHas('success');
+
+    $this->actingAs($editor)
+        ->delete(accountLinkRoute($employee, 'employees.akun.unlink'))
+        ->assertSessionHas('success');
+
+    expect($akun->fresh()->getRoleNames()->all())->toBe(['guest']);
+
+    // Drop the editor's in-memory auth so login.store below runs as a
+    // genuine guest (otherwise RedirectIfAuthenticated bounces it).
+    $this->app['auth']->forgetGuards();
+
+    // E2E: the provisioned guest clears the no_role gate and lands on the
+    // dashboard (permitted routes stay closed — izin nol).
+    $this->post(route('login.store'), [
+        'email' => $akun->email,
+        'password' => 'password',
+    ])->assertRedirect(route('dashboard', ['tenant' => 'hq']));
+
+    $this->get(route('dashboard', ['tenant' => 'hq']))->assertOk();
+
+    expect($akun->refresh()->getAllPermissions()->count())->toBe(0);
+});
+
+it('filters akun/search candidates by name or email', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    User::factory()->create([
+        'tenant_id' => $this->hq->id,
+        'name' => 'Budi Santoso',
+        'email' => 'budi.santoso@example.com',
+    ]);
+    User::factory()->create([
+        'tenant_id' => $this->hq->id,
+        'name' => 'Siti Rahayu',
+        'email' => 'siti.rahayu@example.com',
+    ]);
+
+    $this->actingAs(accountEditor())
+        ->getJson(accountLinkRoute($employee, 'employees.akun.search').'?q=Budi')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.email', 'budi.santoso@example.com');
+
+    $this->actingAs(accountEditor())
+        ->getJson(accountLinkRoute($employee, 'employees.akun.search').'?q=rahayu')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.email', 'siti.rahayu@example.com');
+});
+
+it('paginates akun/search beyond a hundred candidates', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    User::factory()->count(105)->create(['tenant_id' => $this->hq->id]);
+
+    // Keep the editor out of the candidate set so the counts stay exact.
+    $editor = accountEditor();
+    $editor->forceFill([
+        'employee_id' => Employee::factory()->create(['tenant_id' => $this->hq->id])->id,
+    ])->save();
+
+    $first = $this->actingAs($editor)
+        ->getJson(accountLinkRoute($employee, 'employees.akun.search'))
+        ->assertOk()
+        ->assertJsonCount(10, 'data')
+        ->assertJsonPath('total', 105)
+        ->assertJsonPath('last_page', 11)
+        ->assertJsonPath('current_page', 1);
+
+    $firstEmail = $first->json('data.0.email');
+
+    $second = $this->actingAs($editor)
+        ->getJson(accountLinkRoute($employee, 'employees.akun.search').'?page=2')
+        ->assertOk()
+        ->assertJsonCount(10, 'data')
+        ->assertJsonPath('current_page', 2);
+
+    expect(collect($second->json('data'))->pluck('email')->all())
+        ->not->toContain($firstEmail);
+});
+
+it('requires akun.update for akun/search', function () {
+    $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
+    $viewer = createUser(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs($viewer)
+        ->getJson(accountLinkRoute($employee, 'employees.akun.search'))
+        ->assertForbidden();
 });
 
 it('filters linkable accounts by the search term server-side (Q6)', function () {

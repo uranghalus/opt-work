@@ -33,6 +33,8 @@ export type Auth = {
         'whatsapp.update': boolean;
         'work-order.review': boolean;
         'work-order.assign': boolean;
+        'work-order.submit': boolean;
+        'work-order.verify': boolean;
     };
 };
 

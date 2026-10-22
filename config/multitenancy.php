@@ -85,6 +85,7 @@ return [
     ],
 
     'not_tenant_aware_jobs' => [
+<<<<<<< HEAD
         // Defect pre-existing (terungkap saat slice WhatsApp 2026-10-21):
         // notify() yang berjalan TANPA tenant current (mis. command
         // app:check-deadline-escalation) melempar BroadcastNotificationCreated
@@ -95,6 +96,15 @@ return [
         // channel), jadi job ini memang non-tenant-aware. Entry ini harus
         // kelas UNWRAPPED-nya — memasukkan BroadcastEvent di sini adalah
         // no-op karena queueable_to_job sudah membongkarnya lebih dulu.
+=======
+        // Broadcast payload sudah dihitung saat dispatch dan broadcaster-nya
+        // tidak menyentuh DB tenant saat worker run — jalur command (mis.
+        // eskalasi deadline) notify tanpa tenant current dan tanpa entry ini
+        // saluran broadcast-nya dibuang spatie (job di-delete + exception).
+        // The awareness probe unwraps `BroadcastEvent` via `queueable_to_job`
+        // BEFORE consulting this list, so the entry must name the INNER
+        // event class — the wrapper name would be a silent no-op.
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
         BroadcastNotificationCreated::class,
     ],
 ];

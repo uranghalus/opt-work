@@ -16,16 +16,26 @@ class EmployeeQuery
     ];
 
     /**
+<<<<<<< HEAD
      * Build the query with search, filters, sorting, and eager loading.
+=======
+     * Build the query with search, sorting, filters, and eager loading.
+     *
+     * @param  array{department_id?: ?string, division_id?: ?string, position_id?: ?string, has_account?: ?bool, status?: string}  $filters
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
      */
     public function build(
         ?string $search,
         string $sort,
         string $direction,
+<<<<<<< HEAD
         ?string $departmentId = null,
         ?string $divisionId = null,
         ?string $status = null,
         ?string $akun = null,
+=======
+        array $filters = []
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
     ): Builder {
         $query = Employee::query()
             ->with(['department', 'position', 'division', 'user'])
@@ -59,6 +69,7 @@ class EmployeeQuery
             });
         }
 
+<<<<<<< HEAD
         if ($departmentId !== null && $departmentId !== '') {
             $query->where('department_id', $departmentId);
         }
@@ -81,6 +92,29 @@ class EmployeeQuery
             'unlinked' => $query->whereDoesntHave('user'),
             default => null,
         };
+=======
+        $query
+            ->when(
+                $filters['department_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('department_id', $id)
+            )
+            ->when(
+                $filters['division_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('division_id', $id)
+            )
+            ->when(
+                $filters['position_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('position_id', $id)
+            )
+            ->when(
+                ($filters['has_account'] ?? null) !== null,
+                fn (Builder $q) => ($filters['has_account'] ?? false)
+                    ? $q->whereHas('user')
+                    : $q->whereDoesntHave('user')
+            )
+            ->when(($filters['status'] ?? 'all') === 'banned', fn (Builder $q) => $q->whereNotNull('banned_at'))
+            ->when(($filters['status'] ?? 'all') === 'active', fn (Builder $q) => $q->whereNull('banned_at'));
+>>>>>>> 6a587ec5de9dfe987be236d3580995393e3becda
 
         $sort = in_array($sort, self::SORTABLE_COLUMNS, true) ? $sort : 'nama_employee';
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';

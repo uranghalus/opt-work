@@ -27,11 +27,12 @@
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-    /* Elevation: one story. Border at rest, shadow for lift and overlays. */
-    --shadow-card: 0 1px 2px rgba(20, 33, 43, 0.05);
-    --shadow-raised: 0 2px 6px -1px rgba(20, 33, 43, 0.12);
-    --shadow-popover: 0 8px 24px -4px rgba(20, 33, 43, 0.16);
-    --shadow-modal: 0 20px 48px -12px rgba(20, 33, 43, 0.3);
+    /* Elevation: a surface must actually leave the canvas.
+       Level 1 is the resting card; Level 2 is hover/focus. */
+    --shadow-card: 0 1px 2px rgba(20, 33, 43, 0.05), 0 2px 8px -2px rgba(20, 33, 43, 0.1);
+    --shadow-raised: 0 6px 20px -6px rgba(20, 33, 43, 0.18), 0 2px 6px -2px rgba(20, 33, 43, 0.08);
+    --shadow-popover: 0 12px 32px -6px rgba(20, 33, 43, 0.18);
+    --shadow-modal: 0 24px 56px -14px rgba(20, 33, 43, 0.34);
 
     /* Material depth: translucent surfaces with a hairline and a soft halo.
        Used by the settings strata so content is never flat white-on-white. */
@@ -131,6 +132,8 @@
     --color-overlay: var(--overlay);
     --color-info-subtle: var(--info-subtle);
     --color-warning-subtle: var(--warning-subtle);
+    --color-warning-ink: var(--warning-ink);
+    --color-warning-bright: var(--warning-bright);
     --color-danger-subtle: var(--danger-subtle);
     --color-escalation-subtle: var(--escalation-subtle);
     --color-success-subtle: var(--success-subtle);
@@ -144,7 +147,7 @@
 :root {
     color-scheme: light;
 
-    --background: #f7f9ff; /* Stitch: background */
+    --background: #eef1f4; /* Stitch: canvas — one step below the card */
     --foreground: #111d27; /* Stitch: on-background */
     --card: #ffffff; /* Stitch: surface */
     --card-foreground: #111d27;
@@ -156,7 +159,7 @@
     --secondary-foreground: #111d27;
     --muted: #f7f9fb;
     --muted-foreground: #5b6b7c; /* Stitch: ink-muted */
-    --accent: #eef1f4; /* Stitch: canvas */
+    --accent: #e6ebef; /* Stitch: canvas, one step darker for hover fills */
     --accent-foreground: #111d27;
     --destructive: #c0392b; /* Stitch: danger */
     --destructive-foreground: #ffffff;
@@ -176,7 +179,7 @@
     --ink: #15202b; /* Stitch: ink */
     --ink-muted: #5b6b7c; /* Stitch: ink-muted */
     --ink-subtle: #8494a7; /* Stitch: ink-subtle */
-    --border-strong: #a8b4c4; /* Stitch: border-strong */
+    --border-strong: #8894a2; /* Boundary that passes 3:1 on white (WCAG 1.4.11) */
 
     --brand: #0c6b58; /* Stitch: brand (primary-container) */
     --brand-hover: #095445; /* Stitch: brand-hover */
@@ -186,6 +189,8 @@
     --on-brand: #ffffff; /* Stitch: on-brand */
     --info: #2a5f8f; /* Stitch: info */
     --warning: #b86e00; /* Stitch: warning */
+    --warning-ink: #7a4a00; /* Warning text on warning-subtle — 6.4:1 */
+    --warning-bright: #f0be6a; /* Warning numeral on the dark Registry plate */
     --danger: #c0392b; /* Stitch: danger */
     --escalation: #7a1f3d; /* Stitch: escalation */
     --success: #1f7a4c; /* Stitch: success */
@@ -296,6 +301,8 @@
     --on-brand: #ffffff;
     --info: #74acd8;
     --warning: #e5ab4e;
+    --warning-ink: #f0c172;
+    --warning-bright: #f0be6a;
     --danger: #ec8474;
     --escalation: #dc8fae;
     --success: #52c08c;

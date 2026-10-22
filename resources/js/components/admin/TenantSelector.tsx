@@ -68,25 +68,20 @@ export function TenantSelector({ tenants, onSelect, className }: TenantSelectorP
                 <div
                     key={tenant.id}
                     className={cn(
-                        'relative overflow-hidden rounded-xl border bg-white p-5 transition-all duration-200',
+                        'relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-all duration-200',
                         'hover:shadow-md hover:border-slate-300',
                         !tenant.is_active && 'opacity-60 border-slate-200 bg-slate-50'
                     )}
-                    style={{ borderColor: '#D5DCE5' }}
                 >
                     {/* Status Badge */}
                     <div className="absolute top-4 right-4">
                         <span
                             className={cn(
-                                'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider'
+                                'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ring-1 ring-inset',
+                                tenant.is_active
+                                    ? 'bg-success-subtle text-success ring-success/25'
+                                    : 'bg-danger-subtle text-danger ring-danger/25'
                             )}
-                            style={{
-                                backgroundColor: tenant.is_active ? '#DFEFE6' : '#F7E2DF',
-                                color: tenant.is_active ? '#1F7A4C' : '#C0392B',
-                                borderColor: tenant.is_active ? '#DFEFE6' : '#F7E2DF',
-                                borderWidth: '1px',
-                                borderStyle: 'solid',
-                            }}
                         >
                             {tenant.is_active ? (
                                 <>
@@ -112,46 +107,36 @@ export function TenantSelector({ tenants, onSelect, className }: TenantSelectorP
                     </div>
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-3 mb-4" style={{ borderTop: '1px solid #E8ECF1', paddingTop: '1rem' }}>
+                    <div className="grid grid-cols-2 gap-3 mb-4 border-t border-slate-200 pt-4">
                         <div className="space-y-1">
                             <p className="text-2xl font-bold text-slate-900">{tenant.stats.employees}</p>
-                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Karyawan</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Karyawan</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-2xl font-bold text-slate-900">{tenant.stats.work_orders}</p>
-                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Total WO</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Total WO</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-2xl font-bold text-slate-900">{tenant.stats.departments}</p>
-                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Departemen</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Departemen</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-2xl font-bold text-slate-900">{tenant.stats.open_work_orders}</p>
-                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">WO Buka</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">WO Buka</p>
                         </div>
                     </div>
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                         <button
+                            aria-label={`Masuk ke ${tenant.name}`}
                             onClick={() => handleSwitchTenant(tenant.code ?? '')}
                             disabled={!tenant.is_active || !tenant.code}
                             className={cn(
-                                'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-150',
-                                'focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:outline-none',
+                                'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-3 text-sm font-semibold transition-colors duration-150 bg-brand text-on-brand hover:bg-brand-hover',
+                                'focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none',
                                 'disabled:opacity-50 disabled:cursor-not-allowed'
                             )}
-                            style={{
-                                backgroundColor: '#0C6B58',
-                                color: '#FFFFFF',
-                                borderColor: '#0C6B58',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#095445';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#0C6B58';
-                            }}
                         >
                             Masuk
                         </button>

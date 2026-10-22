@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Employee;
 use App\Models\User;
 use App\Services\LoginLanding;
 use App\Services\LoginProvisioningService;
@@ -114,7 +115,39 @@ class SamlController extends Controller
         // login, so persist it.
         $user->forceFill(['tenant_id' => $tenant->id])->save();
 
+        $this->warnHomeTenantDrift($user);
+
         return redirect()->intended(route('dashboard', ['tenant' => $tenant->code]));
+    }
+
+    /**
+     * Q14 drift guard (ADR-0010): the home tenant follows the assertion while
+     * the employee link is global — when the login write leaves the two in
+     * different cabang, record a warning so the downstream breakage (role-write
+     * and tenant.access 403s) is diagnosable instead of silent. The link itself
+     * is never broken or re-pointed automatically.
+     */
+    private function warnHomeTenantDrift(User $user): void
+    {
+        if ($user->employee_id === null) {
+            return;
+        }
+
+        $employee = Employee::withoutGlobalScope('tenant')
+            ->whereKey($user->employee_id)
+            ->first();
+
+        if ($employee === null || $employee->tenant_id === $user->tenant_id) {
+            return;
+        }
+
+        Log::warning('Home tenant drift: linked karyawan belongs to another cabang.', [
+            'user_id' => $user->getKey(),
+            'user_email' => $user->email,
+            'employee_id' => $employee->getKey(),
+            'employee_tenant_id' => $employee->tenant_id,
+            'home_tenant_id' => $user->tenant_id,
+        ]);
     }
 
     /**

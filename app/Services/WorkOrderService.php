@@ -143,6 +143,16 @@ class WorkOrderService
                 ]);
             }
 
+            // Q7: a banned karyawan is a record-level block — assignment is
+            // execution, so it refuses here with the same form-error shape.
+            $banned = $employees->first(fn (Employee $employee): bool => $employee->isBanned());
+
+            if ($banned !== null) {
+                throw ValidationException::withMessages([
+                    'employees' => 'Karyawan '.$banned->nama_employee.' sedang diblokir dan tidak dapat ditugaskan.',
+                ]);
+            }
+
             $firstAssignment = $workOrder->assigned_at === null;
 
             $workOrder->update([

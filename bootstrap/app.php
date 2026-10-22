@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureEmployeeNotBanned;
 use App\Http\Middleware\EnsurePlatformTenantAccess;
 use App\Http\Middleware\EnsureTenantAccess;
 use App\Http\Middleware\HandleAppearance;
@@ -51,6 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             IdentifyTenant::class,
+            EnsureEmployeeNotBanned::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

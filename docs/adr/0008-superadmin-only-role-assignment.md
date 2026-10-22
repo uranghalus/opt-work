@@ -22,6 +22,10 @@ ADR-0005 put role assignment behind `akun.update` and left the grant hierarchy a
 - Existing role-assignment tests use a superadmin actor; new tests assert `admin_tenant` and permission-only actors receive 403 and see an empty `assignable_roles`.
 - Future delegation requires a new decision (for example an explicit role rank or a dedicated `role.assign` capability) rather than widening `akun.update` again.
 
+## Amendment (2026-10-22) — provisioning at link is not a manual grant
+
+Linking an account to a karyawan now provisions the zero-permission `guest` role inside the same transaction when the account holds no role at all (`EmployeeController::linkAkun`, surfaced in the audit trail as `after.auto_role`; decision Q4). This is **system provisioning, not a manual grant**: it runs automatically as part of the link the superadmin has already authorized, the actor never selects a role, and the only role it can ever provision is the sealed, zero-permission `guest` of Decision 4 — the same bootstrap `LoginProvisioningService` already applies at SSO login. It therefore falls outside this ADR's scope, which governs the *manual* grant and revoke of real roles: unlinking never revokes roles (including a provisioned `guest`), while granting or revoking any real role remains exclusively a platform superadmin action.
+
 ## References
 
 - ADR-0005 — original `akun.update` role-assignment surface, amended here.

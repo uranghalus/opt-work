@@ -99,6 +99,7 @@ Route::prefix('saml')->group(function () {
             'inactive' => 'Unit bisnis Anda sedang tidak aktif. Hubungi administrator untuk mengaktifkannya kembali.',
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
+            'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
         ];
 
         $reason = session('saml.denial_reason');
@@ -150,6 +151,9 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     // controller authorizes via Gate::authorize('akun.update').
     Route::post('employees/{employee}/akun/roles', [EmployeeController::class, 'syncAkunRoles'])
         ->name('employees.akun.roles.sync');
+    Route::get('employees/{employee}/akun/search', [EmployeeController::class, 'akunSearch'])
+        ->name('employees.akun.search');
+
     Route::post('employees/{employee}/akun', [EmployeeController::class, 'linkAkun'])
         ->name('employees.akun.link');
     Route::delete('employees/{employee}/akun', [EmployeeController::class, 'unlinkAkun'])

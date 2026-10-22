@@ -1,10 +1,14 @@
 import { Head, usePage, useForm } from '@inertiajs/react';
 import type { InertiaConfig } from '@inertiajs/core';
-import { ClipboardCheck, UserCheck } from 'lucide-react';
+import { ClipboardCheck, History, Send, ShieldCheck, UserCheck } from 'lucide-react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
-import { assign, review } from '@/routes/work-orders';
+import { assign, reject, review, submit, verify } from '@/routes/work-orders';
 import { CategoryBadge } from '@/components/category-badge';
-import { StatusBadge, type WoStatus } from '@/components/status-badge';
+import {
+    StatusBadge,
+    statusLabel,
+    type WoStatus,
+} from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -29,6 +33,8 @@ type WorkOrder = {
     assignment_notes: string | null;
     deadline_date: string | null;
     attachments: string[] | null;
+    result_notes: string | null;
+    result_attachments: string[] | null;
     requester: { name: string } | null;
     target_department: { nama_department: string | null } | null;
     created_at: string;
@@ -36,10 +42,22 @@ type WorkOrder = {
 
 type EmployeeOption = { id: string; nama_employee: string };
 
+/** One row of the WO audit trail (FR-1.9), newest first. */
+type WoEvent = {
+    id: string;
+    action: string;
+    from_status: string | null;
+    to_status: string | null;
+    meta: Record<string, unknown> | null;
+    user_name: string | null;
+    created_at: string;
+};
+
 type PageProps = InertiaConfig['sharedPageProps'] & {
     workOrder: WorkOrder;
     employees: EmployeeOption[];
     assignees: EmployeeOption[];
+    events: WoEvent[];
 };
 
 /** Statuses where the HOD review decision is still open. */
@@ -48,11 +66,36 @@ const REVIEWABLE: WoStatus[] = ['waiting_hod', 'hod_approved', 'scheduled'];
 /** Statuses where personnel can be (re-)assigned. */
 const ASSIGNABLE: WoStatus[] = ['hod_approved', 'scheduled', 'assigned'];
 
+/** Statuses where the pelaksana may submit execution results (FR-1.7). */
+const SUBMITTABLE: WoStatus[] = ['assigned', 'revision'];
+
+/** Statuses where the HOD may verify the submitted result (FR-1.8). */
+const VERIFYABLE: WoStatus[] = ['pending_verify'];
+
+/** Human wording per recorded WorkOrderEvent action (FR-1.9). */
+const actionLabel: Record<string, string> = {
+    created: 'Work Order dibuat',
+    reviewed: 'Keputusan review HOD',
+    assigned: 'Penugasan pelaksana',
+    submitted: 'Hasil diserahkan',
+    verified: 'Hasil terverifikasi — WO ditutup',
+    rejected: 'Hasil dikembalikan untuk revisi',
+};
+
 const formatDate = (value: string): string =>
     new Date(value).toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
+    });
+
+const formatDateTime = (value: string): string =>
+    new Date(value).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
     });
 
 /**
@@ -62,15 +105,19 @@ const formatDate = (value: string): string =>
  * matching hak-akses verb. The server remains authoritative.
  */
 export default function ShowWorkOrder(props: PageProps) {
-    const { workOrder, employees, assignees } = props;
+    const { workOrder, employees, assignees, events } = props;
     const { auth } = usePage<PageProps>().props;
     const tenant = useRequiredTenant('work-orders.show');
 
     const canReview = auth.can?.['work-order.review'] ?? false;
     const canAssign = auth.can?.['work-order.assign'] ?? false;
+    const canSubmit = auth.can?.['work-order.submit'] ?? false;
+    const canVerify = auth.can?.['work-order.verify'] ?? false;
     const isAccident = workOrder.category === 'accident';
     const reviewable = REVIEWABLE.includes(workOrder.status);
     const assignable = ASSIGNABLE.includes(workOrder.status);
+    const submittable = SUBMITTABLE.includes(workOrder.status);
+    const verifyable = VERIFYABLE.includes(workOrder.status);
 
     return (
         <>
@@ -235,6 +282,42 @@ export default function ShowWorkOrder(props: PageProps) {
                     </section>
                 )}
 
+                {(workOrder.result_notes !== null ||
+                    (workOrder.result_attachments?.length ?? 0) > 0) && (
+                    <section className="space-y-2">
+                        <h3 className="text-base font-semibold tracking-tight">
+                            Hasil Pekerjaan
+                        </h3>
+                        <Separator />
+                        {workOrder.result_notes !== null && (
+                            <p className="text-sm leading-relaxed whitespace-pre-line text-ink-muted">
+                                {workOrder.result_notes}
+                            </p>
+                        )}
+                        {(workOrder.result_attachments?.length ?? 0) > 0 && (
+                            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                {workOrder.result_attachments?.map(
+                                    (path, index) => (
+                                        <li key={path}>
+                                            <img
+                                                src={showAttachment.url({
+                                                    tenant,
+                                                    workOrder: workOrder.id,
+                                                    index,
+                                                    type: 'result',
+                                                })}
+                                                alt={`Foto hasil ${index + 1} Work Order ${workOrder.nomor_wo}`}
+                                                loading="lazy"
+                                                className="aspect-video w-full rounded-lg border bg-surface-raised object-cover"
+                                            />
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
+                        )}
+                    </section>
+                )}
+
                 {canReview && reviewable && (
                     <ReviewPanel
                         workOrderId={workOrder.id}
@@ -248,6 +331,67 @@ export default function ShowWorkOrder(props: PageProps) {
                         employees={employees}
                         isRevision={workOrder.status === 'assigned'}
                     />
+                )}
+
+                {canSubmit && submittable && (
+                    <SubmitPanel workOrderId={workOrder.id} />
+                )}
+
+                {canVerify && verifyable && (
+                    <VerifyPanel workOrderId={workOrder.id} />
+                )}
+
+                {events.length > 0 && (
+                    <section className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <History aria-hidden className="size-4 text-ink-muted" />
+                            <h3 className="text-base font-semibold tracking-tight">
+                                Riwayat
+                            </h3>
+                        </div>
+                        <Separator />
+                        <ol className="space-y-3">
+                            {events.map((event) => (
+                                <li
+                                    key={event.id}
+                                    className="flex items-start justify-between gap-4"
+                                >
+                                    <div className="space-y-0.5">
+                                        <p className="text-sm font-medium">
+                                            {actionLabel[event.action] ??
+                                                event.action}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {event.user_name ?? 'Sistem'}
+                                            {event.from_status !== null &&
+                                                event.to_status !== null && (
+                                                    <>
+                                                        {' — '}
+                                                        {statusLabel(
+                                                            event.from_status as WoStatus,
+                                                        )}
+                                                        {' → '}
+                                                        {statusLabel(
+                                                            event.to_status as WoStatus,
+                                                        )}
+                                                    </>
+                                                )}
+                                            {typeof event.meta?.notes ===
+                                                'string' && (
+                                                <>
+                                                    {' — '}
+                                                    {event.meta.notes as string}
+                                                </>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <time className="text-xs tabular-nums whitespace-nowrap text-muted-foreground">
+                                        {formatDateTime(event.created_at)}
+                                    </time>
+                                </li>
+                            ))}
+                        </ol>
+                    </section>
                 )}
             </div>
         </>
@@ -515,3 +659,187 @@ ShowWorkOrder.layout = {
     description: (workOrder: WorkOrder) =>
         `Dimohon oleh ${workOrder.requester?.name ?? '—'}`,
 };
+
+/**
+ * FR-1.7: pelaksana menyerahkan hasil pekerjaan � catatan wajib, foto
+ * bukti opsional (maks 3). The server guard (assigned/revision) is the
+ * source of truth; this mirror hides the form elsewhere.
+ */
+function SubmitPanel({ workOrderId }: { workOrderId: string }) {
+    const tenant = useRequiredTenant('work-orders.submit');
+
+    const form = useForm<{
+        result_notes: string;
+        result_attachments: File[];
+    }>({
+        result_notes: '',
+        result_attachments: [],
+    });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <Send aria-hidden className="size-4 text-info" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Serahkan Hasil Pekerjaan
+                </h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                Catatan hasil wajib diisi; foto bukti maksimal 3 file
+                (jpg/jpeg/png/webp, masing-masing maks 2MB). WO akan
+                menunggu verifikasi HOD.
+            </p>
+
+            <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    form.post(
+                        submit({ tenant, workOrder: workOrderId }).url,
+                        {
+                            forceFormData: true,
+                            preserveScroll: true,
+                            onSuccess: () => form.reset(),
+                        },
+                    );
+                }}
+            >
+                <div className="space-y-1.5">
+                    <Label htmlFor="result_notes">Catatan Hasil</Label>
+                    <Textarea
+                        id="result_notes"
+                        rows={3}
+                        value={form.data.result_notes}
+                        onChange={(event) =>
+                            form.setData('result_notes', event.target.value)
+                        }
+                        aria-invalid={Boolean(form.errors.result_notes)}
+                    />
+                    {form.errors.result_notes && (
+                        <p className="text-xs text-danger">
+                            {form.errors.result_notes}
+                        </p>
+                    )}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="result_attachments">
+                        Foto Bukti (opsional, maks 3)
+                    </Label>
+                    <input
+                        id="result_attachments"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={(event) =>
+                            form.setData(
+                                'result_attachments',
+                                Array.from(event.target.files ?? []),
+                            )
+                        }
+                        className="block w-full text-sm file:mr-3 file:rounded-sm file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                    />
+                    {form.errors.result_attachments && (
+                        <p className="text-xs text-danger">
+                            {form.errors.result_attachments}
+                        </p>
+                    )}
+                </div>
+
+                <Button type="submit" disabled={form.processing}>
+                    Serahkan Hasil
+                </Button>
+            </form>
+        </section>
+    );
+}
+
+/**
+ * FR-1.8: HOD memverifikasi hasil submit � approve closes the WO,
+ * reject sends it back for revision with mandatory notes (deadline
+ * stays untouched). The submitted result itself is rendered above as
+ * the read-only "Hasil Pekerjaan" section.
+ */
+function VerifyPanel({ workOrderId }: { workOrderId: string }) {
+    const tenant = useRequiredTenant('work-orders.verify');
+
+    const approveForm = useForm({});
+    const rejectForm = useForm<{ revision_notes: string }>({
+        revision_notes: '',
+    });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <ShieldCheck aria-hidden className="size-4 text-warning" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Verifikasi Hasil
+                </h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                Menyetujui menutup WO; menolak mengembalikannya ke pelaksana
+                untuk dikerjakan ulang.
+            </p>
+
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    approveForm.post(
+                        verify({ tenant, workOrder: workOrderId }).url,
+                        { preserveScroll: true },
+                    );
+                }}
+            >
+                <Button type="submit" disabled={approveForm.processing}>
+                    Setujui &amp; Tutup WO
+                </Button>
+            </form>
+
+            <Separator />
+
+            <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    rejectForm.post(
+                        reject({ tenant, workOrder: workOrderId }).url,
+                        {
+                            preserveScroll: true,
+                            onSuccess: () => rejectForm.reset(),
+                        },
+                    );
+                }}
+            >
+                <div className="space-y-1.5">
+                    <Label htmlFor="revision_notes">
+                        Catatan Revisi (wajib untuk penolakan)
+                    </Label>
+                    <Textarea
+                        id="revision_notes"
+                        rows={2}
+                        value={rejectForm.data.revision_notes}
+                        onChange={(event) =>
+                            rejectForm.setData(
+                                'revision_notes',
+                                event.target.value,
+                            )
+                        }
+                        aria-invalid={Boolean(rejectForm.errors.revision_notes)}
+                    />
+                    {rejectForm.errors.revision_notes && (
+                        <p className="text-xs text-danger">
+                            {rejectForm.errors.revision_notes}
+                        </p>
+                    )}
+                </div>
+                <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={rejectForm.processing}
+                >
+                    Tolak &amp; Kembalikan untuk Revisi
+                </Button>
+            </form>
+        </section>
+    );
+}

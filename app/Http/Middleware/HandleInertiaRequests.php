@@ -100,6 +100,9 @@ class HandleInertiaRequests extends Middleware
                     // WO slice 1: HOD review/assign actions on the show page.
                     'work-order.review' => (bool) ($user?->can('work-order.review')),
                     'work-order.assign' => (bool) ($user?->can('work-order.assign')),
+                    // WO slice 2: pelaksana submit hasil + HOD verify (FR-1.7/1.8).
+                    'work-order.submit' => (bool) ($user?->can('work-order.submit')),
+                    'work-order.verify' => (bool) ($user?->can('work-order.verify')),
                 ],
             ],
             'tenant' => $currentTenant,

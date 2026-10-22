@@ -255,7 +255,7 @@ function RenameDialog({
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
-        form.patch(update.url({ permission: String(permission.id) }), {
+        form.patch(update.url({ permission: permission.id }), {
             preserveScroll: true,
             onSuccess: onClose,
         });
@@ -336,7 +336,7 @@ function DeleteDialog({
     const confirmDelete = () => {
         if (deleting) return;
         setDeleting(true);
-        router.delete(destroy({ permission: String(permission.id) }), {
+        router.delete(destroy({ permission: permission.id }), {
             preserveScroll: true,
             onFinish: () => setDeleting(false),
             onSuccess: onClose,

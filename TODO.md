@@ -2,19 +2,63 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
-## Rencana besok (2026-10-22) — inti alur WO + defect audit
+## Extend deadline WO telat + re-assign pasc-assign (2026-10-23) — DONE
+
+- [x] **FR-2.3–2.5 extend deadline (`extend_requests`)** — commit `feat(work-order): extend deadline WO telat via extend_requests (FR-2.3-2.5)` + UI `1dd908c`:
+      tabel `extend_requests` (audit siapa/kapan/alasan: TL, HOD, reject reason) + enum
+      `pending_team_leader|pending_hod|approved|rejected`; service guard: WO telat +
+      status eksekusi aktif, maks 3 hari/request, maks 3 approved/WO, blokir pending
+      duplikat; approval berjenjang TL (jika dept punya TL) → HOD (rantai =
+      hod_user_id → manager → role hod → super admin, mirror eskalasi); pengaju tak
+      bisa memutuskan pengajuannya sendiri; HOD approve final menggeser deadline
+      **N hari kerja** (`DeadlineCalculator::addBusinessDays`, weekend+libur dilewati),
+      `extend_count`/`extend_reason`/`extended_at` terisi, event histori WO
+      `extend_requested/extend_tl_approved/extend_approved/extend_rejected`;
+      notifikasi database+broadcast (tanpa WA — ADR-0009 tepat 4 event); izin
+      `work-order.extend` (karyawan/field_staff/TL/HOD/admin) + `work-order.extend-approve`
+      (TL/HOD/admin, viewer dikecualikan) + `app:grant-default-permissions` dijalankan
+      (8 grant ke 5 peran, migrasi jalan di dev). 11 test `WorkOrderExtendTest` (store
+      TL/HOD-stage, 403, duplikat, rantai salah tahap, self-approval, finalize
+      deadline literal, reject, 409 decided, weekend+libur). UI: panel Ajukan Extend
+      (radio 1–3 hari + alasan) hanya saat WO telat & extendable, kartu status
+      pengajuan + keputusan Setujui/Tolak untuk approver, baris "Extend Deadline"
+      di Keputusan HOD, label riwayat 4 event; flag `can` + payload
+      `extend_requests`. **Extend Work Schedule (DGM/GM) tetap backlog** — butuh
+      `work_planning` (FR-2.4).
+- [x] **Catatan duplikasi (penting):** sesi paralel 2026-10-22 23:50 sempat
+      mengimplementasikan FR-2.3/2.5 yang sama di worktree terpisah — branch
+      `feature/extend-deadline` (tip `43208c2`, 8 commit, ada di origin, **belum
+      pernah di-merge**). Implementasi itu kini **superseded** oleh slice ini;
+      branch TIDAK dihapus (menunggu keputusan user). Delta unik yang bisa
+      diport bila diinginkan: reset marker eskalasi H+3/H+5/H+6 saat extend
+      approved, jendela "mendekati telat" (≤2 hari kerja sebelum deadline),
+      WA notif untuk event extend, `ExtendRequestFactory`.
+- [x] **Keputusan grill 0(a) — re-assign pasc-assign dibuka** — commit `409a60c`:
+      `assign()` kini menerima status `assigned` (panel Revisi Penugasan fungsional);
+      `assigned_at`/deadline tetap dari assign pertama (SLA tidak bergeser);
+      `pending_verify`/`closed` tetap 409. 2 test baru di `WorkOrderVerifyTest`.
+- [x] **Keputusan 0(b)** — sudah dieksekusi sesi 2026-10-22 (audit `access.denied`
+      via render hook, commit `5aa64ec`). **0(c)** — field FR-1.1 (prioritas/jumlah
+      personel/jenis kerusakan) **ditunda** sesuai rekomendasi; tetap di Backlog.
+- [x] **Fix regression tsc** — commit `81d0793`: resolusi merge `4e83000` meninggalkan
+      `String(permission.id)` di halaman Izin (2 error tsc di HEAD) → kirim number;
+      `tsc --noEmit` kembali exit 0.
+- [x] **Verifikasi**: tsc exit 0; `npm run build` hijau; detector impeccable 0 temuan
+      (show.tsx + permissions); pint bersih; full suite lihat baris wrap-up di bawah.
+
+## Rencana besok (2026-10-22) — inti alur WO + defect audit — DONE (2026-10-22 + 2026-10-23)
 
 Detail/rationale lengkap: vault `Planning/2026-10-22-rencana-inti-alur-wo-dan-defect.md`. Prinsip: **tutup alur WO (submit → verify → close) dulu** sebelum modul lanjutan. Tiap langkah selesai → centang juga item Backlog yang cocok di bawah, lalu promosikan ke section DONE.
 
-- [ ] **0. Grilling 3 keputusan kecil (XS):** (a) revisi assign pasc-assign — buka 409 (jaga `assigned_at`/deadline) vs sembunyikan panel; (b) bentuk FR-6.3 log 403 — ke `audit_logs` via `Gate::denied` vs `Log::warning`; (c) field FR-1.1 kurang (prioritas/jumlah personel) — masuk besok vs tunda. _Rekomendasi: (a)-buka, (b)-audit_logs, (c)-tunda._
-- [ ] **1. Route WO tanpa method (XS):** `Route::resource->only([...])` atau implement `update` — lihat Backlog "Route WO tanpa method".
-- [ ] **2. Eskalasi H+6 → DGM/GM (S):** `CheckDeadlineEscalation::resolveRecipients` resolve GM/DGM dulu; **ganti test `EscalationTest:321`** — lihat Backlog "Eskalasi H+6".
-- [ ] **3. FR-1.7 submit hasil (M):** `POST work-orders/{wo}/submit`, gate `work-order.submit`, catatan + foto (≤3 jpg/png/webp ≤2MB), `assigned → PendingVerify`, event + notifikasi HOD. TDD.
-- [ ] **4. FR-1.8 verifikasi HOD (M):** approve → `Closed`; reject + catatan → `Revision` (deadline tidak reset); event + notifikasi requester. TDD.
-- [ ] **5. UI histori WO FR-1.9 (M):** load `work_order_events` di `show` + daftar riwayat — lihat Backlog "UI histori WO".
-- [ ] **6. Listener realtime frontend (S):** handler `Echo.notification()` → refresh count/bell + toast — lihat Backlog "Listener realtime".
-- [ ] **7. FR-6.3 log 403 (S) + FR-4.1 filter `is_active` (XS)** — satu commit kecil.
-- [ ] **8. Wrap-up:** full suite (≥492, 0 gagal) + `pint --dirty` + `tsc --noEmit` + `npm run build`; centang Backlog; sinkron vault (session log, changelog, Index); commit per-topik.
+- [x] **0. Grilling 3 keputusan kecil (XS):** (a) revisi assign pasc-assign — **DIBUKA** (commit `409a60c`, jaga `assigned_at`/deadline); (b) FR-6.3 log 403 — **audit_events** via render hook (commit `5aa64ec`); (c) field FR-1.1 kurang — **TUNDA** (tetap di Backlog).
+- [x] **1. Route WO tanpa method (XS):** `->only([index, create, store, show])` + test rute (commit `40714c8`).
+- [x] **2. Eskalasi H+6 → DGM/GM (S):** resolve GM/DGM dulu + bugfix `whereHasRoles` → `whereHas('roles')` (commit `40714c8`).
+- [x] **3. FR-1.7 submit hasil (M):** commits `5a03ae0`+`d205dc6`+`dd3f549`+`40714c8` (2026-10-22).
+- [x] **4. FR-1.8 verifikasi HOD (M):** approve → Closed; reject → Revision (deadline tidak reset) — commits `5a03ae0`+`d205dc6`+`dd3f549` (2026-10-22).
+- [x] **5. UI histori WO FR-1.9 (M):** load events di show + section Riwayat (commit `dd3f549`, 2026-10-22).
+- [x] **6. Listener realtime frontend (S):** `realtime-notifications.tsx` Echo handler toast+badge (commit `e81f041`, 2026-10-22).
+- [x] **7. FR-6.3 log 403 (S) + FR-4.1 filter `is_active` (XS):** commit `5aa64ec` + dropdown create WO (2026-10-22).
+- [x] **8. Wrap-up:** suite hijau (2026-10-23: **538 test, 530 passed, 8 skipped, 0 gagal**) + pint + tsc exit 0 + build; Backlog dicentang; commit per-topik; vault sync 2026-10-23.
 
 **Di luar besok:** Daily Work, Work Data, `extend_requests`, `work_planning` (sesi terpisah setelah alur close hijau); keputusan terbuka §8 (#2/#4/#5/#8) butuh konfirmasi user; UAT/pilot/metrics.
 
@@ -24,8 +68,8 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
 
 **Inti alur WO (prioritas MVP):**
 
-- [ ] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** alur berhenti di `assigned`; enum `InProgress`/`PendingVerify`/`Revision`/`Closed` belum pernah tercapai. Issue siap: `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
-- [ ] **FR-2.3–2.5 — extend deadline (`extend_requests`):** aturan settled (maks 3 hari/request, maks 3 approved, blokir pending duplikat) tapi **nol kode** (hanya kolom `extend_count`/`extend_reason`/`extended_at` di `work_orders`). Issue: `06-extend-work-order-schedule.md`.
+- [x] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** **selesai 2026-10-22** (commits `5a03ae0`…`40714c8`; enum InProgress/PendingVerify/Revision/Closed kini tercapai). Issue `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
+- [x] **FR-2.3–2.5 — extend deadline (`extend_requests`):** **selesai 2026-10-23** — lihat section "Extend deadline WO telat" di atas; maks 3 hari/request, maks 3 approved/WO, blokir pending duplikat, TL→HOD berjenjang. **FR-2.4 Extend Work Schedule (DGM/GM) tetap backlog** (butuh `work_planning`). Issue: `06-extend-work-order-schedule.md`.
 - [ ] **FR-2.4 + WO Terjadwal lanjutan — `work_planning` + Extend Work Schedule (approval DGM/GM):** nol kode (keputusan jadwal HOD sudah ✅).
 - [ ] **FR-3.x — Work Data Management:** nol kode, bergantung FR-1.8 (WO closed). Issue: `08-work-data-management.md`.
 - [ ] **FR-5.x — Daily Work:** nol kode (OQ-4 settled: template per karyawan). Issue: `07-daily-work-templates.md`.
@@ -33,13 +77,13 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
 
 **Defect / keputusan kecil (temuan audit):**
 
-- [ ] **Eskalasi H+6 → DGM/GM:** kini H+6 masih dikirim ke rantai fallback HOD (`CheckDeadlineEscalation.php:141-153`); `EscalationTest:321` meng-assert perilaku lama — ganti sekalian dengan resolve `general_manager`/`deputy_general_manager` dulu.
-- [ ] **Route WO tanpa method (latent 500):** `work-orders.edit/update/destroy` terdaftar (`routes/web.php:134-136`) tapi `WorkOrderController` tidak punya methodnya → `->only([...])` atau implement.
-- [ ] **Revisi assign pasc-assign:** panel revisi tampil (`show.tsx:49` ASSIGNABLE termasuk `assigned`) tapi backend 409 (`WorkOrderService.php:122-124`) → putuskan: izinkan re-assign (jaga `assigned_at`/deadline) atau sembunyikan panel.
-- [ ] **Listener realtime frontend:** `window.Echo` tersambung tapi tidak ada handler `.notification()` — badge/count hanya segar saat navigasi Inertia.
-- [ ] **FR-6.3 — "tercatat di log":** belum ada implementasi pencatatan percobaan akses 403 (putuskan bentuknya: event `Gate::denied`? middleware?). **FR-6.2 gating sisa:** `work-order.create/read/update/delete/submit/verify` + master data masih di forward-looking allowlist (`PermissionConsistencyTest:104-131`).
-- [ ] **FR-1.9 — UI histori WO** (events sudah tercatat, tampilan belum; `WorkOrderController::show` tidak load events) + **UI reader `audit_logs`** (lanjutan dari item Audit trail).
-- [ ] **FR-4.1** — dropdown department tujuan belum filter `is_active` (semua department tampil); **FR-7.1 event modul baru** (submit/revisi/extend/Daily Work) menyusul modulnya; **§9 metrics** belum diinstrumentasi (angka PRD masih usulan).
+- [x] **Eskalasi H+6 → DGM/GM:** **selesai 2026-10-22** (commit `40714c8`) — GM/DGM di-resolve dulu, fallback rantai HOD.
+- [x] **Route WO tanpa method (latent 500):** **selesai 2026-10-22** (commit `40714c8`) — resource dibatasi `->only([index, create, store, show])`.
+- [x] **Revisi assign pasc-assign:** **dibuka 2026-10-23** (commit `409a60c`) — status `assigned` kini bisa di-re-assign, `assigned_at`/deadline tidak bergeser.
+- [x] **Listener realtime frontend:** **selesai 2026-10-22** (commit `e81f041`) — `realtime-notifications.tsx`: toast + reload badge saat `.notification()`.
+- [x] **FR-6.3 — "tercatat di log":** **selesai 2026-10-22** (commit `5aa64ec`) — `AccessDeniedAuditor` mencatat setiap 403 ke `audit_events` (subject synthetic `access`). **FR-6.2 gating sisa (masih terbuka):** `work-order.create/read/update/delete` + master data masih di forward-looking allowlist (`PermissionConsistencyTest`).
+- [x] **FR-1.9 — UI histori WO:** **selesai 2026-10-22** (commit `dd3f549`) — events di-load di `show` + section Riwayat; event extend menyusul 2026-10-23. **UI reader `audit_logs`/`audit_events` masih terbuka** (lanjutan dari item Audit trail).
+- [x] **FR-4.1** — dropdown department tujuan difilter `is_active` (**selesai 2026-10-22**, commit `40714c8`); **FR-7.1 event modul baru** (submit/revisi/extend/Daily Work) menyusul modulnya — submit/verify/extend kini ada (in-app), **§9 metrics** belum diinstrumentasi (angka PRD masih usulan).
 - [ ] **OQ-8 sisa:** 13 skenario UAT (artefak tidak ada di repo) + pilot live 1 department — suite hijau ✓ sudah.
 - [ ] **Keputusan terbuka §8 PRD (jangan diambil sendiri tanpa konfirmasi):** #2 re-assign karyawan resign/nonaktif · #4 SLA revisi berulang · #5 urutan antrean (FIFO?) · #8 delegasi approver extend.
 - [ ] **Sinkronisasi dokumen:** issue `.scratch/wms-mvp/issues` 02 (`ready-for-agent` padahal create shipped) & 03 (`in-progress` padahal slice 1 selesai); TODO `### Deferred (do not start yet)` masih menyebut WA/email gateway tertunda padahal WA shipped; **AGENTS.md belum ter-amend soal WA** (klaim di section "WhatsApp Gateway slice 1" tidak ada di file disk — Non-Goals/OQ-7/Notifikasi masih "Nanti") → amend ulang atau koreksi klaim.

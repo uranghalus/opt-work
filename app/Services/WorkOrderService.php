@@ -123,7 +123,14 @@ class WorkOrderService
                 abort(409, 'Review HOD dulu sebelum menugaskan karyawan.');
             }
 
-            if (! in_array($from, [WorkOrderStatus::HodApproved, WorkOrderStatus::Scheduled], true)) {
+            // Re-assign pasc-assign diizinkan saat status masih `assigned`
+            // (grill 2026-10-23, keputusan 0a): mengganti orang tanpa
+            // menggeser SLA — `assigned_at`/deadline tetap dari assign pertama.
+            if (! in_array($from, [
+                WorkOrderStatus::HodApproved,
+                WorkOrderStatus::Scheduled,
+                WorkOrderStatus::Assigned,
+            ], true)) {
                 abort(409, 'Work Order sudah meninggalkan tahap penugasan.');
             }
 

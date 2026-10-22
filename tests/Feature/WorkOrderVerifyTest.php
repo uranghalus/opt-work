@@ -194,3 +194,53 @@ it('cannot assign a closed work order', function () {
 
     expect($workOrder->refresh()->status)->toBe(WorkOrderStatus::Closed);
 });
+
+it('allows re-assign while the WO is assigned and keeps the SLA clock', function () {
+    Notification::fake();
+    [$workOrder] = makeVerifiableWorkOrder(['status' => WorkOrderStatus::Assigned]);
+    $assigner = verifyActor();
+    $assigner->givePermissionTo('work-order.assign');
+
+    $secondEmployee = Employee::factory()->create([
+        'department_id' => $workOrder->target_department_id,
+        'tenant_id' => Tenant::where('code', 'hq')->first()->id,
+    ]);
+
+    $assignedAtBefore = $workOrder->assigned_at?->toDateTimeString();
+    $deadlineBefore = $workOrder->deadline_date?->toDateString();
+
+    $this->actingAs($assigner)->post(route('work-orders.assign', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'employees' => [$secondEmployee->getKey()],
+        'assignment_notes' => 'Ganti pelaksana: karyawan awal cuti.',
+    ])->assertRedirect();
+
+    $workOrder->refresh();
+    expect($workOrder->status)->toBe(WorkOrderStatus::Assigned)
+        ->and($workOrder->assigned_employees)->toBe([$secondEmployee->getKey()])
+        ->and($workOrder->assigned_at?->toDateTimeString())->toBe($assignedAtBefore)
+        ->and($workOrder->deadline_date?->toDateString())->toBe($deadlineBefore);
+
+    $this->assertDatabaseHas('work_order_events', [
+        'work_order_id' => $workOrder->getKey(),
+        'action' => 'assigned',
+    ]);
+});
+
+it('still refuses assign from pending_verify', function () {
+    [$workOrder] = makeVerifiableWorkOrder(['status' => WorkOrderStatus::PendingVerify]);
+    $assigner = verifyActor();
+    $assigner->givePermissionTo('work-order.assign');
+    $employee = Employee::query()
+        ->where('department_id', $workOrder->target_department_id)
+        ->firstOrFail();
+
+    $this->actingAs($assigner)->post(route('work-orders.assign', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'employees' => [$employee->getKey()],
+    ])->assertStatus(409);
+});

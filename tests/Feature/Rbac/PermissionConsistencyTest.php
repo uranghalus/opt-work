@@ -47,7 +47,7 @@ it('keeps the forward-looking allowlist honest by failing on gated entries', fun
 function rbacAllowedVerbs(string $resource): array
 {
     return match ($resource) {
-        'work-order' => ['read', 'create', 'update', 'delete', 'review', 'assign', 'submit', 'verify'],
+        'work-order' => ['read', 'create', 'update', 'delete', 'review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
         default => ['read', 'create', 'update', 'delete'],
     };
 }

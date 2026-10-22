@@ -24,7 +24,8 @@ use Spatie\Permission\PermissionRegistrar;
  *
  * Verb map (enforced two-way by the consistency test): every resource carries
  * read/create/update/delete; work-order additionally carries the PRD lifecycle
- * verbs review/assign/submit/verify.
+ * verbs review/assign/submit/verify plus the extend flow verbs
+ * extend/extend-approve (FR-2.3–2.5).
  */
 class RoleAndPermissionSeeder extends Seeder
 {
@@ -62,7 +63,7 @@ class RoleAndPermissionSeeder extends Seeder
      * @var array<string, list<string>>
      */
     public const RESOURCE_VERBS = [
-        'work-order' => ['review', 'assign', 'submit', 'verify'],
+        'work-order' => ['review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
     ];
 
     /**
@@ -147,6 +148,8 @@ class RoleAndPermissionSeeder extends Seeder
             'work-order.create', 'work-order.read', 'work-order.update', 'work-order.delete',
             // PRD lifecycle verbs (work-order only): review → assign → submit → verify.
             'work-order.review', 'work-order.assign', 'work-order.submit', 'work-order.verify',
+            // Extend flow (FR-2.3–2.5): request + approval berjenjang TL → HOD.
+            'work-order.extend', 'work-order.extend-approve',
         ];
 
         $workPlanningPermissions = [
@@ -215,6 +218,7 @@ class RoleAndPermissionSeeder extends Seeder
         $workOrderPermissions = [
             'work-order.create', 'work-order.read', 'work-order.update', 'work-order.delete',
             'work-order.review', 'work-order.assign', 'work-order.submit', 'work-order.verify',
+            'work-order.extend', 'work-order.extend-approve',
         ];
 
         $workPlanningPermissions = [
@@ -245,6 +249,15 @@ class RoleAndPermissionSeeder extends Seeder
             fn (string $p) => str_replace(['.create', '.update', '.delete'], '.read', $p),
             $permissions,
         );
+
+        // Viewer stays read-only: readMasterData passes non-CRUD verbs
+        // through untouched (that is how viewer ends up with the workflow
+        // verbs), but the extend verbs are workflow ACTIONS, not read
+        // surface — explicitly excluded.
+        $viewerWorkOrderPermissions = array_values(array_diff(
+            $readMasterData($workOrderPermissions),
+            ['work-order.extend', 'work-order.extend-approve'],
+        ));
 
         return [
             'super_admin' => [],
@@ -281,6 +294,7 @@ class RoleAndPermissionSeeder extends Seeder
             'hod' => [
                 'division.read', 'department.read', 'department.update', 'employee.read',
                 'work-order.read', 'work-order.review', 'work-order.assign', 'work-order.verify',
+                'work-order.extend', 'work-order.extend-approve',
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
@@ -290,6 +304,7 @@ class RoleAndPermissionSeeder extends Seeder
             'team_leader' => [
                 'division.read', 'department.read', 'employee.read',
                 'work-order.read', 'work-order.review', 'work-order.assign',
+                'work-order.extend', 'work-order.extend-approve',
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
                 'dashboard.read',
@@ -298,6 +313,7 @@ class RoleAndPermissionSeeder extends Seeder
             'karyawan' => [
                 'division.read', 'department.read', 'employee.read',
                 'work-order.create', 'work-order.read', 'work-order.submit',
+                'work-order.extend',
                 ...$workDataPermissions,
                 'daily-work.read', 'daily-work.update',
                 'dashboard.read',
@@ -306,6 +322,7 @@ class RoleAndPermissionSeeder extends Seeder
             'field_staff' => [
                 'division.read', 'department.read', 'employee.read',
                 'work-order.read',
+                'work-order.extend',
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
                 'dashboard.read',
@@ -313,7 +330,7 @@ class RoleAndPermissionSeeder extends Seeder
 
             'viewer' => [
                 ...$readMasterData($masterDataPermissions),
-                ...$readMasterData($workOrderPermissions),
+                ...$viewerWorkOrderPermissions,
                 ...$readMasterData($workPlanningPermissions),
                 ...$readMasterData($workDataPermissions),
                 ...$readMasterData($dailyWorkPermissions),

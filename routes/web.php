@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\ExtendRequestController;
 use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
@@ -151,6 +152,12 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
         ->name('work-orders.reject');
     Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+    Route::post('work-orders/{workOrder}/extend-requests', [ExtendRequestController::class, 'store'])
+        ->name('work-orders.extend-requests.store');
+    Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/approve', [ExtendRequestController::class, 'approve'])
+        ->name('work-orders.extend-requests.approve');
+    Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/reject', [ExtendRequestController::class, 'reject'])
+        ->name('work-orders.extend-requests.reject');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

@@ -1,5 +1,45 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+## Alur inti WO — submit/verify/riwayat + eskalasi + audit (2026-10-22) — DONE
+
+- [x] **Resource route only()** (`routes/web.php`): `work-orders` dibatasi
+      `index/create/store/show`; route baru submit/verify/reject + attachment
+      `{type?}` (pilihan result vs submission); test rute di `WorkOrderTest`.
+- [x] **Eskalasi H+6** (`CheckDeadlineEscalation`): penerima H+6 = semua user
+      tenant ber-role `general_manager`/`deputy_general_manager` (inklusif),
+      kosong → fallback rantai HOD; teks notifikasi Indonesia; **bugfix
+      `whereHasRoles`** — method tidak ada di spatie, jatuh ke dynamic-where
+      Eloquent dengan kolom fiktif `has_roles` (diam-diam 0 baris di sqlite,
+      QueryException di MySQL) → diganti `whereHas('roles', ...)` di 3 titik
+      (GM/DGM, team_leader, hod); test TL yang misnamed di-upgrade jadi benar.
+- [x] **FR-1.7 Submit hasil** (`WorkOrderService::submit` — guard 409
+      assigned/revision, event `submitted`, notify rantai HOD + WA
+      `WahaWhatsAppChannel`): migration `result_notes` + `result_attachments`,
+      panel Submit di show.tsx, gate `work-order.submit`.
+- [x] **FR-1.8 Verify/Reject** (`approve()`/`reject()` +
+      `verifyResultRecipients()` = pelaksana + requester): notifikasi
+      Verified/Rejected (catatan revisi di `hod_notes` + meta event, deadline
+      tidak di-reset), panel Verify, gate `work-order.verify`.
+- [x] **FR-1.9 Riwayat** (`WorkOrder::events()`, show() load events
+      newest-first + `user_name`, section Riwayat + Hasil Pekerjaan, export
+      `statusLabel` di status-badge.tsx, attachment route `{type?}`).
+- [x] **FR-7 realtime** (`realtime-notifications.tsx`): Echo private
+      `App.Models.User.{id}`, toast + reload badge notifikasi, cleanup
+      `channel.leave()`; dipasang di `app-layout.tsx`.
+- [x] **FR-6.3 audit access.denied** (`AccessDeniedAuditor` + render hook di
+      `bootstrap/app.php`): setiap 403 tercatat di `audit_events` dengan
+      subject synthetic `access` + izin/route yang ditolak. Deviasi dari
+      rencana (event `Gate::evaluate`): render hook — probe `can()` bendera
+      nav tidak membanjiri audit. NB: `AuthorizationException` dikonversi
+      `AccessDeniedHttpException` oleh `Handler::prepareException` SEBELUM
+      render callbacks dijalankan — hook mengetik `HttpException` + filter
+      status 403; exception asli via `getPrevious()`.
+- [x] **FR-4.1 dropdown departemen aktif** (`WorkOrderController::create()`
+      filter `where('is_active', true)`).
+- [x] **Verifikasi**: suite 536 test (528 passed, 8 skipped, 0 failed);
+      pint bersih; tsc bersih untuk seluruh file sesi ini (sisa error tsc =
+      WIP sesi paralel di `employees/*`); commit per-topik `a776180..40714c8`.
+
 ## Redesign halaman Department — "Registry" (2026-10-22) — DONE
 
 - [x] **Diagnosis + arah "Registry"** — critique `.scratch/department-page/research/`
@@ -477,7 +517,7 @@
 
 ### Deferred
 
-- [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
+- [x] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S) — **selesai 2026-10-22**: review/assign digate + dihapus di slice sebelumnya, submit/verify digate + dihapus di sesi ini; allowlist kini kosong untuk semua verb work-order.
 - [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
 - [ ] Akun CRUD surface (link/unlink login) — owns `akun.create`/`akun.delete`, currently allowlisted "gated when the Akun surface lands"
 

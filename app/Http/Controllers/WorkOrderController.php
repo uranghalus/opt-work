@@ -28,7 +28,8 @@ class WorkOrderController extends Controller
     /**
      * Indonesian day names, Monday first. Authored here rather than formatted
      * from a locale so the server-rendered markup and the client render agree
-     * (the app timezone is UTC and the server locale is not Indonesian).
+     * (the app timezone is Asia/Makassar and the server locale is not
+     * Indonesian).
      *
      * @var list<string>
      */
@@ -74,13 +75,7 @@ class WorkOrderController extends Controller
 
         $workOrders = WorkOrder::query()
             ->with(['requester', 'targetDepartment'])
-            ->where(function ($query) use ($user, $reviewableDepartmentIds): void {
-                $query->where('requester_user_id', $user->getKey());
-
-                if ($reviewableDepartmentIds->isNotEmpty()) {
-                    $query->orWhereIn('target_department_id', $reviewableDepartmentIds);
-                }
-            })
+            ->visibleFor($user, $reviewableDepartmentIds)
             ->orderByDesc('created_at')
             ->paginate(10)
             ->withQueryString();
@@ -99,8 +94,9 @@ class WorkOrderController extends Controller
      * equivalent of a current-time indicator is the "today" column, which the page
      * marks with a text label plus a rule — never colour alone (WCAG 1.4.1).
      *
-     * Visibility mirrors index(): the requester plus the departments the user
-     * heads or deputises for.
+     * Visibility mirrors index() via WorkOrder::scopeVisibleFor — the requester,
+     * the departments the user heads or deputises for, and the assigned
+     * pelaksana (D1).
      */
     public function timeline(Request $request): Response
     {
@@ -118,13 +114,7 @@ class WorkOrderController extends Controller
             ->with(['requester', 'targetDepartment'])
             ->whereNotNull('scheduled_date')
             ->whereBetween('scheduled_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->where(function ($query) use ($user, $reviewableDepartmentIds): void {
-                $query->where('requester_user_id', $user->getKey());
-
-                if ($reviewableDepartmentIds->isNotEmpty()) {
-                    $query->orWhereIn('target_department_id', $reviewableDepartmentIds);
-                }
-            })
+            ->visibleFor($user, $reviewableDepartmentIds)
             ->orderBy('scheduled_date')
             ->orderBy('nomor_wo')
             ->get();

@@ -12,7 +12,7 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | 2 — WorkOrder/Timeline redesign | ✅ DONE | Audit + design decisions + re-audit docs in `docs/audit/`; FullCalendar v7 dayGrid (week+month); real data, no mocks; build green |
 | 3 — Backend bugs & N+1 | ✅ DONE | 2 parallel audits; 19 fixes + 10 new tests; 3 findings documented-not-changed with reasons; suite 619/611/0 failed |
 | 4 — Frontend review | ✅ DONE | 25+ fixes (5 high, 8 med): dead 405 PATCH, dead ConfirmDialogs, 12 tenant-less dead links, filter-id mismatch, search wiring, mojibake, a11y markup; tsc+build green |
-| 5 — Verification gate | ⬜ pending | |
+| 5 — Verification gate | ✅ DONE | pint clean, tsc clean, build green, suite **619 tests / 611 passed / 0 failed / 8 skipped** (baseline: 576 passed / 10 failed + 2 errors); diff self-reviewed (no debug code/secrets) |
 | 6 — Commit, push, merge | ⬜ pending | |
 
 ## Phase 0 — Setup & Baseline
@@ -186,3 +186,16 @@ fixed (`<li>`); unused `visibleColumns` state removed.
 | Unused components (`alert-error`, `appearance-tabs`, `greeting-header`, `module-card`, `nav-footer`, `nav-main`, `text-link`, `FormErrorSummary`, `PositionCard`, auth layouts, `use-clipboard`) + npm deps (`@gsap/react`, `concurrently`, radix toggle/navigation-menu/collapsible referenced only by unused components) | Deleting files/deps not explicitly requested (Safety rule 5). Listed as follow-up cleanup; none is wired into any route. |
 | `config/fortify.php` `views => false` + no features → Fortify view registrations pointing at non-existent `auth/*` pages are dead code | Latent only; touching auth bootstrapping is riskier than leaving it. |
 | `approveForm` dialogs on the WO show page don't render `form.errors` (silent close on server rejection) | Low; rejections surface via session errors on next render — polish follow-up. |
+
+## Phase 5 — Verification gate
+
+| Check | Baseline (Phase 0) | Final |
+| ----- | ------------------ | ----- |
+| `php artisan test --compact` | 596 tests — 576 passed, **10 failed + 2 errors**, 8 skipped | **619 tests — 611 passed, 0 failed, 8 skipped** (2579 assertions, ~135s) |
+| `tsc --noEmit` | PASS | PASS (clean) |
+| `npm run build` (wayfinder `--with-form` + tsc + vp build) | PASS (after manifest rebuild) | PASS (12.1s) |
+| `vendor/bin/pint` | only `--dirty` checked during work | **full-repo pass clean** (auto-fixed 16 pre-existing style files in a dedicated `style:` commit; suite re-ran green after) |
+
+- Baseline comparison: nothing that passed before fails now; all 12 baseline failures are repaired (6 missing daily-work page → implemented; 4 stale s3 attachment tests → updated to the new s3 contract; daily-work redirect + allowlist → fixed).
+- Diff self-review (`git diff main...HEAD`): no `dd()`/`var_dump`/`console.log` debug code, no committed secrets (`.env` untouched; `.env.testing` contains only empty AWS vars as before), no unintended changes. The 263-file diff vs main is dominated by the 64 commits merged from `features/department-syncronize` plus this run's work.
+- Pre-existing leftover found and kept (not deleted without approval): `tests/debug-escalation.php` — a standalone echo-debug script from an earlier session; recommended for deletion by the user.

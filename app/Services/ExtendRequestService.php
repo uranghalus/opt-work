@@ -29,6 +29,13 @@ class ExtendRequestService
     private const MAX_DAYS_PER_REQUEST = 3;
 
     /**
+     * Jendela "mendekati telat": extend sudah boleh diajukan saat deadline
+     * tinggal ≤ N hari kerja (keputusan user 2026-10-22 di branch
+     * feature/extend-deadline — lebih luas dari teks PRD "WO telat").
+     */
+    private const NEAR_DEADLINE_BUSINESS_DAYS = 2;
+
+    /**
      * Status WO yang masih boleh diajukan extend-nya — sama dengan daftar
      * status aktif pada rantai eskalasi.
      *
@@ -64,11 +71,12 @@ class ExtendRequestService
                 abort(409, 'Extend hanya untuk WO dalam tahap eksekusi.');
             }
 
-            // Telat = deadline sudah terlewat; konsisten dengan ambang
+            // Telat ATAU mendekati telat (≤ NEAR_DEADLINE_BUSINESS_DAYS hari
+            // kerja — keputusan user 2026-10-22); konsisten dengan ambang
             // eskalasi (`deadline_date < now()`), deadline hari ini ikut
             // dihitung telat.
-            if ($workOrder->deadline_date === null || ! $workOrder->deadline_date->isPast()) {
-                abort(409, 'Extend deadline hanya untuk WO yang sudah terlambat.');
+            if ($workOrder->deadline_date === null || ! $this->withinExtendWindow($workOrder)) {
+                abort(409, 'Extend hanya untuk WO yang sudah terlambat atau mendekati deadline.');
             }
 
             if ($workOrder->extend_count >= self::MAX_APPROVED_PER_WORK_ORDER) {
@@ -318,6 +326,83 @@ class ExtendRequestService
         return $stage === ExtendRequestStatus::PendingTeamLeader
             ? $this->departmentTeamLeaders($workOrder)
             : $this->hodChain($workOrder);
+    }
+
+    /**
+     * Mirror server-side dari visibilitas panel pengajuan extend (dipakai
+     * payload show) — endpoint tetap sumber kebenaran; prop ini hanya
+     * menghindari kalkulasi jendela di browser.
+     */
+    public function canRequestExtend(User $user, WorkOrder $workOrder): bool
+    {
+        if (! $user->can('work-order.extend')) {
+            return false;
+        }
+
+        if (! in_array($workOrder->status, self::extendableStatuses(), true)) {
+            return false;
+        }
+
+        if ($workOrder->deadline_date === null
+            || $workOrder->extend_count >= self::MAX_APPROVED_PER_WORK_ORDER) {
+            return false;
+        }
+
+        $pendingExists = ExtendRequest::query()
+            ->where('work_order_id', $workOrder->getKey())
+            ->whereIn('status', [
+                ExtendRequestStatus::PendingTeamLeader->value,
+                ExtendRequestStatus::PendingHod->value,
+            ])
+            ->exists();
+
+        if ($pendingExists) {
+            return false;
+        }
+
+        return $this->withinExtendWindow($workOrder);
+    }
+
+    /**
+     * Mirror server-side dari tombol keputusan: apakah user berada pada
+     * rantai tahap berjalan (dengan fallback rantai HOD saat TL kosong —
+     * sama dengan approve()).
+     */
+    public function canDecideExtend(User $user, ExtendRequest $extendRequest): bool
+    {
+        if (! $extendRequest->status->isPending()) {
+            return false;
+        }
+
+        if ($user->getKey() === $extendRequest->requested_by_user_id) {
+            return false;
+        }
+
+        $workOrder = $extendRequest->workOrder;
+
+        $stage = $extendRequest->status;
+
+        if ($stage === ExtendRequestStatus::PendingTeamLeader
+            && $this->departmentTeamLeaders($workOrder)->isEmpty()) {
+            $stage = ExtendRequestStatus::PendingHod;
+        }
+
+        return $this->stageApprovers($workOrder, $stage)
+            ->contains(fn (User $approver) => $approver->getKey() === $user->getKey());
+    }
+
+    /**
+     * Telat ATAU mendekati telat (≤ NEAR_DEADLINE_BUSINESS_DAYS hari kerja).
+     */
+    private function withinExtendWindow(WorkOrder $workOrder): bool
+    {
+        $isOverdue = $workOrder->deadline_date->isPast();
+
+        $isNearDeadline = $workOrder->deadline_date->startOfDay()->lte(
+            app(DeadlineCalculator::class)->addBusinessDays(now(), self::NEAR_DEADLINE_BUSINESS_DAYS),
+        );
+
+        return $isOverdue || $isNearDeadline;
     }
 
     /**

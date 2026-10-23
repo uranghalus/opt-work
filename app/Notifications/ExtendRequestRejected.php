@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WahaWhatsAppChannel;
 use App\Models\ExtendRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -9,8 +10,8 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Dikirim ke pengaju + pelaksana + requester WO saat pengajuan extend
- * deadline ditolak approver (FR-2.3). Tanpa WhatsApp — ADR-0009 slice 1
- * tepat 4 event WO.
+ * deadline ditolak approver (FR-2.3). WhatsApp outbound menyusul bersama
+ * fiturnya (ADR-0009) — kombinasi dari branch feature/extend-deadline.
  */
 class ExtendRequestRejected extends Notification
 {
@@ -23,7 +24,7 @@ class ExtendRequestRejected extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', WahaWhatsAppChannel::class];
     }
 
     /**
@@ -52,5 +53,39 @@ class ExtendRequestRejected extends Notification
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    /**
+     * Outbox WhatsApp (ADR-0009): pengajuan extend ditolak approver.
+     */
+    public function toWhatsApp(object $notifiable): string
+    {
+        $workOrder = $this->extendRequest->workOrder;
+
+        $lines = [
+            '⛔ *EXTEND DEADLINE DITOLAK*',
+            '',
+            '*No:* '.($workOrder?->nomor_wo ?? '-'),
+            '*Judul:* '.($workOrder?->title ?? '-'),
+            '*Perpanjangan:* +'.$this->extendRequest->days.' hari kerja',
+        ];
+
+        if (filled($this->extendRequest->rejected_reason)) {
+            $lines[] = '*Alasan:* '.str((string) $this->extendRequest->rejected_reason)->limit(120);
+        }
+
+        $lines[] = '';
+        $lines[] = 'Detail WO:';
+        $lines[] = route('work-orders.show', [
+            'tenant' => $workOrder?->tenant?->code,
+            'workOrder' => $workOrder?->getKey(),
+        ]);
+
+        return implode("\n", $lines);
+    }
+
+    public function waEvent(): string
+    {
+        return 'work_order.extend_rejected';
     }
 }

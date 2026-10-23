@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\ExtendRequestStatus;
 use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
 use App\Models\Department;
@@ -9,6 +10,7 @@ use App\Models\Employee;
 use App\Models\ExtendRequest;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
+use App\Services\ExtendRequestService;
 use App\Services\WorkOrderService;
 use App\WorkOrderCategory;
 use Illuminate\Http\RedirectResponse;
@@ -56,7 +58,10 @@ class WorkOrderController extends Controller
         'Des',
     ];
 
-    public function __construct(private WorkOrderService $workOrderService) {}
+    public function __construct(
+        private WorkOrderService $workOrderService,
+        private ExtendRequestService $extendRequestService,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -453,7 +458,17 @@ class WorkOrderController extends Controller
             ]);
 
         // FR-2.3: pengajuan extend deadline WO telat — panel keputusan dan
-        // status pengajuan di halaman detail, terbaru dulu.
+        // status pengajuan di halaman detail, terbaru dulu. Visibilitas
+        // panel (boleh mengaju / boleh memutuskan) dihitung server-side
+        // agar browser tidak menduplikasi aturan jendela extend.
+        $pendingExtend = $workOrderModel->extendRequests()
+            ->whereIn('status', [
+                ExtendRequestStatus::PendingTeamLeader->value,
+                ExtendRequestStatus::PendingHod->value,
+            ])
+            ->orderByDesc('created_at')
+            ->first();
+
         $extendRequests = $workOrderModel->extendRequests()
             ->with('requester:id,name')
             ->orderByDesc('created_at')
@@ -467,12 +482,24 @@ class WorkOrderController extends Controller
                 'created_at' => $request->created_at->toIso8601String(),
             ]);
 
+        $user = $request->user();
+
+        $canRequestExtend = $user !== null && $pendingExtend === null
+            ? $this->extendRequestService->canRequestExtend($user, $workOrderModel)
+            : false;
+
+        $canDecideExtend = $user !== null && $pendingExtend !== null
+            ? $this->extendRequestService->canDecideExtend($user, $pendingExtend)
+            : false;
+
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrderModel,
             'employees' => $employees,
             'assignees' => $assignees,
             'events' => $events,
             'extend_requests' => $extendRequests,
+            'can_request_extend' => $canRequestExtend,
+            'can_decide_extend' => $canDecideExtend,
         ]);
     }
 

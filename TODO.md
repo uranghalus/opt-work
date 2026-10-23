@@ -28,11 +28,16 @@
 - [x] **Catatan duplikasi (penting):** sesi paralel 2026-10-22 23:50 sempat
       mengimplementasikan FR-2.3/2.5 yang sama di worktree terpisah — branch
       `feature/extend-deadline` (tip `43208c2`, 8 commit, ada di origin, **belum
-      pernah di-merge**). Implementasi itu kini **superseded** oleh slice ini;
-      branch TIDAK dihapus (menunggu keputusan user). Delta unik yang bisa
-      diport bila diinginkan: reset marker eskalasi H+3/H+5/H+6 saat extend
-      approved, jendela "mendekati telat" (≤2 hari kerja sebelum deadline),
-      WA notif untuk event extend, `ExtendRequestFactory`.
+      pernah di-merge**). Implementasi itu kini **superseded**; **delta uniknya
+      sudah di-port ke branch ini 2026-10-23** (commit `combine`): jendela
+      "mendekati telat" ≤2 hari kerja (keputusan user di sesi itu), WA outbound
+      untuk 3 event extend (ADR-0009 "event lain menyusul bersama fiturnya"),
+      props visibilitas panel server-side (`can_request_extend`/
+      `can_decide_extend` — mengganti kalkulasi jendela di browser), test
+      `DeadlineCalculatorTest`. **Tidak diport** (bentrok desain): filing
+      HOD-only (branch ini permission-based sesuai roleDefaults yang sudah
+      di-grant), skema `status=pending`+kolom `current_stage`, FormRequest,
+      factory. Branch lama aman dihapus setelah slice ini stabil.
 - [x] **Keputusan grill 0(a) — re-assign pasc-assign dibuka** — commit `409a60c`:
       `assign()` kini menerima status `assigned` (panel Revisi Penugasan fungsional);
       `assigned_at`/deadline tetap dari assign pertama (SLA tidak bergeser);

@@ -6,7 +6,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * Business-day deadline math (FR-2.1): urgent 3 / normal 6 hari kerja from
- * the assign date, skipping weekends and the configured holidays.
+ * the assign date, skipping weekends and the configured holidays. Di-port
+ * dari branch feature/extend-deadline (sesi paralel 2026-10-22) saat
+ * combine — mengunci addBusinessDays yang dipakai alur extend.
  */
 it('gives a normal work order six business days', function () {
     $deadline = (new DeadlineCalculator)->calculate(
@@ -76,4 +78,24 @@ it('counts from the day after the assign date', function () {
     );
 
     expect($deadline->toDateString())->toBe('2026-10-28'); // Wednesday
+});
+
+it('adds business days to a date for deadline extensions', function () {
+    $calculator = new DeadlineCalculator;
+
+    // Friday + 2 business days = Tuesday (weekend skipped).
+    expect($calculator->addBusinessDays(Carbon::parse('2026-10-23'), 2)->toDateString())
+        ->toBe('2026-10-27');
+
+    // Monday + 3 with Wednesday as a holiday = Friday.
+    expect($calculator->addBusinessDays(Carbon::parse('2026-10-19'), 3, ['2026-10-21'])->toDateString())
+        ->toBe('2026-10-23');
+
+    // Starting on a weekend: the first business day after it counts as one.
+    expect($calculator->addBusinessDays(Carbon::parse('2026-10-24'), 1)->toDateString())
+        ->toBe('2026-10-26');
+
+    // Zero days keeps the date as-is.
+    expect($calculator->addBusinessDays(Carbon::parse('2026-10-19'), 0)->toDateString())
+        ->toBe('2026-10-19');
 });

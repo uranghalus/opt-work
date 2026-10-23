@@ -85,6 +85,10 @@ type PageProps = InertiaConfig['sharedPageProps'] & {
     assignees: EmployeeOption[];
     events: WoEvent[];
     extend_requests: ExtendRequestView[];
+    /** Server-side mirror: boleh mengajukan extend (jendela telat/mendekati). */
+    can_request_extend: boolean;
+    /** Server-side mirror: user berada pada rantai tahap pengajuan pending. */
+    can_decide_extend: boolean;
 };
 
 /** Statuses where the HOD review decision is still open. */
@@ -98,14 +102,6 @@ const SUBMITTABLE: WoStatus[] = ['assigned', 'revision'];
 
 /** Statuses where the HOD may verify the submitted result (FR-1.8). */
 const VERIFYABLE: WoStatus[] = ['pending_verify'];
-
-/** Statuses where an extend deadline may still be requested (FR-2.3). */
-const EXTENDABLE: WoStatus[] = [
-    'assigned',
-    'in_progress',
-    'pending_verify',
-    'revision',
-];
 
 /** Human wording per recorded WorkOrderEvent action (FR-1.9). */
 const actionLabel: Record<string, string> = {
@@ -155,32 +151,22 @@ export default function ShowWorkOrder(props: PageProps) {
     const canExtend = auth.can?.['work-order.extend'] ?? false;
     const canExtendApprove =
         auth.can?.['work-order.extend-approve'] ?? false;
+    const canRequestExtend = props.can_request_extend;
+    const canDecideExtend = props.can_decide_extend;
     const isAccident = workOrder.category === 'accident';
     const reviewable = REVIEWABLE.includes(workOrder.status);
     const assignable = ASSIGNABLE.includes(workOrder.status);
     const submittable = SUBMITTABLE.includes(workOrder.status);
     const verifyable = VERIFYABLE.includes(workOrder.status);
 
-    // FR-2.3: telat = deadline sudah terlewat (konsisten dengan ambang
-    // eskalasi server-side; deadline hari ini ikut dihitung telat).
-    // `deadline_date` ter-serialisasi ISO-8601 ("2026-10-20T00:00:00.000000Z")
-    // — ambil bagian tanggalnya saja sebelum di-parse sebagai tengah malam
-    // lokal, kalau tidak concat-nya menghasilkan Invalid Date dan panel
-    // extend tidak pernah muncul.
-    const overdue =
-        workOrder.deadline_date !== null &&
-        new Date(
-            `${workOrder.deadline_date.slice(0, 10)}T00:00:00`,
-        ) < new Date();
+    // FR-2.3: visibilitas panel extend dihitung server-side (jendela telat
+    // ATAU mendekati telat ≤2 hari kerja, ceiling 3×, blokir pending
+    // duplikat) — browser tidak menduplikasi aturan tersebut.
     const pendingExtend = props.extend_requests.find(
         (request) =>
             request.status === 'pending_team_leader' ||
             request.status === 'pending_hod',
     );
-    const extendable =
-        EXTENDABLE.includes(workOrder.status) &&
-        overdue &&
-        workOrder.extend_count < 3;
 
     return (
         <>
@@ -421,7 +407,7 @@ export default function ShowWorkOrder(props: PageProps) {
                     <VerifyPanel workOrderId={workOrder.id} />
                 )}
 
-                {canExtend && extendable && !pendingExtend && (
+                {canRequestExtend && (
                     <ExtendRequestPanel workOrderId={workOrder.id} />
                 )}
 
@@ -429,7 +415,7 @@ export default function ShowWorkOrder(props: PageProps) {
                     <ExtendStatusPanel
                         workOrderId={workOrder.id}
                         pendingRequest={pendingExtend}
-                        canDecide={canExtendApprove}
+                        canDecide={canExtendApprove && canDecideExtend}
                     />
                 )}
 

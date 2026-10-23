@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WahaWhatsAppChannel;
 use App\Models\ExtendRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -9,8 +10,9 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Dikirim ke rantai approver tahap berjalan (Team Leader atau HOD) saat
- * pengajuan extend deadline WO telat dibuat (FR-2.3). Tanpa WhatsApp —
- * ADR-0009 slice 1 tepat 4 event WO (created/reviewed/assigned/escalated).
+ * pengajuan extend deadline WO telat dibuat (FR-2.3). WhatsApp outbound
+ * menyusul bersama fiturnya (ADR-0009: "event lain menyusul bersama
+ * fiturnya") — kombinasi dari branch feature/extend-deadline.
  */
 class ExtendRequestSubmitted extends Notification
 {
@@ -23,7 +25,7 @@ class ExtendRequestSubmitted extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', WahaWhatsAppChannel::class];
     }
 
     /**
@@ -52,5 +54,38 @@ class ExtendRequestSubmitted extends Notification
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    /**
+     * Outbox WhatsApp (ADR-0009): permohonan extend menunggu keputusan
+     * approver tahap berjalan.
+     */
+    public function toWhatsApp(object $notifiable): string
+    {
+        $workOrder = $this->extendRequest->workOrder;
+
+        $lines = [
+            '⏳ *PERMOHONAN EXTEND DEADLINE*',
+            '',
+            '*No:* '.($workOrder?->nomor_wo ?? '-'),
+            '*Judul:* '.($workOrder?->title ?? '-'),
+            '*Departemen:* '.($workOrder?->targetDepartment?->nama_department ?? '-'),
+            '*Perpanjangan:* +'.$this->extendRequest->days.' hari kerja',
+            '*Alasan:* '.str((string) $this->extendRequest->reason)->limit(120),
+        ];
+
+        $lines[] = '';
+        $lines[] = 'Setujui / Tolak:';
+        $lines[] = route('work-orders.show', [
+            'tenant' => $workOrder?->tenant?->code,
+            'workOrder' => $workOrder?->getKey(),
+        ]);
+
+        return implode("\n", $lines);
+    }
+
+    public function waEvent(): string
+    {
+        return 'work_order.extend_requested';
     }
 }

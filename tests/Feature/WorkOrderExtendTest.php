@@ -5,11 +5,14 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\ExtendRequest;
 use App\Models\Tenant;
+use App\Models\TenantWaSession;
 use App\Models\User;
+use App\Models\WaMessage;
 use App\Models\WorkOrder;
 use App\Notifications\ExtendRequestApproved;
 use App\Notifications\ExtendRequestRejected;
 use App\Notifications\ExtendRequestSubmitted;
+use App\Services\DeadlineCalculator;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -398,8 +401,11 @@ it('refuses a request when the 3-approved ceiling is reached', function () {
     $this->assertDatabaseCount('extend_requests', 0);
 });
 
-it('refuses a request for a WO that is not yet late', function () {
-    $workOrder = makeOverdueWorkOrder(['deadline_date' => now()->addDays(3)]);
+it('refuses a request while the deadline is still far', function () {
+    $workOrder = makeOverdueWorkOrder([
+        // 4 hari kerja di depan — di luar jendela mendekati telat (≤2).
+        'deadline_date' => app(DeadlineCalculator::class)->addBusinessDays(now(), 4),
+    ]);
     $actor = extendRequester();
 
     $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
@@ -411,6 +417,125 @@ it('refuses a request for a WO that is not yet late', function () {
     ])->assertConflict();
 
     $this->assertDatabaseCount('extend_requests', 0);
+});
+
+it('allows a request while the WO is near its deadline', function () {
+    Notification::fake();
+    $workOrder = makeOverdueWorkOrder([
+        // 1 hari kerja di depan → masuk jendela mendekati telat (keputusan
+        // user 2026-10-22 di branch feature/extend-deadline).
+        'deadline_date' => app(DeadlineCalculator::class)->addBusinessDays(now(), 1),
+    ]);
+    $actor = extendRequester();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 2,
+        'reason' => 'Estimasi mepet, antisipasi keterlambatan.',
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('extend_requests', [
+        'work_order_id' => $workOrder->getKey(),
+        'status' => 'pending_hod',
+    ]);
+});
+
+it('queues WhatsApp outbox rows for extend events when the gateway is active', function () {
+    config([
+        'waha.url' => 'http://waha.test',
+        'waha.api_key' => 'test-key',
+        'waha.rate_per_minute' => 1000,
+        'waha.min_interval_seconds' => 0,
+    ]);
+    Http::fake(['http://waha.test/api/sendText' => fn () => ['status' => 'sent']]);
+
+    $tenant = Tenant::where('code', 'hq')->first();
+    TenantWaSession::withoutGlobalScope('tenant')->updateOrCreate(
+        ['tenant_id' => $tenant->getKey()],
+        [
+            'session_name' => 'tw-hq',
+            'phone_number' => '6281234567890',
+            'status' => 'working',
+        ],
+    );
+
+    $workOrder = makeOverdueWorkOrder();
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->forceFill(['phone' => '628111111111'])->save();
+    $hod->givePermissionTo('work-order.extend-approve');
+    $actor = extendRequester();
+    $actor->forceFill(['phone' => '628222222222'])->save();
+
+    $this->actingAs($actor)->post(route('work-orders.extend-requests.store', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+    ]), [
+        'days' => 2,
+        'reason' => 'Spare part terlambat.',
+    ])->assertRedirect();
+
+    $this->actingAs($hod)->post(route('work-orders.extend-requests.approve', [
+        'tenant' => 'hq',
+        'workOrder' => $workOrder->getKey(),
+        'extendRequest' => ExtendRequest::query()
+            ->where('work_order_id', $workOrder->getKey())
+            ->sole()
+            ->getKey(),
+    ]))->assertRedirect();
+
+    expect(
+        WaMessage::query()
+            ->where('event', 'work_order.extend_requested')
+            ->where('status', 'sent')
+            ->count()
+    )->toBe(1)
+        ->and(
+            WaMessage::query()
+                ->where('event', 'work_order.extend_approved')
+                ->where('status', 'sent')
+                ->count()
+        )->toBe(1)
+        ->and(
+            WaMessage::query()
+                ->where('event', 'work_order.extend_approved')
+                ->where('status', 'skipped')
+                ->count()
+        )->toBe(1);
+});
+
+it('exposes extend visibility flags on the show payload', function () {
+    $workOrder = makeOverdueWorkOrder();
+    $hod = User::find($workOrder->targetDepartment->hod_user_id);
+    $hod->givePermissionTo('work-order.extend-approve');
+    $actor = extendRequester();
+    $showRoute = ['tenant' => 'hq', 'workOrder' => $workOrder->getKey()];
+
+    // Sebelum ada pengajuan: pemegang izin extend boleh mengaju (WO telat),
+    // approver tidak berada pada tahap mana pun.
+    $this->actingAs($actor)->get(route('work-orders.show', $showRoute))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/show')
+            ->where('can_request_extend', true)
+            ->where('can_decide_extend', false));
+
+    $extendRequest = makePendingExtendRequest($workOrder, status: 'pending_hod', requestedBy: $actor->getKey());
+
+    // Saat pending: form mengaju hilang, HOD di tahap HOD bisa memutuskan.
+    $this->actingAs($hod)->get(route('work-orders.show', $showRoute))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/show')
+            ->where('can_request_extend', false)
+            ->where('can_decide_extend', true));
+
+    // Pengaju tidak bisa memutuskan pengajuannya sendiri.
+    $this->actingAs($actor)->get(route('work-orders.show', $showRoute))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('can_decide_extend', false));
 });
 
 it('refuses a request outside the execution stage', function () {

@@ -65,6 +65,7 @@ it('lists assigned work orders for the cross-department assignee in the index', 
         'status' => WorkOrderStatus::Assigned,
         'hod_action' => 'execute_immediately',
         'assigned_employees' => [$assigneeEmployee->getKey()],
+        'deadline_date' => now()->addDay()->toDateString(),
     ]);
 
     $this
@@ -73,7 +74,9 @@ it('lists assigned work orders for the cross-department assignee in the index', 
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('work-orders/index')
-            ->where('workOrders.data.0.id', $workOrder->getKey()));
+            ->where('workOrders.data.0.id', $workOrder->getKey())
+            ->where('workOrders.data.0.deadline_state', 'due_soon')
+            ->where('workOrders.data.0.deadline_label', 'Deadline besok'));
 });
 
 it('keeps the timeline scoped the same way for the assignee', function () {

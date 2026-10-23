@@ -78,7 +78,33 @@ class WorkOrderController extends Controller
             ->visibleFor($user, $reviewableDepartmentIds)
             ->orderByDesc('created_at')
             ->paginate(10)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(function (WorkOrder $workOrder): array {
+                [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrder);
+
+                return [
+                    'id' => $workOrder->getKey(),
+                    'nomor_wo' => $workOrder->nomor_wo,
+                    'title' => $workOrder->title,
+                    'description' => $workOrder->description,
+                    'category' => $workOrder->category->value,
+                    'status' => $workOrder->status->value,
+                    'requested_schedule_date' => $workOrder->requested_schedule_date?->toDateString(),
+                    'scheduled_date' => $workOrder->scheduled_date?->toDateString(),
+                    'deadline_date' => $workOrder->deadline_date?->toDateString(),
+                    'created_at' => $workOrder->created_at?->toIso8601String(),
+                    'requester' => $workOrder->requester ? [
+                        'id' => $workOrder->requester->getKey(),
+                        'name' => $workOrder->requester->name,
+                    ] : null,
+                    'target_department' => $workOrder->targetDepartment ? [
+                        'id' => $workOrder->targetDepartment->getKey(),
+                        'nama_department' => $workOrder->targetDepartment->nama_department,
+                    ] : null,
+                    'deadline_state' => $deadlineState,
+                    'deadline_label' => $deadlineLabel,
+                ];
+            });
 
         return Inertia::render('work-orders/index', [
             'workOrders' => $workOrders,

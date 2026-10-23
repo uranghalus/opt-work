@@ -2,29 +2,22 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
-## Daily Work FR-5.x (2026-10-23) — IN PROGRESS (dihentikan atas permintaan user)
+## Daily Work FR-5.x (2026-10-23 → 2026-10-24) — DONE (Task 1–5 selesai; sisa Task 6 vault sync)
 
-Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`. Eksekusi inline (executing-plans) berhenti di tengah **Task 2**.
+Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`.
 
 ### Selesai
 
-- [x] **Task 1 — Foundation (commit `7cca083`):** migrasi `daily_work_templates` (weekdays json 0–6, `is_active`) + `daily_works` (`status` pending|in_progress|done, `location`, `source` template|adhoc, unique `(template_id, work_date)`, FK template nullOnDelete) + model `DailyWorkTemplate`/`DailyWork` (pola `#[Fillable]`+`BelongsToTenant`+`HasUuids`) + factory + state `forTemplate`. Test `DailyWorkFoundationTest` 3/3 pass; full suite saat commit **585 (577 pass, 8 skip, 0 gagal)**.
+- [x] **Task 1 — Foundation (commit `7cca083`):** migrasi `daily_work_templates` (weekdays json 0–6, `is_active`) + `daily_works` (`status` pending|in_progress|done, `location`, `source` template|adhoc, unique `(template_id, work_date)`, FK template nullOnDelete) + model `DailyWorkTemplate`/`DailyWork` (pola `#[Fillable]`+`BelongsToTenant`+`HasUuids`) + factory + state `forTemplate`. Test `DailyWorkFoundationTest` 3/3 pass.
+- [x] **Task 2 — Materialize + index + update (commit sesi 2026-10-24):** `DailyWorkService::materializeFor` + `DailyWorkController` index/update + halaman `daily-work/index.tsx` + 2 test file hijau. Fix lintas-DB: kolom DATE di sqlite tersimpan `Y-m-d H:i:s` → query `whereDate()` + binding Carbon di `materializeFor` (perbandingan string Y-m-d menghasilkan daftar kosong). Redirect update balik ke tanggal item (`?date=` hilang bila item = hari ini).
+- [x] **Task 3 — Template CRUD + adhoc + team (commit sesi 2026-10-24):** endpoints `templates` (list/store/update/destroy) + `adhoc` (store, notifikasi) + `team` (preview) di `DailyWorkController`, scoping HOD (hod_user_id ∪ manager_user_id), izin `daily-work.delete` baru (katalog + roleDefaults HOD/admin), notifikasi `DailyWorkAssigned` (database+broadcast+WA outbox, no-op tanpa WAHA_URL, akun tak ter-link → log warning), allowlist honesty dibersihkan (read/update/create keluar).
+- [x] **Task 4 — UI karyawan:** `daily-work/index.tsx` — card list (bukan tabel), navigasi tanggal prev/next/"Hari ini", search debounce 300ms + filter status (pola `employees/index.tsx`), aksi status 3 tombol (Belum/Proses/Selesai, aria-pressed) + input lokasi inline hanya bila `can_update`, paginasi server-side, EmptyState, Skeleton saat navigating.
+- [x] **Task 5 — UI HOD:** `daily-work/templates.tsx` (card grid template, dialog create/edit + weekday picker toggle 7 hari, filter karyawan/search/status-aktif, hapus via ConfirmDialog, tugas tambahan dialog → redirect team) + `daily-work/team.tsx` (preview harian bawahan, read-only). Nav: "Daily Work" (gated `daily-work.read`) + "Template Daily" (gated `daily-work.create`) menggantikan placeholder "Segera".
 
-### Di working tree (BELUM di-commit — Task 2 in progress, test belum hijau)
+### Sisa (Task 6 — bukan kode)
 
-File baru: `app/Services/DailyWorkService.php` (`materializeFor` — firstOrCreate idempoten, progres tak pernah tertimpa, unik per template+tanggal), `app/Http/Controllers/DailyWorkController.php` (`index` materialize-on-view + filter search/status/paginasi + `update` status/lokasi item milik sendiri), test `DailyWorkMaterializeTest` + `DailyWorkUpdateTest` (**11 test: 4 pass, 5 fail, 2 error**). `routes/web.php` DIEDIT (`daily-work.index` + `daily-work.update`) tapi **sengaja ditahan tidak di-commit** — file itu juga memuat WIP sesi paralel halaman Position; commit menyusul setelah sesi itu commit (keputusan user 2026-10-23).
-
-### Sisa langkah Task 2 (urut)
-
-1. **Buat halaman stub `resources/js/pages/daily-work/index.tsx`** — 3 fail terkunci di `Inertia page component [daily-work/index] does not exist`; halaman penuh = Task 4 (card list + search + filter status + paginasi, shadcn, tanpa tabel — per design).
-2. **Investigasi prop `dailyWork.meta.total` tidak ada** (2 fail) — cek serialisasi paginator Inertia dari `paginate()->withQueryString()->through(...)`; sesuaikan payload atau assertion.
-3. **2 error "No query results for model DailyWork"** pada test re-materialize & hapus-template — baris belum terbentuk saat GET; cek alur `materializeFor` (employee_id/tenant_id/filter weekdays) setelah langkah 1.
-4. **Redirect update**: test mengharapkan `/hq/daily-work`, controller mengembalikan `?date=2026-10-26` — rekomendasi: pertahankan `date` di redirect, sesuaikan assertion test.
-5. **Honesty test**: hapus `daily-work.read` + `daily-work.update` dari allowlist `tests/Feature/Rbac/PermissionConsistencyTest.php:139-141` begitu gating final (`daily-work.create` menyusul di Task 3).
-6. Full suite hijau → `vendor/bin/pint --dirty` → commit Task 2 pathspec-limited (file Daily Work + routes/web.php + PermissionConsistencyTest) — **baru boleh setelah sesi paralel Position commit routes/web.php**.
-7. Lanjut **Task 3–6** sesuai plan: template CRUD HOD + adhoc + notif `DailyWorkAssigned` (DB+broadcast+WA) + team view + hapus allowlist `create` → UI karyawan (Task 4, wayfinder `--with-form`) → UI HOD (Task 5) → wrap-up grant izin + tick issue 07 + vault (Task 6).
-
-Catatan bug yang SUDAH diperbaiki dalam Task 2 ini (jangan diulang): `Illuminate\Support\CarbonImmutable` TIDAK ADA di Laravel ini → pakai `Carbon\CarbonImmutable`; redirect route grup tenant wajib kirim `['tenant' => tenant()?->code]`.
+- [ ] Vault sync: catat sesi + ADR-lite keputusan (`daily-work.delete` verb, `whereDate` pola) — dijalankan sesi berikutnya.
+- [ ] `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete` belum di-grant ke role existing di DB dev — additive-only).
 
 ---
 
@@ -131,7 +124,7 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
       work-data.read/update keluar dari allowlist forward-looking (honesty
       test). 8 test `WorkDataTest` + 3 update GateTest. OQ revisi
       post-closing: WO closed terminal di MVP (`// OQ` di kode).
-- [ ] **FR-5.x — Daily Work:** **IN PROGRESS 2026-10-23** — Task 1 foundation done (commit `7cca083`); Task 2 materialize+index+update di working tree belum hijau. Status detail + sisa langkah → section "Daily Work FR-5.x" di atas. Issue: `07-daily-work-templates.md` · plan: `.scratch/daily-work/plan.md` · design: `.scratch/daily-work/design.md`.
+- [x] **FR-5.x — Daily Work:** **SELESAI 2026-10-24** — Task 1–5 (foundation, materialize+index+update, template CRUD+adhoc+team, UI karyawan, UI HOD) — lihat section "Daily Work FR-5.x" di atas. Issue: `07-daily-work-templates.md` · plan: `.scratch/daily-work/plan.md` · design: `.scratch/daily-work/design.md`.
 - [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
 
 **Defect / keputusan kecil (temuan audit):**
@@ -444,7 +437,7 @@ Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima 
 ### Deferred
 
 - [x] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S) — **selesai 2026-10-22**: review/assign digate + dihapus di slice sebelumnya, submit/verify digate + dihapus di sesi ini; allowlist kini kosong untuk semua verb work-order.
-- [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
+- [x] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L) — **SELESAI 2026-10-22/23**: alur create→review→assign→submit→verify→close lengkap (WO slice 1–2), verba review/assign/submit/verify sudah digate.
 - [ ] Akun CRUD surface (link/unlink login) — owns `akun.create`/`akun.delete`, currently allowlisted "gated when the Akun surface lands"
 
 Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.md (Team Leader = role Spatie; deadline urgent 3/normal 6; extend 3 hari/3 approved; Direksi ditunda).
@@ -466,7 +459,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 ### Known tradeoffs
 
 - [ ] Seeder re-creates permissions deleted via the UI (safe: delete is blocked while attached, so nothing re-attaches silently)
-- [ ] Seeder does not push new default permissions to existing roles — handled by the explicit per-release grant step above
+- [x] Seeder does not push new default permissions to existing roles — handled by the explicit per-release grant step above (`app:grant-default-permissions`, shipped 2026-10-16, commit `5071fec`)
 
 ---
 

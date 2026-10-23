@@ -2,7 +2,7 @@ import { Head } from "@inertiajs/react";
 import { router, usePage } from "@inertiajs/react";
 import { Briefcase, Building2, GitBranch, LoaderCircle, RefreshCw, Search, SearchX, Users, UserCheck, UserX, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Layers, Expand, Minimize, Eye, Copy } from "lucide-react";
 import { useCallback, useState, useEffect, useRef } from "react";
-import { index, tree } from "@/routes/positions";
+import { index, show as positionsShow, tree } from "@/routes/positions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,7 +74,7 @@ Tree.layout = {
 
 function TreeActions() {
     const tenant = useRequiredTenant("positions.tree");
-    return ( <Button onClick={() => router.visit(tree({ tenant }), { replace: true })} variant="secondary" size="sm" className="h-10 gap-2"> <ChevronLeft className="size-4" aria-hidden="true" /> Kembali ke Daftar </Button> );
+    return ( <Button onClick={() => router.visit(index({ tenant }), { replace: true })} variant="secondary" size="sm" className="h-10 gap-2"> <ChevronLeft className="size-4" aria-hidden="true" /> Kembali ke Daftar </Button> );
 }
 
 export default function Tree({ rootPositions, initialRoot }: PageProps) {
@@ -93,14 +93,14 @@ export default function Tree({ rootPositions, initialRoot }: PageProps) {
                             <div className="mx-auto flex size-16 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground"> <Layers className="size-8" /> </div>
                             <p className="mt-4 text-lg font-semibold text-foreground">Belum Ada Posisi</p>
                             <p className="mt-2 text-muted-foreground"> Data posisi akan muncul setelah sinkronisasi dari OptiGate. </p>
-                            <Button asChild variant="default" size="lg" className="mt-6 h-11 gap-2 px-6"> <a href={tree({ tenant }).url}> <RefreshCw className="size-4" aria-hidden="true" /> Sinkronisasi Sekarang </a> </Button>
+                            <Button asChild variant="default" size="lg" className="mt-6 h-11 gap-2 px-6"> <a href={index({ tenant }).url}> <RefreshCw className="size-4" aria-hidden="true" /> Buka Daftar Posisi untuk Sinkronisasi </a> </Button>
                         </div>
                     ) : (
                         <div className="p-4 max-h-[calc(100vh-300px)] overflow-y-auto">
-                            <ul className="space-y-1" role="tree" aria-label="Hierarki posisi">
+                            <ul className="space-y-1" aria-label="Hierarki posisi">
                                 {rootPositions.map((position) => {
                                     return (
-                                        <div key={position.id} className="space-y-1">
+                                        <li key={position.id} className="space-y-1">
                                             <div className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
                                                 <div className={cn("size-10 rounded-xl flex items-center justify-center", "text-info bg-info-subtle")}> <Briefcase className="size-5" aria-hidden="true" /> </div>
                                                 <div className="min-w-0 flex-1">
@@ -109,10 +109,10 @@ export default function Tree({ rootPositions, initialRoot }: PageProps) {
                                                 </div>
                                                 <div className="flex items-center gap-3 shrink-0">
                                                     <Headcount count={position.employees_count} max={100} label={`Lihat ${position.employees_count} karyawan`} caption="kry" className="hidden sm:flex" />
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => router.visit(`/positions/${position.id}`)} aria-label="Lihat detail"> <Eye className="size-4" /> </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => router.visit(positionsShow({ tenant, position: position.id }))} aria-label="Lihat detail"> <Eye className="size-4" /> </Button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </li>
                                     );
                                 })}
                             </ul>

@@ -266,7 +266,7 @@ function FinalizePanel({
 }
 
 WorkDataShow.layout = {
-    breadcrumbs: [{ title: 'Work Data' }, { title: '' }],
+    breadcrumbs: [{ title: 'Work Data' }],
     title: (workData: WorkDataDetail) => workData.no_kerja,
     description: (workData: WorkDataDetail) =>
         workData.department?.nama_department ?? 'Histori pekerjaan',

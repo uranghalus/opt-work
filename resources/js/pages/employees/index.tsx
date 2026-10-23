@@ -66,7 +66,6 @@ import {
     BannedBadge,
     DepartmentValue,
     EmployeeAvatar,
-    MissingDataChip,
     OrganizationValue,
     TextValue,
 } from "@/components/employees/employee-display";

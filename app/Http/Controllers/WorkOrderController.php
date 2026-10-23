@@ -33,6 +33,10 @@ class WorkOrderController extends Controller
     {
         $user = $request->user();
 
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+
         $reviewableDepartmentIds = Department::query()
             ->where('hod_user_id', $user->getKey())
             ->orWhere('manager_user_id', $user->getKey())
@@ -41,6 +45,12 @@ class WorkOrderController extends Controller
         $workOrders = WorkOrder::query()
             ->with(['requester', 'targetDepartment'])
             ->visibleFor($user, $reviewableDepartmentIds)
+            ->when(
+                $validated['search'] ?? null,
+                fn ($query, $search) => $query->where(fn ($term) => $term
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('nomor_wo', 'like', "%{$search}%")),
+            )
             ->orderByDesc('created_at')
             ->paginate(10)
             ->withQueryString()

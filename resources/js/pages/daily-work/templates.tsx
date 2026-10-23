@@ -46,6 +46,7 @@ import { useRequiredTenant } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 import {
     templates as templatesIndex,
+    index as dailyWorkIndex,
     team,
 } from '@/routes/daily-work';
 import {
@@ -500,7 +501,7 @@ export default function DailyWorkTemplates({
     const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
     const [adhocDialogOpen, setAdhocDialogOpen] = useState(false);
     const [editing, setEditing] = useState<TemplateItem | null>(null);
-    const [deleting, setDeleting] = useState<TemplateItem | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<TemplateItem | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setAppliedSearch(searchTerm), 300);
@@ -727,6 +728,17 @@ export default function DailyWorkTemplates({
                                                     description={`Template "${template.title}" akan dihapus. Riwayat harian yang sudah terisi tetap tersimpan.`}
                                                     confirmLabel="Hapus"
                                                     danger
+                                                    open={
+                                                        deleteTarget?.id ===
+                                                        template.id
+                                                    }
+                                                    onOpenChange={(open) => {
+                                                        if (open) {
+                                                            setDeleteTarget(template);
+                                                        } else {
+                                                            setDeleteTarget(null);
+                                                        }
+                                                    }}
                                                     onConfirm={() => {
                                                         router.delete(
                                                             templateDestroy({
@@ -735,20 +747,16 @@ export default function DailyWorkTemplates({
                                                             }),
                                                             {
                                                                 preserveScroll: true,
+                                                                onFinish: () =>
+                                                                    setDeleteTarget(null),
                                                             },
                                                         );
                                                     }}
                                                 >
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon"
-                                                        aria-label={`Hapus template ${template.title}`}
-                                                    >
-                                                        <Trash2
-                                                            aria-hidden="true"
-                                                            className="size-4 text-danger"
-                                                        />
-                                                    </Button>
+                                                    <Trash2
+                                                        aria-hidden="true"
+                                                        className="size-4 text-danger"
+                                                    />
                                                 </ConfirmDialog>
                                             </div>
                                         </div>
@@ -831,8 +839,18 @@ export default function DailyWorkTemplates({
     );
 }
 
-DailyWorkTemplates.layout = {
-    breadcrumbs: [{ title: 'Daily Work', href: '/daily-work' }, { title: 'Template' }],
+DailyWorkTemplates.layout = (
+    props: PageProps,
+) => ({
+    breadcrumbs: [
+        {
+            title: 'Daily Work',
+            href: props.activeTenant
+                ? dailyWorkIndex({ tenant: props.activeTenant }).url
+                : undefined,
+        },
+        { title: 'Template' },
+    ],
     title: 'Template Daily Work',
     description: 'Tugas rutin per karyawan dan tugas tambahan',
-};
+});

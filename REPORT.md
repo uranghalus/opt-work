@@ -10,8 +10,8 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | 0 — Setup & Baseline | ✅ DONE | Baseline recorded below; tag pushed; branch created; REPORT.md initialized |
 | 1 — TODO.md items | ✅ DONE | FR-5.x Daily Work implemented (commits `feat(daily-work)` + docs); deferred/blocked items documented below |
 | 2 — WorkOrder/Timeline redesign | ✅ DONE | Audit + design decisions + re-audit docs in `docs/audit/`; FullCalendar v7 dayGrid (week+month); real data, no mocks; build green |
-| 3 — Backend bugs & N+1 | 🔄 in progress | 2 parallel audits done; fixes below, full-suite regression running |
-| 4 — Frontend review | ⬜ pending | |
+| 3 — Backend bugs & N+1 | ✅ DONE | 2 parallel audits; 19 fixes + 10 new tests; 3 findings documented-not-changed with reasons; suite 619/611/0 failed |
+| 4 — Frontend review | ✅ DONE | 25+ fixes (5 high, 8 med): dead 405 PATCH, dead ConfirmDialogs, 12 tenant-less dead links, filter-id mismatch, search wiring, mojibake, a11y markup; tsc+build green |
 | 5 — Verification gate | ⬜ pending | |
 | 6 — Commit, push, merge | ⬜ pending | |
 
@@ -135,3 +135,54 @@ were already repaired in Phases 1–2.
 | `TenantAccess::canOperate` ignores `is_active` (sessions survive branch deactivation) | Only new SAML logins are denied; hard-denying mid-session during a sync hiccup is riskier than the status quo. Flagged for the user. |
 | Broadcast queued pre-commit (possible ghost toast on rollback) | Framework-level dispatch order; DB+WA channels are transaction-safe. Low impact — follow-up. |
 | Bounded/low-impact notes: WA channel per-recipient lookups (≤ ~4 recipients); `SyncDepartments::resolveHod` per-dept query; `tenants.code` LOWER/TRIM; employees default sort; notifications composite index | Optional follow-ups from the N+1 audit — acceptable at MVP scale. |
+
+## Phase 4 — Frontend review
+
+Method: full read-only sweep by a general agent over every page + shared
+component (dead links vs wayfinder/routes, missing pages vs `Inertia::render`,
+unhandled errors, loading/empty states, re-render smells, unused code, a11y,
+console-warning risks) + the project's own tooling (`tsc`, `npm run build`).
+Loading/empty states and icon/label a11y were audited clean.
+
+### Fixed — high severity
+
+| Finding | Fix |
+| ------- | --- |
+| `work-orders/show.tsx` PlanningPanel saved via `form.post()` on a PATCH-only route → **405 on every save** | `form.patch(...)` |
+| Same panel: approve `ConfirmDialog` rendered without `open`/`onOpenChange`; its trigger Button POSTed **immediately without confirmation** (nested `<button>` DOM violation) | Controlled state wired (`approveOpen`); trigger is plain text inside the component's own button |
+| `daily-work/templates.tsx` delete `ConfirmDialog` could never open (dead delete button — same misuse) | Controlled `deleteTarget` state; children = icon only |
+| `positions/show.tsx` — all ten `<Link>`s were tenant-less raw strings (`/employees/…`, `/departments/{kode}`, `/divisions/{nama}`, `/positions/{id}`, `/positions/tree?root=…`) → **404**; department/division links also used kode/name where routes bind ULIDs | All rewired to wayfinder functions (`employeesIndex/show`, `departmentsShow`, `divisionsShow`, `positionsShow`, `treeRoot`) with real ULID ids |
+| `branch-switcher` impersonation "Kembali" did a GET on the POST-only `/tenant/stop-impersonating` → 405 | `router.post(..., { preserveScroll: true })` |
+
+### Fixed — medium severity
+
+| Finding | Fix |
+| ------- | --- |
+| `positions/index.tsx` department/division filter options keyed by kode/name while the server filters the FK ULID → every filter returned an empty list | Map keys now the ULID ids (payload types extended with `id`) |
+| `positions/tree` — "Kembali ke Daftar" navigated to the tree itself; detail button tenant-less; empty-state "Sinkronisasi" reloaded the tree | Points to `positions.index` / tenant-prefixed `positions.show` / index page (where the sync button lives) |
+| `daily-work/index` — status filter/search dropped `?date=` (silently jumping back to today); Select fired a duplicate request alongside the URL-sync effect | `date` preserved in `buildParams`; Select only sets state (single navigation driver) |
+| `daily-work/team` — same date-drop bug | `date` included in `goTo` params |
+| `daily-work` breadcrumbs were tenant-less raw strings (`'/daily-work'` → 404) | Layout functions build hrefs from `activeTenant` (departments/show pattern) |
+| `app-sidebar-header` WO search (Ctrl+K) collected the query but navigated without it, via full page reload | Backend: `WorkOrderController::index` accepts `search` (title/nomor filter + `withQueryString`); header navigates via `router.get` with the typed query |
+| `positions/show` layout breadcrumb used `index({ tenant: "" })` and empty title/description | Layout function renders the position name + real tenant href |
+
+### Fixed — low severity
+
+`work-orders/index` pagination via Inertia (`router.get`) instead of
+`window.location` full reloads; unused `can` destructure removed;
+`divisions/index` mojibake (U+FFFD) restored to proper ellipsis;
+`employees/index` unused import removed; `notifications/index` formatting
+glitch; `bottom-nav` tenant label lookup matches by code or id (was id-only
+while `activeTenant` is a code); `work-data/show` empty breadcrumb removed;
+`positions/tree` invalid `role="tree"` markup and `<div>` children of `<ul>`
+fixed (`<li>`); unused `visibleColumns` state removed.
+
+### Reviewed and deliberately NOT changed (with reasons)
+
+| Finding | Reason |
+| ------- | ------ |
+| `vp check` reports formatting issues in 394 files | Pre-existing (vite-plus 0.3 formatter); `check --fix` would produce a repo-wide unrelated diff. Recommended as a standalone cleanup commit by the user. |
+| Dashboard fixture page (demo buttons without handlers) | Acknowledged in the page's own header comment as demo data; PRD §9 keeps metrics out of MVP. |
+| Unused components (`alert-error`, `appearance-tabs`, `greeting-header`, `module-card`, `nav-footer`, `nav-main`, `text-link`, `FormErrorSummary`, `PositionCard`, auth layouts, `use-clipboard`) + npm deps (`@gsap/react`, `concurrently`, radix toggle/navigation-menu/collapsible referenced only by unused components) | Deleting files/deps not explicitly requested (Safety rule 5). Listed as follow-up cleanup; none is wired into any route. |
+| `config/fortify.php` `views => false` + no features → Fortify view registrations pointing at non-existent `auth/*` pages are dead code | Latent only; touching auth bootstrapping is riskier than leaving it. |
+| `approveForm` dialogs on the WO show page don't render `form.errors` (silent close on server rejection) | Low; rejections surface via session errors on next render — polish follow-up. |

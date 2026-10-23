@@ -64,7 +64,9 @@ Notifications.layout = {
     title: 'Notifikasi',
     description: 'Riwayat notifikasi akun Anda',
     actions: NotificationActions,
-};export default function Notifications({ notifications }: PageProps) {
+};
+
+export default function Notifications({ notifications }: PageProps) {
 
     return (
         <>

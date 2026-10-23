@@ -271,6 +271,9 @@ export default function DailyWorkIndex({
     ): Record<string, string | undefined> => ({
         search: appliedSearch || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
+        // Pertahankan tanggal yang sedang dilihat — filter jangan me-reset
+        // konteks hari ke hari ini.
+        date: date !== todayLocal() ? date : undefined,
         ...overrides,
     });
 
@@ -372,11 +375,10 @@ export default function DailyWorkIndex({
                     <Select
                         value={statusFilter}
                         onValueChange={(value) => {
+                            // Navigasi dipicu efek sinkronisasi URL di atas
+                            // (single driver) — goTo di sini akan mendobel
+                            // request yang identik.
                             setStatusFilter(value);
-                            goTo({
-                                status: value === 'all' ? undefined : value,
-                                page: '1',
-                            });
                         }}
                     >
                         <SelectTrigger

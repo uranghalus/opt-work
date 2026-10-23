@@ -15,7 +15,6 @@ import { show as showAttachment } from '@/routes/work-orders/attachments';
 import { assign, reject, review, submit, verify } from '@/routes/work-orders';
 import {
     approve as approveScheduleExtend,
-    extend as requestScheduleExtend,
     reject as rejectScheduleExtend,
     update as updatePlanningDetails,
 } from '@/routes/work-planning';
@@ -1310,6 +1309,7 @@ function PlanningPanel({
     const rejectForm = useForm<{ catatan: string }>({
         catatan: '',
     });
+    const [approveOpen, setApproveOpen] = React.useState(false);
 
     return (
         <section className="space-y-3 rounded-lg border bg-card p-4">
@@ -1334,7 +1334,9 @@ function PlanningPanel({
                 onSubmit={(event) => {
                     event.preventDefault();
                     if (canUpdate) {
-                        updateForm.post(
+                        // PATCH route — form.post tanpa _method spoof akan
+                        // 405 (Laravel mendaftarkan hanya PATCH).
+                        updateForm.patch(
                             updatePlanningDetails({
                                 tenant,
                                 workPlanning: planning.id,
@@ -1454,18 +1456,15 @@ function PlanningPanel({
                         description="Jadwal WO akan bergeser ke tanggal yang diajukan."
                         confirmLabel="Ya, setujui"
                         cancelLabel="Batal"
+                        open={approveOpen}
+                        onOpenChange={setApproveOpen}
                         onConfirm={() => approveForm.post(approveScheduleExtend({
                             tenant,
                             workPlanning: planning.id,
                         }).url, { preserveScroll: true })}
                         processing={approveForm.processing}
                     >
-                        <Button type="button" onClick={() => approveForm.post(approveScheduleExtend({
-                            tenant,
-                            workPlanning: planning.id,
-                        }).url, { preserveScroll: true })} disabled={approveForm.processing}>
-                            Setujui Extend Jadwal
-                        </Button>
+                        Setujui Extend Jadwal
                     </ConfirmDialog>
 
                     <Separator />

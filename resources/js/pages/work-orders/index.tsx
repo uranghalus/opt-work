@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { create, show } from '@/routes/work-orders';
 import { CategoryBadge } from '@/components/category-badge';
@@ -155,6 +155,11 @@ function Pagination({
 
     const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
 
+    const goToPage = (page: number) => {
+        // Inertia visit (bukan full reload) — state/progress tetap terjaga.
+        router.get(baseUrl, { page: String(page) }, { preserveScroll: true });
+    };
+
     return (
         <nav
             className="flex items-center justify-center gap-1"
@@ -164,7 +169,7 @@ function Pagination({
                 variant="secondary"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => window.location.href = `${baseUrl}?page=${currentPage - 1}`}
+                onClick={() => goToPage(currentPage - 1)}
                 aria-label="Halaman sebelumnya"
             >
                 <ChevronLeft aria-hidden className="h-4 w-4" />
@@ -178,7 +183,7 @@ function Pagination({
                         size="sm"
                         onClick={() => {
                             if (page !== currentPage) {
-                                window.location.href = `${baseUrl}?page=${page}`;
+                                goToPage(page);
                             }
                         }}
                         aria-label={`Halaman ${page}`}
@@ -193,7 +198,7 @@ function Pagination({
                 variant="secondary"
                 size="sm"
                 disabled={currentPage === lastPage}
-                onClick={() => window.location.href = `${baseUrl}?page=${currentPage + 1}`}
+                onClick={() => goToPage(currentPage + 1)}
                 aria-label="Halaman selanjutnya"
             >
                 <ChevronRight aria-hidden className="h-4 w-4" />
@@ -203,7 +208,6 @@ function Pagination({
 }
 
 export default function WorkOrders({ workOrders }: PageProps) {
-    const { can } = usePage<InertiaConfig['sharedPageProps']>().props;
     const tenant = useRequiredTenant('work-orders.index');
     const baseUrl = `/${tenant}/work-orders`;
 

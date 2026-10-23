@@ -1,4 +1,4 @@
-import { usePage, Link } from '@inertiajs/react';
+import { usePage, Link, router } from '@inertiajs/react';
 import { Bell, ChevronDown, HelpCircle, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
@@ -87,7 +87,13 @@ function WorkOrderSearch() {
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         if (!tenant) return;
-        window.location.href = String(workOrdersIndex({ tenant }));
+        // Inertia visit (bukan full reload) + query sampai ke server —
+        // WorkOrderController::index memfilter title/nomor_wo.
+        router.get(
+            workOrdersIndex.url({ tenant }, { query: query.trim() ? { search: query.trim() } : undefined }),
+            {},
+            { preserveScroll: true },
+        );
     };
 
     return (

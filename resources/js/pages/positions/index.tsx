@@ -28,8 +28,8 @@ import type { InertiaConfig } from "@inertiajs/core";
 type Position = {
     id: string;
     nama_position: string;
-    department?: { kode_department: string; nama_department: string | null } | null;
-    division?: { nama_division: string } | null;
+    department?: { id: string; kode_department: string; nama_department: string | null } | null;
+    division?: { id: string; nama_division: string } | null;
     optigate_position_id?: string | null;
     category?: "normal" | "accident" | "owner";
     employees_count: number;
@@ -298,7 +298,6 @@ export default function Positions(props: PageProps) {
         page: 1,
     });
     const [navigating, setNavigating] = useState(false);
-    const [visibleColumns, setVisibleColumns] = useState(true); // placeholder for future column visibility
     const skipFirstQuery = useRef(true);
 
     // Debounce search
@@ -347,22 +346,22 @@ export default function Positions(props: PageProps) {
     const { data, current_page, last_page, total, from, to, prev_page_url, next_page_url } = positions;
     const isEmpty = data.length === 0;
 
-    // Filter options for selects (would come from server in real implementation)
-    // For now, we'll use the departments/divisions from the data
+    // Filter options untuk selects — kunci = ULID asli (server memfilter
+    // where('department_id', …) pada FK), bukan kode/nama.
     const departmentMap = new Map<string, { id: string; kode_department: string; nama_department: string | null }>();
     const divisionMap = new Map<string, { id: string; nama_division: string }>();
 
     data.forEach((p) => {
-        if (p.department?.kode_department) {
-            departmentMap.set(p.department.kode_department, {
-                id: p.department.kode_department,
+        if (p.department?.id && p.department.kode_department) {
+            departmentMap.set(p.department.id, {
+                id: p.department.id,
                 kode_department: p.department.kode_department,
                 nama_department: p.department.nama_department ?? null,
             });
         }
-        if (p.division?.nama_division) {
-            divisionMap.set(p.division.nama_division, {
-                id: p.division.nama_division,
+        if (p.division?.id && p.division.nama_division) {
+            divisionMap.set(p.division.id, {
+                id: p.division.id,
                 nama_division: p.division.nama_division,
             });
         }

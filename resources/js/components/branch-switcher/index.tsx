@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import type { InertiaConfig } from '@inertiajs/core';
 import { switchTenant } from '@/lib/tenant';
 import type { TenantSummary } from '@/types/auth';
@@ -105,7 +105,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                         </p>
                     </div>
                     <button
-                        onClick={() => (window.location.href = '/tenant/stop-impersonating')}
+                        onClick={() => router.post('/tenant/stop-impersonating', {}, { preserveScroll: true })}
                         className="flex shrink-0 items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 transition-colors hover:bg-amber-100 hover:text-amber-900"
                     >
                         <ArrowLeftRight className="size-3" aria-hidden="true" />

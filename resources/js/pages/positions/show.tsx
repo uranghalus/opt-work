@@ -1,5 +1,6 @@
 import { Head } from "@inertiajs/react";
 import { Link, usePage } from "@inertiajs/react";
+import type { InertiaConfig } from "@inertiajs/core";
 import {
     Briefcase,
     Building2,
@@ -26,7 +27,11 @@ import {
     GitFork,
 } from "lucide-react";
 import { useState } from "react";
-import { index } from "@/routes/positions";
+import { index, show as positionsShow } from '@/routes/positions';
+import { index as employeesIndex, show as employeesShow } from '@/routes/employees';
+import { show as departmentsShow } from '@/routes/departments';
+import { show as divisionsShow } from '@/routes/divisions';
+import { root as treeRoot } from '@/routes/positions/tree';
 import Heading from "@/components/heading";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,11 +65,13 @@ import { cn } from "@/lib/utils";
 import { useRequiredTenant } from "@/lib/tenant";
 
 type Department = {
+    id: string;
     kode_department: string;
     nama_department: string | null;
 };
 
 type Division = {
+    id: string;
     nama_division: string;
 };
 
@@ -254,11 +261,20 @@ function SectionHeader({
     );
 }
 
-ShowPosition.layout = {
-    breadcrumbs: [{ title: "Data Master" }, { title: "Position", href: index({ tenant: "" }) }, { title: "" }],
-    title: "",
-    description: "",
-};
+ShowPosition.layout = (
+    props: PageProps & InertiaConfig['sharedPageProps'],
+) => ({
+    breadcrumbs: [
+        { title: 'Data Master' },
+        {
+            title: 'Position',
+            href: props.activeTenant ? index({ tenant: props.activeTenant }).url : undefined,
+        },
+        { title: props.position?.nama_position ?? 'Position' },
+    ],
+    title: props.position?.nama_position ?? 'Position',
+    description: 'Detail posisi dan karyawan yang menjabat',
+});
 
 export default function ShowPosition({ position }: PageProps) {
     const tenant = useRequiredTenant("positions.show");
@@ -532,7 +548,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                 variant="outline"
                                                 className="h-12 justify-start gap-3 text-left"
                                             >
-                                                <Link href={`/employees?position_id=${position.id}`}>
+                                                <Link href={employeesIndex({ tenant }, { query: { position_id: position.id } }).url}>
                                                     <Users className="size-5" aria-hidden="true" />
                                                     <div className="text-left">
                                                         <p className="font-medium">Lihat Semua Karyawan</p>
@@ -546,7 +562,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                     variant="outline"
                                                     className="h-12 justify-start gap-3 text-left"
                                                 >
-                                                    <Link href={`/departments/${position.department.kode_department}`}>
+                                                    <Link href={departmentsShow({ tenant, department: position.department.id })}>
                                                         <Building2 className="size-5" aria-hidden="true" />
                                                         <div className="text-left">
                                                             <p className="font-medium">Detail Department</p>
@@ -561,7 +577,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                     variant="outline"
                                                     className="h-12 justify-start gap-3 text-left"
                                                 >
-                                                    <Link href={`/divisions/${position.division?.nama_division?.replace(/\s+/g, "-").toLowerCase()}`}>
+                                                    <Link href={divisionsShow({ tenant, division: position.division.id })}>
                                                         <GitBranch className="size-5" aria-hidden="true" />
                                                         <div className="text-left">
                                                             <p className="font-medium">Detail Divisi</p>
@@ -587,7 +603,7 @@ export default function ShowPosition({ position }: PageProps) {
                                         variant="ghost"
                                         size="sm"
                                     >
-                                        <Link href={`/employees?position_id=${position.id}`}>
+                                        <Link href={employeesIndex({ tenant }, { query: { position_id: position.id } }).url}>
                                             <Eye className="size-4 mr-1" aria-hidden="true" />
                                             Lihat Semua ({position.employees_count})
                                         </Link>
@@ -614,7 +630,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                             <TableCell className="text-muted-foreground font-mono text-sm">{index + 1}</TableCell>
                                                             <TableCell>
                                                                 <Link
-                                                                    href={`/employees/${employee.id}`}
+                                                                    href={employeesShow({ tenant, employee: employee.id })}
                                                                     className={cn(
                                                                         "flex items-center gap-3 font-medium hover:text-brand transition-colors",
                                                                         employee.banned_at && "text-muted-foreground line-through"
@@ -660,7 +676,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                 asChild
                                                 variant="outline"
                                             >
-                                                <Link href={`/employees?position_id=${position.id}`}>
+                                                <Link href={employeesIndex({ tenant }, { query: { position_id: position.id } }).url}>
                                                     <Users className="size-4 mr-2" aria-hidden="true" />
                                                     Lihat Halaman Karyawan
                                                 </Link>
@@ -733,7 +749,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                                 variant="ghost"
                                                                 size="sm"
                                                             >
-                                                                <Link href={`/positions/${position.parent_position.id}`}>
+                                                                <Link href={positionsShow({ tenant, position: position.parent_position.id })}>
                                                                     <Eye className="size-4 mr-1" aria-hidden="true" />
                                                                     Detail
                                                                 </Link>
@@ -782,7 +798,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                                         size="sm"
                                                                         className="w-full mt-4 justify-center"
                                                                     >
-                                                                        <Link href={`/positions/${child.id}`}>
+                                                                        <Link href={positionsShow({ tenant, position: child.id })}>
                                                                             <Eye className="size-4 mr-1" aria-hidden="true" />
                                                                             Detail
                                                                         </Link>
@@ -811,7 +827,7 @@ export default function ShowPosition({ position }: PageProps) {
                                                             variant="outline"
                                                             className="w-full h-12 justify-center gap-2"
                                                         >
-                                                            <Link href={`/positions/tree?root=${position.id}`}>
+                                                            <Link href={treeRoot({ tenant, position: position.id })}>
                                                                 <GitFork className="size-4 mr-2" aria-hidden="true" />
                                                                 Lihat Pohon Hierarki Lengkap
                                                             </Link>

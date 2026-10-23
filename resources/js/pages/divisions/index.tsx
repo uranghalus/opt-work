@@ -64,7 +64,7 @@ function DivisionActions() {
                             aria-hidden
                             className="animate-spin"
                         />
-                        Sinkronisasi�
+                        Sinkronisasi…
                     </>
                 ) : (
                     <>
@@ -141,7 +141,7 @@ export default function Divisions(props: PageProps) {
                                 divisions.data.map((division) => (
                                     <TableRow key={division.id}>
                                         <TableCell className="font-mono text-sm">
-                                            {division.kode_division ?? '�'}
+                                            {division.kode_division ?? '…'}
                                         </TableCell>
                                         <TableCell className="font-semibold">
                                             <Link

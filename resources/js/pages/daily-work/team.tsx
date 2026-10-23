@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import {
     CalendarDays,
     ChevronLeft,
@@ -28,7 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useRequiredTenant } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
-import { team } from '@/routes/daily-work';
+import { team, index as dailyWorkIndex } from '@/routes/daily-work';
 
 /**
  * Pratinjau HOD (Task 3) — daftar harian satu karyawan bawahan pada satu
@@ -143,6 +144,7 @@ export default function DailyWorkTeam({
             {
                 search: searchTerm || undefined,
                 status: statusFilter !== 'all' ? statusFilter : undefined,
+                date,
                 ...overrides,
             },
             {
@@ -405,11 +407,16 @@ export default function DailyWorkTeam({
     );
 }
 
-DailyWorkTeam.layout = {
+DailyWorkTeam.layout = (props: PageProps & InertiaConfig['sharedPageProps']) => ({
     breadcrumbs: [
-        { title: 'Daily Work', href: '/daily-work' },
+        {
+            title: 'Daily Work',
+            href: props.activeTenant
+                ? dailyWorkIndex({ tenant: props.activeTenant }).url
+                : undefined,
+        },
         { title: 'Harian Karyawan' },
     ],
     title: 'Harian Karyawan',
     description: 'Pratinjau daftar harian yang dilihat karyawan',
-};
+});

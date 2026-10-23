@@ -37,7 +37,9 @@
       `DeadlineCalculatorTest`. **Tidak diport** (bentrok desain): filing
       HOD-only (branch ini permission-based sesuai roleDefaults yang sudah
       di-grant), skema `status=pending`+kolom `current_stage`, FormRequest,
-      factory. Branch lama aman dihapus setelah slice ini stabil.
+      factory. **Branch lama dihapus 2026-10-23 atas konfirmasi user**
+      (remote + ref lokal bersih; delta telah di-port sehingga tidak ada
+      pekerjaan yang hilang).
 - [x] **Keputusan grill 0(a) — re-assign pasc-assign dibuka** — commit `409a60c`:
       `assign()` kini menerima status `assigned` (panel Revisi Penugasan fungsional);
       `assigned_at`/deadline tetap dari assign pertama (SLA tidak bergeser);
@@ -91,7 +93,7 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
 - [x] **FR-4.1** — dropdown department tujuan difilter `is_active` (**selesai 2026-10-22**, commit `40714c8`); **FR-7.1 event modul baru** (submit/revisi/extend/Daily Work) menyusul modulnya — submit/verify/extend kini ada (in-app), **§9 metrics** belum diinstrumentasi (angka PRD masih usulan).
 - [ ] **OQ-8 sisa:** 13 skenario UAT (artefak tidak ada di repo) + pilot live 1 department — suite hijau ✓ sudah.
 - [ ] **Keputusan terbuka §8 PRD (jangan diambil sendiri tanpa konfirmasi):** #2 re-assign karyawan resign/nonaktif · #4 SLA revisi berulang · #5 urutan antrean (FIFO?) · #8 delegasi approver extend.
-- [ ] **Sinkronisasi dokumen:** issue `.scratch/wms-mvp/issues` 02 (`ready-for-agent` padahal create shipped) & 03 (`in-progress` padahal slice 1 selesai); TODO `### Deferred (do not start yet)` masih menyebut WA/email gateway tertunda padahal WA shipped; **AGENTS.md belum ter-amend soal WA** (klaim di section "WhatsApp Gateway slice 1" tidak ada di file disk — Non-Goals/OQ-7/Notifikasi masih "Nanti") → amend ulang atau koreksi klaim.
+- [x] **Sinkronisasi dokumen (selesai 2026-10-23):** issue `.scratch/wms-mvp/issues` 02 → `done` (create/routing/notifikasi shipped; field FR-1.1 tetap Backlog) & 03 → `done` (slice 1 selesai, commits `6e47cf3`…`553c775`); TODO `### Deferred` dikoreksi — WA outbound shipped via ADR-0009, yang tertunda tinggal email gateway. Klaim "AGENTS.md belum ter-amend soal WA" ternyata **stale** — verifikasi disk 2026-10-23: 4 amendmen WA (Non-Goals §Goals, Notifikasi, Modul MVP, OQ-7 DIKECUALIKAN) sudah ada semua di file.
 
 ## Rencana hari ini (2026-10-21, diperbarui pasca-grill) - DONE (2026-10-21 21:13)
 
@@ -406,7 +408,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 - [ ] Page-access configuration (agreed: later phase, after CRUD)
 - [ ] Sidebar metadata permission-filtering (agreed: out of scope; single shared flag only)
 - [ ] Tenant (penyewa) CRUD (v2)
-- [ ] External notifications (WA/email gateway)
+- [x] External notifications (WA/email gateway) — WA outbound **shipped** 2026-10-21 (ADR-0009: 4 event WO + sesi per tenant, lihat section "WhatsApp Gateway slice 1/2" di atas); yang masih tertunda hanya **email gateway**
 - [ ] Advanced analytics/reporting
 
 ### Known tradeoffs

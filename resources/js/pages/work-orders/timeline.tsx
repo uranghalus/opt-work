@@ -1,47 +1,87 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Head, router, Link } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
+import FullCalendar, {
+    type CalendarRef,
+    type DayHeaderInfo,
+    type DatesSetInfo,
+    type EventClickInfo,
+    type EventDisplayInfo,
+} from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/react/daygrid';
+import idLocale from '@fullcalendar/react/locales/id';
+import { Plus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { CategoryBadge, type WoCategory } from '@/components/category-badge';
-import { DeadlineRail, type DeadlineState } from '@/components/deadline-rail';
+import type { DeadlineState } from '@/components/deadline-rail';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useRequiredTenant } from '@/lib/tenant';
-import { create, show, timeline } from '@/routes/work-orders';
+import { create, timeline } from '@/routes/work-orders';
+import '@fullcalendar/react/skeleton.css';
+import '../../../css/fullcalendar-timeline.css';
 
-type TimelineWorkOrder = {
-    id: string;
+/**
+ * Timeline — scheduler calendar of scheduled Work Orders (FullCalendar v7
+ * dayGrid; redesign 2026-10-24, see docs/audit/workorder-timeline-design-decisions.md).
+ *
+ * Date semantics stay server-side: the server (WITA, D2) owns "today" (sent as
+ * the calendar's `now`), the visible range travels as `?start=&end=&view=`
+ * (deep-linkable), and deadline states are precomputed server-side — the
+ * browser never derives dates for data.
+ */
+
+type TimelineEventProps = {
     nomor_wo: string;
     title: string;
     status: WoStatus;
     category: WoCategory;
-    deadline_date: string | null;
     deadline_state: DeadlineState;
     deadline_label: string;
-    requester_name: string | null;
     department_name: string | null;
 };
 
-type TimelineDay = {
-    date: string;
-    dayName: string;
-    dayNumber: number;
-    monthName: string;
-    isToday: boolean;
-    workOrders: TimelineWorkOrder[];
+type TimelineEvent = {
+    id: string;
+    title: string;
+    start: string;
+    end: string;
+    url: string;
+    extendedProps: TimelineEventProps;
 };
 
-type PageProps = {
-    weekStart: string;
-    weekEnd: string;
-    weekLabel: string;
-    today: string;
-    isCurrentWeek: boolean;
-    prevWeek: string;
-    nextWeek: string;
+type PageProps = InertiaConfig['sharedPageProps'] & {
+    events: TimelineEvent[];
     totalScheduled: number;
-    days: TimelineDay[];
+    today: string;
+    range: {
+        start: string;
+        end: string;
+        view: string | null;
+    };
 };
+
+/** Local `Y-m-d` of a Date — never `toISOString()` (UTC would shift the day). */
+function toYMD(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+const dayNameFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'short' });
+const dayMonthFormatter = new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+});
+
+/** Weekends get a muted treatment (SLA counts business days); never hidden. */
+function isWeekend(date: Date): boolean {
+    const day = date.getDay();
+
+    return day === 0 || day === 6;
+}
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function TimelineActions() {
@@ -57,220 +97,204 @@ function TimelineActions() {
     );
 }
 
-/**
- * One scheduled Work Order as a timeline event block.
- *
- * The card keeps the WoCard anatomy from DESIGN.md — category badge, title,
- * status, deadline rail — but compressed, because a week grid gives each day
- * roughly one sixth of the content width.
- */
-function TimelineCard({
-    workOrder,
-    tenant,
-}: {
-    workOrder: TimelineWorkOrder;
-    tenant: string;
-}) {
+/** Month view: a single-line chip — deadline-state dot + nomor + title. */
+function MonthEventChip({ props }: { props: TimelineEventProps }) {
     return (
-        <Link
-            href={show({ tenant, workOrder: workOrder.id })}
-            className="block rounded-xl focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-        >
-            <Card className="gap-0 border-border py-3 shadow-card transition-[box-shadow,border-color] duration-150 ease-standard hover:border-border-strong hover:shadow-raised motion-reduce:transition-none">
-                <CardContent className="flex gap-2 px-3">
-                    <DeadlineRail
-                        state={workOrder.deadline_state}
-                        label={workOrder.deadline_label}
-                    />
-
-                    <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-xs text-ink-muted">
-                            {workOrder.nomor_wo}
-                        </p>
-
-                        <p className="mt-0.5 line-clamp-2 text-[0.8125rem] leading-snug font-semibold text-ink">
-                            {workOrder.title}
-                        </p>
-
-                        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
-                            <StatusBadge status={workOrder.status} compact />
-                            <CategoryBadge category={workOrder.category} />
-                        </div>
-
-                        <p className="mt-2 flex items-start gap-1 text-xs text-ink-muted">
-                            <CalendarClock
-                                aria-hidden="true"
-                                className="mt-px size-3 shrink-0"
-                            />
-                            <span className="min-w-0">
-                                <span className="font-semibold text-ink">
-                                    {workOrder.deadline_label}
-                                </span>
-                                {workOrder.department_name && (
-                                    <span className="block truncate">
-                                        {workOrder.department_name}
-                                    </span>
-                                )}
-                            </span>
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-        </Link>
-    );
-}
-
-/**
- * One day column.
- *
- * The "today" column is marked with a text label plus a rule, never with a tint
- * alone: a colour-only cue fails WCAG 1.4.1, and a tint near white fails 1.4.11.
- */
-function DayColumn({ day, tenant }: { day: TimelineDay; tenant: string }) {
-    const headingId = `timeline-day-${day.date}`;
-
-    return (
-        <section
-            aria-labelledby={headingId}
-            className={cn(
-                'flex min-w-0 flex-col rounded-xl border bg-card p-2.5 shadow-card',
-                day.isToday ? 'border-brand' : 'border-border',
-            )}
-        >
-            <div
+        <span className="wotl-event-chip" title={props.deadline_label}>
+            <span
                 aria-hidden="true"
-                className={cn(
-                    'h-0.5 w-full rounded-full',
-                    day.isToday ? 'bg-brand' : 'bg-transparent',
-                )}
+                className={`wotl-rail wotl-rail-${props.deadline_state} size-2 shrink-0 rounded-full`}
             />
-
-            <header className="mt-2 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                    <h2
-                        id={headingId}
-                        aria-current={day.isToday ? 'date' : undefined}
-                        className={cn(
-                            'truncate text-xs font-semibold tracking-wide uppercase',
-                            day.isToday ? 'text-brand' : 'text-ink-muted',
-                        )}
-                    >
-                        {day.dayName}
-                    </h2>
-                    <p className="text-sm font-semibold tabular-nums text-ink">
-                        {day.dayNumber} {day.monthName}
-                    </p>
-                </div>
-
-                {day.isToday && (
-                    <span className="shrink-0 rounded-sm bg-brand-soft px-1.5 py-0.5 text-xs font-semibold text-brand">
-                        Hari ini
-                    </span>
-                )}
-            </header>
-
-            {day.workOrders.length === 0 ? (
-                <p className="mt-3 rounded-lg bg-surface-sunken px-2 py-4 text-center text-xs text-ink-subtle">
-                    Tidak ada WO terjadwal
-                </p>
-            ) : (
-                <ul className="mt-2 flex flex-col gap-2">
-                    {day.workOrders.map((workOrder) => (
-                        <li key={workOrder.id}>
-                            <TimelineCard workOrder={workOrder} tenant={tenant} />
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </section>
+            <span className="wotl-chip-title">
+                {props.nomor_wo} · {props.title}
+            </span>
+        </span>
     );
 }
 
-export default function Timeline({
-    weekLabel,
-    isCurrentWeek,
-    prevWeek,
-    nextWeek,
-    totalScheduled,
-    days,
-}: PageProps) {
-    const tenant = useRequiredTenant('work-orders.timeline');
+/** Week view: the compact WoCard — deadline rail, nomor, title, badges. */
+function WeekEventCard({ props }: { props: TimelineEventProps }) {
+    return (
+        <div className="wotl-event-card">
+            <span
+                aria-hidden="true"
+                className={`wotl-rail wotl-rail-${props.deadline_state}`}
+            />
+            <div className="wotl-card-body">
+                <span className="wotl-card-number">{props.nomor_wo}</span>
+                <span className="wotl-card-title">{props.title}</span>
+                <span className="wotl-card-badges">
+                    <StatusBadge status={props.status} compact />
+                    <CategoryBadge category={props.category} />
+                </span>
+                <span className="wotl-card-deadline">{props.deadline_label}</span>
+            </div>
+        </div>
+    );
+}
 
-    const goToWeek = (week?: string) => {
+export default function Timeline({ events, totalScheduled, today, range }: PageProps) {
+    const tenant = useRequiredTenant('work-orders.timeline');
+    const calendarRef = useRef<CalendarRef>(null);
+    const [navigating, setNavigating] = useState(false);
+
+    // One-time initial view: the URL wins; otherwise phones start on the
+    // month grid (a 7-column week is unreadable at phone width — audit R2).
+    const [initialView] = useState(() => {
+        if (range.view) {
+            return range.view;
+        }
+
+        return typeof window !== 'undefined' && window.innerWidth < 768
+            ? 'dayGridMonth'
+            : 'dayGridWeek';
+    });
+
+    const rangeRef = useRef(range);
+    rangeRef.current = range;
+
+    /**
+     * Range changes come from the calendar (datesSet) — mirror them into the
+     * URL with a partial reload so views stay deep-linkable. The guard keeps
+     * the initial render and the post-reload render from looping.
+     */
+    const handleDatesSet = (info: DatesSetInfo) => {
+        const start = toYMD(info.start);
+        const end = toYMD(info.end);
+        const view = info.view.type;
+        const current = rangeRef.current;
+
+        if (start === current.start && end === current.end && view === current.view) {
+            return;
+        }
+
         router.get(
-            timeline({ tenant }),
-            week ? { week } : {},
-            { preserveScroll: true, preserveState: true },
+            timeline.url({ tenant }, { query: { start, end, view } }),
+            {},
+            {
+                only: ['events', 'totalScheduled', 'range'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onStart: () => setNavigating(true),
+                onFinish: () => setNavigating(false),
+            },
         );
     };
+
+    // Back/forward (and server-driven view changes) re-sync the calendar.
+    useEffect(() => {
+        const api = calendarRef.current?.getApi();
+
+        if (!api || !range.start) {
+            return;
+        }
+
+        const activeStart = toYMD(api.view.activeStart);
+        const viewChanged = range.view !== null && api.view.type !== range.view;
+
+        if (activeStart !== range.start || viewChanged) {
+            if (viewChanged) {
+                api.changeView(range.view ?? api.view.type);
+            }
+
+            if (activeStart !== range.start) {
+                api.gotoDate(range.start);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [range.start, range.view]);
+
+    const handleEventClick = (info: EventClickInfo) => {
+        // The event is a real anchor (url prop) — keep semantics for
+        // middle-click/new-tab, route via Inertia for a client-side visit.
+        info.jsEvent.preventDefault();
+        router.visit(info.event.url);
+    };
+
+    const renderEventContent = (arg: EventDisplayInfo) => {
+        const props = arg.event.extendedProps as unknown as TimelineEventProps;
+
+        return arg.view.type === 'dayGridMonth'
+            ? <MonthEventChip props={props} />
+            : <WeekEventCard props={props} />;
+    };
+
+    const renderDayHeader = (arg: DayHeaderInfo) => (
+        <span className="flex flex-col items-center gap-0.5">
+            <span>{dayNameFormatter.format(arg.date)}</span>
+            <span className="text-[0.8125rem] font-semibold tracking-normal normal-case text-ink">
+                {dayMonthFormatter.format(arg.date)}
+            </span>
+            {toYMD(arg.date) === today && (
+                <span className="rounded-sm bg-brand px-1.5 py-0.5 text-[0.625rem] font-semibold text-white">
+                    Hari ini
+                </span>
+            )}
+        </span>
+    );
 
     return (
         <>
             <Head title="Timeline" />
 
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-1.5">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label="Minggu sebelumnya"
-                            onClick={() => goToWeek(prevWeek)}
-                        >
-                            <ChevronLeft aria-hidden="true" className="size-4" />
-                        </Button>
+            <div className="flex flex-col gap-3">
+                <p className="text-xs text-ink-muted" aria-live="polite">
+                    {totalScheduled} Work Order terjadwal pada rentang tampil
+                </p>
 
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label="Minggu berikutnya"
-                            onClick={() => goToWeek(nextWeek)}
-                        >
-                            <ChevronRight aria-hidden="true" className="size-4" />
-                        </Button>
+                <div className="relative">
+                    {navigating && (
+                        <div className="wotl-loading" aria-hidden="true">
+                            <Skeleton className="h-8 w-48 rounded-lg" />
+                        </div>
+                    )}
 
-                        <p className="ml-1 text-sm font-semibold text-ink">
-                            {weekLabel}
-                        </p>
-
-                        {!isCurrentWeek && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="ml-1"
-                                onClick={() => goToWeek()}
-                            >
-                                Minggu ini
-                            </Button>
-                        )}
-                    </div>
-
-                    <p className="text-xs text-ink-muted">
-                        {totalScheduled} Work Order terjadwal
-                    </p>
-                </div>
-
-                {/*
-                  The week grid scrolls inside its own region instead of
-                  widening the page (DESIGN.md: "board scrolls horizontally
-                  inside its own region"). The minimum width keeps a day
-                  column wide enough for the WoCard trio - status, category
-                  and deadline - to stay readable.
-
-                  The region is focusable and labelled: a scrollable area has
-                  to be reachable by keyboard (WCAG 2.1.1), and a scrollbar is
-                  not guaranteed to be drawn.
-                */}
-                <div
-                    role="region"
-                    aria-label="Jadwal Work Order per hari, geser mendatar untuk melihat ketujuh hari"
-                    tabIndex={0}
-                    className="overflow-x-auto rounded-xl pb-2 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7 xl:min-w-[1388px]">
-                        {days.map((day) => (
-                            <DayColumn key={day.date} day={day} tenant={tenant} />
-                        ))}
+                    {/*
+                      The grid scrolls inside its own region on narrow screens
+                      (DESIGN.md: never page-level horizontal scroll). The
+                      region is focusable and labelled (WCAG 2.1.1).
+                    */}
+                    <div
+                        role="region"
+                        aria-label="Jadwal Work Order — geser mendatar bila perlu untuk melihat seluruh hari"
+                        tabIndex={0}
+                        className="wotl-calendar overflow-x-auto rounded-xl focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                        <FullCalendar
+                            ref={calendarRef}
+                            plugins={[dayGridPlugin]}
+                            locale={idLocale}
+                            initialView={initialView}
+                            initialDate={range.start || today}
+                            now={today}
+                            firstDay={1}
+                            headerToolbar={{
+                                start: 'today prev,next',
+                                center: 'title',
+                                end: 'dayGridWeek,dayGridMonth',
+                            }}
+                            buttons={{
+                                today: { text: 'Hari ini', hint: 'Ke hari ini (zona WITA)' },
+                                prev: { hint: 'Mundur satu periode' },
+                                next: { hint: 'Maju satu periode' },
+                                dayGridWeek: { text: 'Minggu', hint: 'Tampilan mingguan' },
+                                dayGridMonth: { text: 'Bulan', hint: 'Tampilan bulanan' },
+                            }}
+                            moreLinkText="lagi"
+                            dayMaxEvents
+                            events={events}
+                            eventContent={renderEventContent}
+                            eventClick={handleEventClick}
+                            datesSet={handleDatesSet}
+                            dayHeaderContent={renderDayHeader}
+                            dayCellClass={(arg) => (isWeekend(arg.date) ? 'fc-day-weekend' : undefined)}
+                            dayHeaderClass={(arg) => (isWeekend(arg.date) ? 'fc-day-weekend' : undefined)}
+                            height="auto"
+                            fixedWeekCount={false}
+                            editable={false}
+                            droppable={false}
+                        />
                     </div>
                 </div>
             </div>

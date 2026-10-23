@@ -67,7 +67,7 @@ it('stores image attachments for the work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    Storage::fake('public');
+    Storage::fake('s3');
 
     $this
         ->actingAs($requester)
@@ -81,7 +81,7 @@ it('stores image attachments for the work order', function () {
 
     $workOrder = WorkOrder::query()->sole();
     expect($workOrder->attachments)->toHaveCount(1);
-    expect(Storage::disk('public')->exists($workOrder->attachments[0]))->toBeTrue();
+    expect(Storage::disk('s3')->exists($workOrder->attachments[0]))->toBeTrue();
 });
 
 it('rejects a requested schedule date for urgent by accident', function () {
@@ -380,7 +380,7 @@ it('serves an attachment only to users of the owning branch', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    Storage::fake('public');
+    Storage::fake('s3');
 
     $this
         ->actingAs($requester)
@@ -398,14 +398,15 @@ it('serves an attachment only to users of the owning branch', function () {
     $reader = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
     $reader->givePermissionTo('work-order.read');
 
+    // Commit 8b89c89 moved attachments to the s3 disk and the endpoint now
+    // redirects to the CDN/S3 URL instead of streaming the bytes.
     $this
         ->actingAs($reader)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
-        ->assertOk()
-        ->assertHeader('content-type', 'image/png');
+        ->assertRedirect(Storage::disk('s3')->url($path));
 
     // Attachments are tenant-scoped, so a plain /storage/... URL must not work.
-    expect(Storage::disk('public')->path($path))->not->toBe(public_path('storage/'.$path));
+    expect(Storage::disk('s3')->path($path))->not->toBe(public_path('storage/'.$path));
 
     $plant1 = Tenant::where('code', 'plant-1')->first();
     $this

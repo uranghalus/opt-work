@@ -114,7 +114,9 @@ it('keeps the timeline scoped the same way for the assignee', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('work-orders/timeline')
-            ->where('days.0.workOrders.0.id', $workOrder->getKey()));
+            // Redesign 2026-10-24: payload is a flat FullCalendar events array
+            // (docs/audit/workorder-timeline-design-decisions.md D3).
+            ->where('events.0.id', $workOrder->getKey()));
 });
 
 it('keeps an unrelated karyawan out of the index', function () {

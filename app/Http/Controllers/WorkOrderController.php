@@ -24,40 +24,6 @@ use Inertia\Response;
 
 class WorkOrderController extends Controller
 {
-    /**
-     * Indonesian day names, Monday first. Authored here rather than formatted
-     * from a locale so the server-rendered markup and the client render agree
-     * (the app timezone is Asia/Makassar and the server locale is not
-     * Indonesian).
-     *
-     * @var list<string>
-     */
-    private const DAY_NAMES = [
-        'Senin',
-        'Selasa',
-        'Rabu',
-        'Kamis',
-        'Jumat',
-        'Sabtu',
-        'Minggu',
-    ];
-
-    /** @var list<string> */
-    private const MONTH_NAMES = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'Mei',
-        'Jun',
-        'Jul',
-        'Agu',
-        'Sep',
-        'Okt',
-        'Nov',
-        'Des',
-    ];
-
     public function __construct(
         private WorkOrderService $workOrderService,
         private ExtendRequestService $extendRequestService,
@@ -111,13 +77,22 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Timeline — a week grid of scheduled Work Orders.
+     * Timeline — a scheduler calendar of scheduled Work Orders (FullCalendar
+     * v7 dayGrid, redesign 2026-10-24 — see
+     * docs/audit/workorder-timeline-design-decisions.md).
      *
      * The grid is a *day* grid, not a time-of-day grid. `work_orders.scheduled_date`
      * is a DATE column and the model carries no time-of-day column anywhere, so a
-     * "08:30 / 09:00" gutter would have no data behind it. The date-level
-     * equivalent of a current-time indicator is the "today" column, which the page
-     * marks with a text label plus a rule — never colour alone (WCAG 1.4.1).
+     * "08:30 / 09:00" gutter would have no data behind it.
+     *
+     * The view range travels as `start`/`end` query parameters (end exclusive,
+     * the FullCalendar convention) so every view — week or month — is
+     * deep-linkable and the browser back button works. The legacy `week`
+     * parameter (Monday date) is still honored for old links.
+     *
+     * "Today" stays server-side (app timezone = Asia/Makassar, D2) and is sent
+     * to the calendar as its `now` value, so the today highlight agrees with
+     * WITA even when the browser timezone differs.
      *
      * Visibility mirrors index() via WorkOrder::scopeVisibleFor — the requester,
      * the departments the user heads or deputises for, and the assigned
@@ -127,8 +102,7 @@ class WorkOrderController extends Controller
     {
         $user = $request->user();
 
-        $weekStart = $this->resolveWeekStart($request->query('week'));
-        $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+        [$start, $end, $view] = $this->resolveTimelineRange($request);
 
         $reviewableDepartmentIds = Department::query()
             ->where('hod_user_id', $user->getKey())
@@ -138,67 +112,121 @@ class WorkOrderController extends Controller
         $workOrders = WorkOrder::query()
             ->with(['requester', 'targetDepartment'])
             ->whereNotNull('scheduled_date')
-            ->whereBetween('scheduled_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereBetween('scheduled_date', [
+                $start->toDateString(),
+                $end->copy()->subDay()->toDateString(),
+            ])
             ->visibleFor($user, $reviewableDepartmentIds)
             ->orderBy('scheduled_date')
             ->orderBy('nomor_wo')
             ->get();
 
-        $byDate = $workOrders->groupBy(
-            fn (WorkOrder $workOrder): string => $workOrder->scheduled_date->toDateString()
-        );
-
-        $days = collect(range(0, 6))
-            ->map(function (int $offset) use ($weekStart, $byDate): array {
-                $date = $weekStart->copy()->addDays($offset);
+        $events = $workOrders
+            ->map(function (WorkOrder $workOrder): array {
+                [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrder);
 
                 return [
-                    'date' => $date->toDateString(),
-                    'dayName' => self::DAY_NAMES[$date->dayOfWeekIso - 1],
-                    'dayNumber' => (int) $date->format('j'),
-                    'monthName' => self::MONTH_NAMES[$date->month - 1],
-                    'isToday' => $date->isSameDay(Carbon::today()),
-                    'workOrders' => ($byDate->get($date->toDateString()) ?? collect())
-                        ->map(fn (WorkOrder $workOrder): array => $this->timelineEntry($workOrder))
-                        ->values(),
+                    'id' => $workOrder->getKey(),
+                    // Fallback text for non-JSX renderings and screen readers;
+                    // the visual card is custom JSX (eventContent).
+                    'title' => $workOrder->nomor_wo.' — '.$workOrder->title,
+                    'start' => $workOrder->scheduled_date->toDateString(),
+                    // FullCalendar end is exclusive.
+                    'end' => $workOrder->scheduled_date->copy()->addDay()->toDateString(),
+                    'url' => route('work-orders.show', [
+                        'tenant' => tenant()?->code,
+                        'workOrder' => $workOrder->getKey(),
+                    ]),
+                    'extendedProps' => [
+                        'nomor_wo' => $workOrder->nomor_wo,
+                        'title' => $workOrder->title,
+                        'status' => $workOrder->status->value,
+                        'category' => $workOrder->category->value,
+                        'deadline_state' => $deadlineState,
+                        'deadline_label' => $deadlineLabel,
+                        'department_name' => $workOrder->targetDepartment?->nama_department,
+                    ],
                 ];
             })
+            ->values()
             ->all();
 
         return Inertia::render('work-orders/timeline', [
-            'weekStart' => $weekStart->toDateString(),
-            'weekEnd' => $weekEnd->toDateString(),
-            'weekLabel' => $weekStart->format('j M Y').' - '.$weekEnd->format('j M Y'),
+            'events' => $events,
+            'totalScheduled' => count($events),
             'today' => Carbon::today()->toDateString(),
-            'isCurrentWeek' => $weekStart->isSameDay(Carbon::today()->startOfWeek(Carbon::MONDAY)),
-            'prevWeek' => $weekStart->copy()->subWeek()->toDateString(),
-            'nextWeek' => $weekStart->copy()->addWeek()->toDateString(),
-            'totalScheduled' => $workOrders->count(),
-            'days' => $days,
+            'range' => [
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+                'view' => $view,
+            ],
         ]);
     }
 
     /**
-     * Flatten a Work Order into the shape a timeline event card renders.
+     * Resolve the visible date range from the query string.
      *
-     * @return array<string, mixed>
+     * `start` is inclusive and `end` exclusive, both `Y-m-d` (the ISO strings
+     * FullCalendar emits are sliced client-side). A missing/invalid value, or
+     * a range absurdly far from today, falls back to the current week rather
+     * than erroring; the range is capped at ~9 weeks so a hand-crafted URL can
+     * never force an unbounded query.
+     *
+     * @return array{0: Carbon, 1: Carbon, 2: string} start, end (exclusive), view type
      */
-    private function timelineEntry(WorkOrder $workOrder): array
+    private function resolveTimelineRange(Request $request): array
     {
-        [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrder);
+        $today = Carbon::today();
+        $defaultStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+        $allowedViews = ['dayGridWeek', 'dayGridMonth'];
 
-        return [
-            'id' => $workOrder->getKey(),
-            'nomor_wo' => $workOrder->nomor_wo,
-            'title' => $workOrder->title,
-            'status' => $workOrder->status->value,
-            'category' => $workOrder->category->value,
-            'deadline_date' => $workOrder->deadline_date?->toDateString(),
-            'deadline_state' => $deadlineState,
-            'deadline_label' => $deadlineLabel,
-            'requester_name' => $workOrder->requester?->name,
-            'department_name' => $workOrder->targetDepartment?->nama_department,
-        ];
+        $view = in_array($request->query('view'), $allowedViews, true)
+            ? (string) $request->query('view')
+            : 'dayGridWeek';
+
+        // Legacy deep links: ?week=<monday> stays valid when start is absent.
+        $rawStart = $request->query('start');
+        if (! is_string($rawStart) || trim($rawStart) === '') {
+            $rawStart = $request->query('week');
+
+            if (is_string($rawStart) && trim($rawStart) !== '') {
+                $view = 'dayGridWeek';
+            }
+        }
+
+        try {
+            $start = is_string($rawStart) && trim($rawStart) !== ''
+                ? Carbon::parse(trim($rawStart))->startOfDay()
+                : $defaultStart->copy();
+        } catch (\Throwable) {
+            $start = $defaultStart->copy();
+        }
+
+        if ($start->lt($today->copy()->subYear()) || $start->gt($today->copy()->addYear())) {
+            $start = $defaultStart->copy();
+        }
+
+        $rawEnd = $request->query('end');
+
+        try {
+            $end = is_string($rawEnd) && trim($rawEnd) !== ''
+                ? Carbon::parse(trim($rawEnd))->startOfDay()
+                : $start->copy()->addWeek();
+        } catch (\Throwable) {
+            $end = $start->copy()->addWeek();
+        }
+
+        // Cap the range; keep it at least one day so a degenerate URL still
+        // renders a (single-day) grid instead of erroring.
+        if ($end->lte($start)) {
+            $end = $start->copy()->addDay();
+        }
+
+        if ($start->diffInDays($end) > 62) {
+            $end = $start->copy()->addWeeks(9);
+        }
+
+        return [$start, $end, $view];
     }
 
     /**
@@ -235,34 +263,6 @@ class WorkOrderController extends Controller
             $daysUntil === 1 => ['due_soon', 'Deadline besok'],
             default => ['on_track', 'On track'],
         };
-    }
-
-    /**
-     * Resolve the Monday that opens the requested week.
-     *
-     * The week travels as a query parameter so a view is deep-linkable and the
-     * browser back button works. A value that will not parse, or one absurdly far
-     * from the current week, falls back to the current week rather than erroring.
-     */
-    private function resolveWeekStart(mixed $week): Carbon
-    {
-        $current = Carbon::today()->startOfWeek(Carbon::MONDAY);
-
-        if (! is_string($week) || trim($week) === '') {
-            return $current;
-        }
-
-        try {
-            $parsed = Carbon::parse(trim($week))->startOfWeek(Carbon::MONDAY);
-        } catch (\Throwable) {
-            return $current;
-        }
-
-        if ($parsed->lt($current->copy()->subYear()) || $parsed->gt($current->copy()->addYear())) {
-            return $current;
-        }
-
-        return $parsed;
     }
 
     public function create(): Response

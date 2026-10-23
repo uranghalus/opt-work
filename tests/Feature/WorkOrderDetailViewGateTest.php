@@ -170,7 +170,7 @@ it('keeps another tenant 404 even for a member with work-order.read', function (
 it('gates the attachment stream like show', function () {
     // Result attachment: guest terblokir, pelaksana lolos.
     initTenant('hq');
-    Storage::fake('public');
+    Storage::fake('s3');
     $department = Department::create([
         'kode_department' => 'DEP-IT',
         'nama_department' => 'IT',
@@ -207,13 +207,17 @@ it('gates the attachment stream like show', function () {
     ]);
 
     // Put a fake file so Storage::exists() returns true
-    Storage::disk('public')->put('work-orders/'.tenant()?->getTenantKey().'/result.png', 'fake-image-content');
+    Storage::disk('s3')->put('work-orders/'.tenant()?->getTenantKey().'/result.png', 'fake-image-content');
 
     $this->actingAs($guest)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
         ->assertForbidden();
 
+    // Commit 8b89c89 moved attachments to the s3 disk; the endpoint now
+    // redirects to the CDN/S3 URL instead of streaming the bytes.
+    $path = 'work-orders/'.tenant()?->getTenantKey().'/result.png';
+
     $this->actingAs($assigneeUser)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
-        ->assertOk();
+        ->assertRedirect(Storage::disk('s3')->url($path));
 });

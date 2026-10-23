@@ -8,7 +8,7 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
 | 0 — Setup & Baseline | ✅ DONE | Baseline recorded below; tag pushed; branch created; REPORT.md initialized |
-| 1 — TODO.md items | ⬜ pending | |
+| 1 — TODO.md items | ✅ DONE | FR-5.x Daily Work implemented (commits `feat(daily-work)` + docs); deferred/blocked items documented below |
 | 2 — WorkOrder/Timeline redesign | ⬜ pending | |
 | 3 — Backend bugs & N+1 | ⬜ pending | |
 | 4 — Frontend review | ⬜ pending | |
@@ -55,3 +55,34 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 ### Docs read (Phase 0.3)
 
 README (none at repo root), PRD.md, PRODUCT.md, CONTEXT.md, DESIGN.md, TODO.md — all fully read. DESIGN.md §Timeline (`/{tenant}/work-orders/timeline`) is the current design contract for Phase 2 (week grid, day-column unit, today column, server-derived deadline states).
+
+## Phase 1 — TODO.md
+
+### Completed
+
+**FR-5.x — Daily Work (the only TODO item that was both actionable and in-scope)** — commit `feat(daily-work)`:
+
+| Piece | Detail |
+| ----- | ------ |
+| Missing page (root cause of 6 baseline failures) | `resources/js/pages/daily-work/index.tsx` — card list (no table), date navigation (prev/next/today, `sv-SE` local date math, `id-ID` display), debounced search (300ms) + status filter synced to URL, server-side pagination, inline status buttons (aria-pressed) + location input, EmptyState/Skeleton, permission-gated controls |
+| Task 3 backend | `DailyWorkController`: templates list/store/update/destroy + adhoc store + team preview; HOD/deputy scoping (`hod_user_id` ∪ `manager_user_id`); manual route resolution (tenant-scope pattern) |
+| Notification | `DailyWorkAssigned` — database + broadcast + WA outbox (no-op without `WAHA_URL`), to the linked akun; unlinked → log warning (WorkOrderAssigned precedent) |
+| Permissions | `daily-work.delete` added to catalogue + roleDefaults (hod, admin_tenant); `daily-work.read/update/create` removed from the forward-looking allowlist (now gated); `GateTest` flag set + `auth.can` TS type + middleware flags |
+| Nav | "Daily Work" (gated `daily-work.read`) + "Template Daily" (gated `daily-work.create`) replace the inert "Segera" placeholder |
+| Cross-DB bug fix | DATE columns store `Y-m-d H:i:s` on sqlite: day-scoped queries now `whereDate()`; `materializeFor` firstOrCreate matches on a Carbon instance (correct on sqlite AND MySQL; previously the second materialize could hit the unique index or return empty lists) |
+| Redirect decision | `update()` returns to the viewed date (`?date=`), omitting the param when the item is today — preserves list context; the stale test assertion was updated to match the (deliberate) controller behavior |
+| Tests | +3 test files (`DailyWorkTemplateTest` 8, `DailyWorkAdhocTest` 5, `DailyWorkTeamTest` 3); fixed `DailyWorkMaterializeTest` assertions to the flat paginator shape (`dailyWork.total`, not `meta.total`) and `whereDate` lookups; 41 Daily Work tests + RBAC green |
+
+Stale TODO checkboxes ticked with evidence: "Start the core WO flow" (done 2026-10-22/23), "Seeder does not push new defaults" (handled by `app:grant-default-permissions`).
+
+### Deferred / blocked — with reasons
+
+| Item | Status | Reason |
+| ----- | ------ | ------ |
+| FR-1.1 missing fields (prioritas, jumlah personel, jenis pekerjaan/kerusakan) | Deferred by prior user decision | Session 2026-10-22 settled 0(c): "field FR-1.1 ditunda sesuai rekomendasi; tetap di Backlog". Honoring the settled deferral. |
+| OQ-8 remainder (13 UAT scenarios + live pilot) | Blocked — needs user | UAT artifacts don't exist in the repo; the pilot is a live-operations activity. Suite-green part already ✓. |
+| §8 open decisions #2/#4/#5/#8 | Blocked — policy | AGENTS.md forbids deciding Open Questions without user confirmation. Left open. |
+| Guest master-data gating (option a/b) | Blocked — needs user | Explicitly marked "OPEN (menunggu keputusan user)" in TODO.md. |
+| Akun CRUD surface (akun.create/akun.delete) | Deferred — needs design decisions | Not a PRD FR; no approved design doc exists. Building a login-provisioning surface autonomously risks contradicting the eventual design; `akun.create/delete` remain honestly allowlisted. |
+| Page-access config; sidebar permission-filtering; Tenant CRUD; advanced analytics | Out of scope (agreed) | Marked "agreed: later phase / out of scope" or PRD Non-Goals in TODO.md. |
+| Visual checks in browser; `app:sync-*` + `app:grant-default-permissions` on the dev DB | User-side | Requires portal access / human visual review. Noted in TODO.md Task 6 remainder. |

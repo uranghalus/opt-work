@@ -69,7 +69,7 @@ function submitActor(): User
 }
 
 it('submits execution results and moves the WO to pending_verify', function () {
-    Storage::fake('public');
+    Storage::fake('s3');
     Notification::fake();
     $actor = submitActor();
     $workOrder = makeSubmittableWorkOrder();

@@ -2,6 +2,22 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## WO Review Decisions (D1/D2/D3 + Frontend Redesign) — 2026-10-23 — DONE
+
+- [x] **D2 — Jam operasional WITA + migrasi data one-off (−8 jam):** config `app.timezone` → `Asia/Makassar`; migrasi eksplisit 21 tabel bisnis (47 kolom datetime/timestamp) dengan guard sqlite; kolom DATE (`deadline_date` dll.) TIDAK digeser; tabel runtime (jobs/sessions/cache) TIDAK digeser. Test: `AppTimezoneTest` (config + `now()` offset + `Carbon::today()`), `DeadlineCalculatorTest` pin bug SLA (Senin 07:00 WITA → deadline Kamis, bukan Rabu). Order-of-operations: config + migrasi dieksekusi bersamaan saat idle. Commit `2db886f`.
+
+- [x] **D1 — Visibilitas pelaksana (scopeVisibleFor):** scope `WorkOrder::scopeVisibleFor($query, User, Collection $deptIds)` dipakai index + timeline; klausul: requester ∪ dept (hod/deputy) ∪ assigned_employees (via `whereJsonContains`). Pelaksana lintas-dept kini lihat WO di daftar & timeline (memblokir FR-1.7 submit sebelumnya). Test `WorkOrderVisibilityTest` 4/4 (cross-dept assignee, timeline, unrelated out, requester/HOD unchanged). Commit `bf84e3f`.
+
+- [x] **D3 — Gate `work-order.view` di show/attachment:** komposit: requester / HOD/manager dept target / pelaksana (assigned_employees) ATAU `work-order.read`. Guest (role guest, nol permission ADR-0006) terblokir 403 + audit `access.denied`. Role staff default memegang `work-order.read`; GM/DGM sudah punya read. `work-order.read` dikeluarkan dari forward-looking allowlist (honesty test). Test `WorkOrderDetailViewGateTest` 8/8 (guest 403, requester 200, cross-dept assignee 200, HOD 200, reader 200, tanpa-read 403, cross-tenant 404, attachment gated). Commit `13d3a15`.
+
+- [x] **F1 — Index redesign (impeccable, mode Operate, dunia DESIGN.md):** card-list tanpa tabel, 3 sinyal (deadline rail 3px kiri, CategoryBadge, StatusBadge, due row + label proximity), pagination (prev/next + nomor halaman, pola `departments/index.tsx`), empty state + CTA. Payload index + `deadline_state`/`deadline_label`. Verifikasi: tsc + build + screenshot (desktop+mobile, light+dark). Commit `6a5fdaf`.
+
+- [x] **F2 — Show page defect cleanup:** hapus paragraf "Dimohon oleh" duplikat; breadcrumb hanya `Work Order`; urutan radio ReviewPanel (Eksekusi Langsung dulu); `min` date input pakai tanggal lokal; lampiran/hasil wrap `<a target="_blank" rel="noopener">`; ConfirmDialog pada "Setujui & Tutup WO" + "Setujui Extend"; DeadlineChip (3 sinyal) di atas badge; `DeadlineRail` fallback "On track" → "Sesuai jadwal". Commit `fa0d42d`.
+
+- [x] **F3 — Create page polish:** layout band ownership (hapus Heading lokal, pakai `.layout`); kategori → RadioCard 3 opsi (icon, label, konsekuensi); file list dengan max-3 client clamp + remove button; form dalam kartu kedalaman (Depth Rule). ConfirmDialog baru di `components/confirm-dialog.tsx` (Dialog tanpa Trigger, external open). RadioGroup component baru di `components/ui/radio-group.tsx`. Commit `3b4e5aa`.
+
+---
+
 ## Extend deadline WO telat + re-assign pasc-assign (2026-10-23) — DONE
 
 - [x] **FR-2.3–2.5 extend deadline (`extend_requests`)** — commit `feat(work-order): extend deadline WO telat via extend_requests (FR-2.3-2.5)` + UI `1dd908c`:

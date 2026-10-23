@@ -4,9 +4,9 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done 2026-10-22 — `app/Console/Commands/CheckDeadlineEscalation.php` (marker sekali-per-level `escalation_h3/h5/h6_sent_at`) + H+6 di-resolve ke DGM/GM dulu dengan fallback rantai HOD (commit `40714c8`); `DeadlineCalculator` + `config/holidays.php` (commit `6e47cf3`); test `EscalationTest` + outbox WA payload H+3 (`WahaGatewayTest`). Reset marker saat extend approve (`ExtendRequestService`).
 
-- [ ] H+3 → Team Leader (jika department punya Team Leader), H+5 → HOD, H+6 → DGM/GM
-- [ ] Sekali per level (sent_at markers)
-- [ ] Rantai fallback HOD lengkap + log kritikal
-- [ ] Business-day calculator + kalender libur configurable
+- [x] H+3 → Team Leader (jika department punya Team Leader), H+5 → HOD, H+6 → DGM/GM
+- [x] Sekali per level (sent_at markers)
+- [x] Rantai fallback HOD lengkap + log kritikal
+- [x] Business-day calculator + kalender libur configurable

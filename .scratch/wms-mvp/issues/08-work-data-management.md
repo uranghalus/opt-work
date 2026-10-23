@@ -4,8 +4,8 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done (slice 1, 2026-10-23) — auto-generate saat WO closed + snapshot pekerja + finalisasi analitik sekali + UI index/show. Ruling: alur revisi post-closing (PRD OQ) = WO closed terminal di MVP, ditandai `// OQ` di kode.
 
-- [ ] List + filter (department, rentang tanggal, status)
-- [ ] Detail read-only — tidak bisa diedit setelah WO closed
-- [ ] Append-only integrity teruji
+- [x] List + filter (department, rentang tanggal, status)
+- [x] Detail read-only — tidak bisa diedit setelah WO closed
+- [x] Append-only integrity teruji (finalisasi analitik sekali; kedua kali 409; tanpa route edit/delete)

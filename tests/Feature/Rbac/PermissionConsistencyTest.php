@@ -132,9 +132,9 @@ function rbacForwardLookingPermissions(): array
         'work-planning.read' => 'gated when the module lands',
         'work-planning.update' => 'gated when the module lands',
         'work-planning.delete' => 'gated when the module lands',
+        // work-data — read/update gated in WorkDataController (FR-3.x);
+        // create/delete land when the manual-creation surface is decided.
         'work-data.create' => 'gated when the module lands',
-        'work-data.read' => 'gated when the module lands',
-        'work-data.update' => 'gated when the module lands',
         'work-data.delete' => 'gated when the module lands',
         'daily-work.create' => 'gated when the module lands',
         'daily-work.read' => 'gated when the module lands',

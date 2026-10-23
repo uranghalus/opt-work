@@ -90,6 +90,8 @@ it('shares the full hak-akses flag set with a user holding them', function () {
         'work-order.assign' => false,
         'work-order.submit' => false,
         'work-order.verify' => false,
+        'work-data.read' => false,
+        'work-data.update' => false,
         'work-order.extend' => false,
         'work-order.extend-approve' => false,
     ]);
@@ -120,6 +122,8 @@ it('shares only role.read with a read-only viewer', function () {
         'work-order.assign' => false,
         'work-order.submit' => false,
         'work-order.verify' => false,
+        'work-data.read' => false,
+        'work-data.update' => false,
         'work-order.extend' => false,
         'work-order.extend-approve' => false,
     ]);
@@ -148,6 +152,8 @@ it('shares the full hak-akses flag set with a super admin holding zero permissio
         'work-order.assign' => true,
         'work-order.submit' => true,
         'work-order.verify' => true,
+        'work-data.read' => true,
+        'work-data.update' => true,
         'work-order.extend' => true,
         'work-order.extend-approve' => true,
     ]);

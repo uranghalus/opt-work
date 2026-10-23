@@ -37,6 +37,8 @@ export type Auth = {
         'work-order.verify': boolean;
         'work-order.extend': boolean;
         'work-order.extend-approve': boolean;
+        'work-data.read': boolean;
+        'work-data.update': boolean;
     };
 };
 

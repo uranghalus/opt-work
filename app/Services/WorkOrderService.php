@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\WorkData;
+use App\Models\WorkDataPekerja;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderAssigned;
@@ -286,6 +288,13 @@ class WorkOrderService
                 WorkOrderStatus::Closed->value,
             );
 
+            // FR-3.1: satu record Work Data per WO closed — snapshot data
+            // turunan WO. OQ: alur revisi post-closing (PRD FR-3.3) belum
+            // settled — WO closed bersifat terminal di MVP (tanpa
+            // reopen/revisi pasca-close), Work Data hanya menerima satu
+            // finalisasi analitik (append-only).
+            $this->generateWorkData($workOrder, $hod);
+
             $this->verifyResultRecipients($workOrder)
                 ->each(fn (User $recipient) => $recipient->notify(new WorkOrderVerified($workOrder)));
 
@@ -347,6 +356,41 @@ class WorkOrderService
             ->filter()
             ->unique('id')
             ->values();
+    }
+
+    /**
+     * FR-3.1: snapshot Work Data saat WO closed — no kerja, department,
+     * jam pengerjaan (assigned → closed), status akhir, gambar
+     * sebelum/sesudah, dan pelaksana. Analitik post-mortem diisi lewat
+     * finalisasi sekali di WorkDataController (append-only).
+     */
+    private function generateWorkData(WorkOrder $workOrder, User $hod): void
+    {
+        $employees = Employee::query()
+            ->whereIn('id', $workOrder->assigned_employees ?? [])
+            ->get();
+
+        $workData = WorkData::create([
+            'work_order_id' => $workOrder->getKey(),
+            'no_kerja' => $workOrder->nomor_wo,
+            'department_id' => $workOrder->target_department_id,
+            'status_pekerjaan' => 'selesai',
+            'tgl_mulai_aktual' => $workOrder->assigned_at,
+            'tgl_selesai_aktual' => now(),
+            'jam_pengerjaan' => $workOrder->assigned_at?->floatDiffInHours(now()),
+            'gambar_sebelum' => $workOrder->attachments ?? [],
+            'gambar_sesudah' => $workOrder->result_attachments ?? [],
+            'pic_lead_user_id' => $hod->getKey(),
+        ]);
+
+        foreach ($employees as $employee) {
+            WorkDataPekerja::create([
+                'work_data_id' => $workData->getKey(),
+                'employee_id' => $employee->getKey(),
+                'nama_employee' => $employee->nama_employee,
+                'role_pekerja' => 'pelaksana',
+            ]);
+        }
     }
 
     private function generateNomorWo(Department $targetDepartment): string

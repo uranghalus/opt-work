@@ -78,7 +78,17 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
 - [x] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** **selesai 2026-10-22** (commits `5a03ae0`…`40714c8`; enum InProgress/PendingVerify/Revision/Closed kini tercapai). Issue `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
 - [x] **FR-2.3–2.5 — extend deadline (`extend_requests`):** **selesai 2026-10-23** — lihat section "Extend deadline WO telat" di atas; maks 3 hari/request, maks 3 approved/WO, blokir pending duplikat, TL→HOD berjenjang. **FR-2.4 Extend Work Schedule (DGM/GM) tetap backlog** (butuh `work_planning`). Issue: `06-extend-work-order-schedule.md`.
 - [ ] **FR-2.4 + WO Terjadwal lanjutan — `work_planning` + Extend Work Schedule (approval DGM/GM):** nol kode (keputusan jadwal HOD sudah ✅).
-- [ ] **FR-3.x — Work Data Management:** nol kode, bergantung FR-1.8 (WO closed). Issue: `08-work-data-management.md`.
+- [x] **FR-3.x — Work Data Management:** **slice 1 selesai 2026-10-23** — tabel
+      `work_data`+`work_data_pekerja` (satu record per WO closed, unik per
+      `work_order_id`), auto-generate di `approve()` (snapshot no kerja,
+      department, jam pengerjaan assigned→closed, status, gambar
+      sebelum/sesudah, pekerja), finalisasi analitik post-mortem SEKALI
+      (conditional update `whereNull(finalized_at)` → append-only, beku
+      selamanya), index terfilter (department/tanggal/status) + detail
+      read-only + nav "Work Data" ter-gate `work-data.read`; izin
+      work-data.read/update keluar dari allowlist forward-looking (honesty
+      test). 8 test `WorkDataTest` + 3 update GateTest. OQ revisi
+      post-closing: WO closed terminal di MVP (`// OQ` di kode).
 - [ ] **FR-5.x — Daily Work:** nol kode (OQ-4 settled: template per karyawan). Issue: `07-daily-work-templates.md`.
 - [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
 

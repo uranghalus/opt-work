@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSwitchController;
+use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
@@ -158,6 +159,11 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('work-orders.extend-requests.approve');
     Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/reject', [ExtendRequestController::class, 'reject'])
         ->name('work-orders.extend-requests.reject');
+
+    // FR-3.x Work Data — read-only + finalisasi analitik sekali (append-only).
+    Route::get('work-data', [WorkDataController::class, 'index'])->name('work-data.index');
+    Route::get('work-data/{workData}', [WorkDataController::class, 'show'])->name('work-data.show');
+    Route::post('work-data/{workData}/finalize', [WorkDataController::class, 'finalize'])->name('work-data.finalize');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

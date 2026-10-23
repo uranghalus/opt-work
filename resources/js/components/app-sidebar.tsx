@@ -42,7 +42,7 @@ import type { InertiaConfig } from '@inertiajs/core';
  * and footer identity strip. Collapses to 4.5rem icon rail.
  */
 
-/** Group hues: identity for a navigation area — never a status signal. */
+/** Group hues: identity for a navigation area â€” never a status signal. */
 const groupTones: Record<string, string> = {
     ops: navToneStyles.ops.icon,
     master: navToneStyles.master.icon,
@@ -87,7 +87,7 @@ function PanelNavItem({
         'data-[active=true]:bg-brand-strong/15! data-[active=true]:font-semibold data-[active=true]:text-brand-strong',
         'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
         // Collapsed, the button is a 40px square (size-10!) inside a full-width row, so
-        // justify-center no longer centers anything — mx-auto does.
+        // justify-center no longer centers anything â€” mx-auto does.
         'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center',
     );
 
@@ -239,6 +239,7 @@ export function AppSidebar() {
         isSuperAdmin: auth?.isSuperAdmin,
         canReadRoles: auth?.can?.['role.read'],
         canReadPermissions: auth?.can?.['permission.read'],
+        canReadWorkData: auth?.can?.['work-data.read'],
     });
     const unread = Number(unreadNotificationsCount ?? 0);
 

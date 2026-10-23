@@ -103,6 +103,9 @@ class HandleInertiaRequests extends Middleware
                     // WO slice 2: pelaksana submit hasil + HOD verify (FR-1.7/1.8).
                     'work-order.submit' => (bool) ($user?->can('work-order.submit')),
                     'work-order.verify' => (bool) ($user?->can('work-order.verify')),
+                    // FR-3.x Work Data — histori pekerjaan per WO closed.
+                    'work-data.read' => (bool) ($user?->can('work-data.read')),
+                    'work-data.update' => (bool) ($user?->can('work-data.update')),
                     // WO slice 3: extend deadline WO telat (FR-2.3–2.5).
                     'work-order.extend' => (bool) ($user?->can('work-order.extend')),
                     'work-order.extend-approve' => (bool) ($user?->can('work-order.extend-approve')),

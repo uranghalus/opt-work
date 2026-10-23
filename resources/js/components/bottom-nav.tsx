@@ -96,6 +96,7 @@ export function BottomNav() {
         isSuperAdmin: auth?.isSuperAdmin,
         canReadRoles: auth?.can?.['role.read'],
         canReadPermissions: auth?.can?.['permission.read'],
+        canReadWorkData: auth?.can?.['work-data.read'],
     });
 
     return (

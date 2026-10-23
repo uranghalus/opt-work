@@ -13,7 +13,7 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | 3 — Backend bugs & N+1 | ✅ DONE | 2 parallel audits; 19 fixes + 10 new tests; 3 findings documented-not-changed with reasons; suite 619/611/0 failed |
 | 4 — Frontend review | ✅ DONE | 25+ fixes (5 high, 8 med): dead 405 PATCH, dead ConfirmDialogs, 12 tenant-less dead links, filter-id mismatch, search wiring, mojibake, a11y markup; tsc+build green |
 | 5 — Verification gate | ✅ DONE | pint clean, tsc clean, build green, suite **619 tests / 611 passed / 0 failed / 8 skipped** (baseline: 576 passed / 10 failed + 2 errors); diff self-reviewed (no debug code/secrets) |
-| 6 — Commit, push, merge | ⬜ pending | |
+| 6 — Commit, push, merge | 🔄 in progress | working branch pushed; dependabot merged; features/department-syncronize fully contained; escalation-scheduler has 0 unique commits |
 
 ## Phase 0 — Setup & Baseline
 
@@ -199,3 +199,16 @@ fixed (`<li>`); unused `visibleColumns` state removed.
 - Baseline comparison: nothing that passed before fails now; all 12 baseline failures are repaired (6 missing daily-work page → implemented; 4 stale s3 attachment tests → updated to the new s3 contract; daily-work redirect + allowlist → fixed).
 - Diff self-review (`git diff main...HEAD`): no `dd()`/`var_dump`/`console.log` debug code, no committed secrets (`.env` untouched; `.env.testing` contains only empty AWS vars as before), no unintended changes. The 263-file diff vs main is dominated by the 64 commits merged from `features/department-syncronize` plus this run's work.
 - Pre-existing leftover found and kept (not deleted without approval): `tests/debug-escalation.php` — a standalone echo-debug script from an earlier session; recommended for deletion by the user.
+
+## Phase 6 — Commit, push, merge
+
+| Branch | Divergence | Action & result |
+| ------ | ---------- | --------------- |
+| `origin/features/department-syncronize` | 64 commits ahead of main | **Fully contained** in the working branch (the working branch was created from its tip `48c56c9`; verified with `merge-base --is-ancestor`). Nothing to merge; the branch is left in place untouched. |
+| `origin/feature/escalation-scheduler` | 0 unique commits (identical to main) | Nothing to merge. Left untouched. |
+| `origin/dependabot/github_actions/github-actions-0982b03464` | 1 commit (bump `setup-php` + `setup-node` action SHAs in `.github/workflows/tests.yml`) | **Merged into the working branch** (`--no-ff`, clean ort merge, no conflicts — the working branch never touched `.github/`). Post-merge: tsc clean + full suite green. |
+| `wt/20261020-093704` (local worktree branch) | identical to main | Nothing to merge; the linked worktree was not touched. |
+
+After the working branch contained every mergeable branch and all checks were
+green, it was merged into `main` with `--no-ff` and pushed normally (no force).
+No branches were deleted.

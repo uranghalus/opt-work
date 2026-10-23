@@ -42,10 +42,13 @@ class DailyWorkService
                     continue;
                 }
 
+                // Match pakai instance Carbon (bukan string Y-m-d): sqlite
+                // menyimpan kolom date sebagai 'Y-m-d H:i:s' — binding Carbon
+                // cocok di sqlite DAN di MySQL (DATE truncates time part).
                 DailyWork::query()->firstOrCreate(
                     [
                         'template_id' => $template->getKey(),
-                        'work_date' => $date->toDateString(),
+                        'work_date' => $date->startOfDay(),
                     ],
                     [
                         'employee_id' => $employee->getKey(),

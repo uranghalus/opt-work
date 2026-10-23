@@ -136,9 +136,8 @@ function rbacForwardLookingPermissions(): array
         // create/delete land when the manual-creation surface is decided.
         'work-data.create' => 'gated when the module lands',
         'work-data.delete' => 'gated when the module lands',
-        'daily-work.create' => 'gated when the module lands',
-        'daily-work.read' => 'gated when the module lands',
-        'daily-work.update' => 'gated when the module lands',
+        // daily-work — read/update/create/delete gated in DailyWorkController
+        // (FR-5.x: index/update karyawan; templates/adhoc/team HOD).
 
         // akun — role assignment (ADR-0005); update gated in
         // HandleInertiaRequests + EmployeeController, so it is no longer

@@ -39,6 +39,10 @@ export type Auth = {
         'work-order.extend-approve': boolean;
         'work-data.read': boolean;
         'work-data.update': boolean;
+        'daily-work.read': boolean;
+        'daily-work.update': boolean;
+        'daily-work.create': boolean;
+        'daily-work.delete': boolean;
     };
 };
 

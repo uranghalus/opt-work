@@ -96,6 +96,8 @@ export function IconRail() {
                     isSuperAdmin: auth?.isSuperAdmin,
                     canReadRoles: auth?.can?.['role.read'],
                     canReadPermissions: auth?.can?.['permission.read'],
+        canReadDailyWork: auth?.can?.['daily-work.read'],
+        canManageDailyWork: auth?.can?.['daily-work.create'],
                 }).map((item) => (
                     <RailLink key={item.title} item={item} />
                 ))}

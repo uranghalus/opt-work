@@ -53,7 +53,9 @@ it('lets the owner update status and location of their own item', function () {
             'status' => 'in_progress',
             'location' => 'Ruang Server Lt. 3',
         ])
-        ->assertRedirect('/hq/daily-work');
+        // Redirect balik ke daftar tanggal item itu (bukan hari ini),
+        // supaya konteks daftar tanggal D yang sedang dibuka tetap.
+        ->assertRedirect('/hq/daily-work?date=2026-10-26');
 
     $dailyWork->refresh();
     expect($dailyWork->status)->toBe('in_progress')

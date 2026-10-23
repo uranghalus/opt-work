@@ -9,6 +9,7 @@ import {
     KeyRound,
     LayoutGrid,
     LifeBuoy,
+    ListChecks,
     Network,
     Settings,
     ShieldCheck,
@@ -19,6 +20,10 @@ import { dashboard } from '@/routes';
 import departments from '@/routes/departments';
 import divisions from '@/routes/divisions';
 import employees from '@/routes/employees';
+import {
+    index as dailyWorkIndex,
+    templates as dailyWorkTemplates,
+} from '@/routes/daily-work';
 import { index as notificationsIndex } from '@/routes/notifications';
 import { index as permissionsIndex } from '@/routes/permissions';
 import { index as rolesIndex } from '@/routes/roles';
@@ -102,6 +107,13 @@ type NavContext = {
      * pekerjaan per WO closed.
      */
     canReadWorkData?: boolean;
+    /**
+     * Daily Work (FR-5.x) is gated by `can('daily-work.read')` — daftar
+     * harian karyawan. The HOD template surface additionally needs
+     * `daily-work.create`.
+     */
+    canReadDailyWork?: boolean;
+    canManageDailyWork?: boolean;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -156,6 +168,8 @@ export function navGroups({
     canReadRoles = false,
     canReadPermissions = false,
     canReadWorkData = false,
+    canReadDailyWork = false,
+    canManageDailyWork = false,
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
 
@@ -228,15 +242,44 @@ export function navGroups({
                     tenant,
                     (t) => workOrdersTimeline({ tenant: t }),
                 ),
-                modulePending(
-                    {
-                        title: 'Daily Work',
-                        shortTitle: 'Harian',
-                        icon: LayoutGrid,
-                        tone: 'ops',
-                    },
-                    'Daily Work',
-                ),
+                ...(canReadDailyWork
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Daily Work',
+                                  shortTitle: 'Harian',
+                                  icon: LayoutGrid,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => dailyWorkIndex({ tenant: t }),
+                          ),
+                      ]
+                    : [
+                          modulePending(
+                              {
+                                  title: 'Daily Work',
+                                  shortTitle: 'Harian',
+                                  icon: LayoutGrid,
+                                  tone: 'ops',
+                              },
+                              'Daily Work',
+                          ),
+                      ]),
+                ...(canManageDailyWork
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Template Daily',
+                                  shortTitle: 'Template',
+                                  icon: ListChecks,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => dailyWorkTemplates({ tenant: t }),
+                          ),
+                      ]
+                    : []),
                 ...(canReadWorkData
                     ? [
                           tenantItem(

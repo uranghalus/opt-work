@@ -240,6 +240,8 @@ export function AppSidebar() {
         canReadRoles: auth?.can?.['role.read'],
         canReadPermissions: auth?.can?.['permission.read'],
         canReadWorkData: auth?.can?.['work-data.read'],
+        canReadDailyWork: auth?.can?.['daily-work.read'],
+        canManageDailyWork: auth?.can?.['daily-work.create'],
     });
     const unread = Number(unreadNotificationsCount ?? 0);
 

@@ -162,7 +162,7 @@ class RoleAndPermissionSeeder extends Seeder
         ];
 
         $dailyWorkPermissions = [
-            'daily-work.create', 'daily-work.read', 'daily-work.update',
+            'daily-work.create', 'daily-work.read', 'daily-work.update', 'daily-work.delete',
         ];
 
         $hakAksesPermissions = [
@@ -231,7 +231,7 @@ class RoleAndPermissionSeeder extends Seeder
         ];
 
         $dailyWorkPermissions = [
-            'daily-work.create', 'daily-work.read', 'daily-work.update',
+            'daily-work.create', 'daily-work.read', 'daily-work.update', 'daily-work.delete',
         ];
 
         // Akun — role assignment on the user record of a linked employee

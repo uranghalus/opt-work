@@ -177,11 +177,26 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('work-planning/{workPlanning}/reject', [WorkPlanningController::class, 'reject'])
         ->name('work-planning.reject');
 
-    // FR-5.x Daily Work — daftar harian karyawan (materialize-on-view)
-    // + update status/lokasi item milik sendiri. Template/adhoc/team di Task 3.
+    // FR-5.x Daily Work - daftar harian karyawan (materialize-on-view)
+    // + update status/lokasi item milik sendiri.
     Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
     Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
         ->name('daily-work.update');
+
+    // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
+    // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).
+    Route::get('daily-work/templates', [DailyWorkController::class, 'templatesIndex'])
+        ->name('daily-work.templates');
+    Route::post('daily-work/templates', [DailyWorkController::class, 'templateStore'])
+        ->name('daily-work.templates.store');
+    Route::patch('daily-work/templates/{template}', [DailyWorkController::class, 'templateUpdate'])
+        ->name('daily-work.templates.update');
+    Route::delete('daily-work/templates/{template}', [DailyWorkController::class, 'templateDestroy'])
+        ->name('daily-work.templates.destroy');
+    Route::post('daily-work/adhoc', [DailyWorkController::class, 'adhocStore'])
+        ->name('daily-work.adhoc.store');
+    Route::get('daily-work/team', [DailyWorkController::class, 'teamIndex'])
+        ->name('daily-work.team');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

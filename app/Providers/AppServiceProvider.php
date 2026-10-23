@@ -91,5 +91,40 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, string $ability): ?bool {
             return $user !== null && $user->isSuperAdmin() ? true : null;
         });
+
+        /**
+         * D3 — detail WO hanya untuk pihak terlibat ATAU pemegang
+         * work-order.read. Pihak terlibat:
+         *   - Requester (requester_user_id)
+         *   - HOD / Deputy HOD (manager_user_id) dept target
+         *   - Pelaksana (user.employee_id ∈ work_orders.assigned_employees)
+         * Guest (role guest, nol permission ADR-0006) terblokir otomatis.
+         */
+        Gate::define('work-order.view', function ($user, $workOrder): bool {
+            // requester
+            if ($workOrder->requester_user_id === $user->getKey()) {
+                return true;
+            }
+
+            // HOD / deputy dept target
+            $dept = $workOrder->targetDepartment;
+            if ($dept !== null) {
+                if ($dept->hod_user_id === $user->getKey()
+                    || $dept->manager_user_id === $user->getKey()) {
+                    return true;
+                }
+            }
+
+            // pelaksana lintas department
+            $employeeId = $user->employee_id;
+            if ($employeeId !== null && is_array($workOrder->assigned_employees)) {
+                if (in_array((string) $employeeId, $workOrder->assigned_employees, true)) {
+                    return true;
+                }
+            }
+
+            // fall back to broad read permission
+            return $user->can('work-order.read');
+        });
     }
 }

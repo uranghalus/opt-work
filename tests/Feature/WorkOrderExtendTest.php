@@ -81,7 +81,7 @@ function makeDepartmentTeamLeader(Department $department): User
 function extendRequester(): User
 {
     $user = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    $user->givePermissionTo('work-order.extend');
+    $user->givePermissionTo(['work-order.extend', 'work-order.read']);
 
     return $user;
 }

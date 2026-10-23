@@ -410,6 +410,8 @@ class WorkOrderController extends Controller
             ->where('id', $workOrderId)
             ->firstOrFail();
 
+        Gate::authorize('work-order.view', $workOrderModel);
+
         $workOrderModel->load(['requester', 'targetDepartment']);
 
         // The assign dialog lists karyawan pelaksana of the target department
@@ -482,6 +484,23 @@ class WorkOrderController extends Controller
             ? $this->extendRequestService->canDecideExtend($user, $pendingExtend)
             : false;
 
+        // FR-2.4: Work Planning untuk WO Terjadwal — detail jadwal + status
+        // extend schedule; visibilitas panel dihitung server-side.
+        $planning = $workOrderModel->planning()->with('extendRequester:id,name')->first();
+
+        $canUpdatePlanning = $user !== null
+            && $planning !== null
+            && $workOrderModel->status === WorkOrderStatus::Scheduled
+            && ! $planning->isPending()
+            && $user->can('work-planning.update');
+
+        $canDecideSchedule = $user !== null
+            && $planning !== null
+            && $planning->isPending()
+            && $planning->extend_requested_by !== $user?->getKey()
+            && $user->can('work-planning.update')
+            && ($user->is_super_admin || $user->hasAnyRole(['general_manager', 'deputy_general_manager']));
+
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrderModel,
             'employees' => $employees,
@@ -490,6 +509,25 @@ class WorkOrderController extends Controller
             'extend_requests' => $extendRequests,
             'can_request_extend' => $canRequestExtend,
             'can_decide_extend' => $canDecideExtend,
+            'planning' => $planning === null ? null : [
+                'id' => $planning->id,
+                'tgl_jadwal' => $planning->tgl_jadwal?->toDateString(),
+                'original_tgl_jadwal' => $planning->original_tgl_jadwal?->toDateString(),
+                'proposed_tgl_jadwal' => $planning->proposed_tgl_jadwal?->toDateString(),
+                'jam_mulai' => $planning->jam_mulai,
+                'jam_selesai' => $planning->jam_selesai,
+                'jenis_pekerjaan' => $planning->jenis_pekerjaan,
+                'lama_pekerjaan_hari' => $planning->lama_pekerjaan_hari,
+                'budget' => $planning->budget === null ? null : (float) $planning->budget,
+                'status_jadwal' => $planning->status_jadwal,
+                'catatan' => $planning->catatan,
+                'extend_count' => $planning->extend_count,
+                'extend_reason' => $planning->extend_reason,
+                'requester_name' => $planning->extendRequester?->name,
+                'pending' => $planning->isPending(),
+            ],
+            'can_update_planning' => $canUpdatePlanning,
+            'can_decide_schedule' => $canDecideSchedule,
         ]);
     }
 
@@ -512,6 +550,9 @@ class WorkOrderController extends Controller
         $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
             ->firstOrFail();
+
+        Gate::authorize('work-order.view', $workOrderModel);
+
         $path = match ($request->route('type')) {
             'result' => $workOrderModel->result_attachments[(int) $index] ?? null,
             default => $workOrderModel->attachments[(int) $index] ?? null,

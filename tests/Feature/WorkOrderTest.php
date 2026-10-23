@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
+    (new RoleAndPermissionSeeder)->run();
     createTestTenant([
         'optigate_company_id' => 1,
         'code' => 'hq',
@@ -268,12 +269,13 @@ it('lists work orders for the requester and for reviewable departments', functio
         );
 });
 
-it('shows a work order to any user in the owning branch', function () {
+it('shows a work order to a member with work-order.read', function () {
     initTenant('hq');
     $hq = Tenant::where('code', 'hq')->first();
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => $hq->id]);
     $colleague = createUser(['tenant_id' => $hq->id]);
+    $colleague->givePermissionTo('work-order.read');
 
     $workOrder = WorkOrder::create([
         'nomor_wo' => 'WO-TEST-'.fake()->unique()->numerify('####'),
@@ -296,8 +298,7 @@ it('shows a work order to any user in the owning branch', function () {
         ->first();
     expect($controllerQuery)->not->toBeNull();
 
-    // Tenant-level isolation is the rule: within a branch, any authenticated
-    // user may read the work order — it is not restricted to the requester.
+    // D3: detail WO diproteksi gate work-order.view (pihak terlibat ATAU read)
     $this
         ->actingAs($colleague)
         ->get("/hq/work-orders/{$workOrder->getKey()}")
@@ -394,8 +395,11 @@ it('serves an attachment only to users of the owning branch', function () {
     $workOrder = WorkOrder::query()->sole();
     $path = $workOrder->attachments[0];
 
+    $reader = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $reader->givePermissionTo('work-order.read');
+
     $this
-        ->actingAs(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]))
+        ->actingAs($reader)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
         ->assertOk()
         ->assertHeader('content-type', 'image/png');
@@ -417,8 +421,11 @@ it('returns 404 for an attachment index that does not exist', function () {
         'target_department_id' => $department->getKey(),
     ]);
 
+    $reader = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $reader->givePermissionTo('work-order.read');
+
     $this
-        ->actingAs(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]))
+        ->actingAs($reader)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/5")
         ->assertNotFound();
 });

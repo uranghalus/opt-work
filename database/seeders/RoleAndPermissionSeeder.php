@@ -146,6 +146,7 @@ class RoleAndPermissionSeeder extends Seeder
 
         $workOrderPermissions = [
             'work-order.create', 'work-order.read', 'work-order.update', 'work-order.delete',
+            'work-order.view',
             // PRD lifecycle verbs (work-order only): review → assign → submit → verify.
             'work-order.review', 'work-order.assign', 'work-order.submit', 'work-order.verify',
             // Extend flow (FR-2.3–2.5): request + approval berjenjang TL → HOD.

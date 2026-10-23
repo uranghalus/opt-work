@@ -47,7 +47,7 @@ it('keeps the forward-looking allowlist honest by failing on gated entries', fun
 function rbacAllowedVerbs(string $resource): array
 {
     return match ($resource) {
-        'work-order' => ['read', 'create', 'update', 'delete', 'review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
+        'work-order' => ['read', 'create', 'update', 'delete', 'view', 'review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
         default => ['read', 'create', 'update', 'delete'],
     };
 }
@@ -103,7 +103,6 @@ function rbacForwardLookingPermissions(): array
     return [
         // work-order — CRUD gating lands with the WO flow, same as the verbs below.
         'work-order.create' => 'gated when the WO flow lands',
-        'work-order.read' => 'gated when the WO flow lands',
         'work-order.update' => 'gated when the WO flow lands',
         'work-order.delete' => 'gated when the WO flow lands',
         // work-order workflow verbs — review/assign/submit/verify all
@@ -130,7 +129,8 @@ function rbacForwardLookingPermissions(): array
         // Work planning / work data / daily work — gated when those modules land.
         'work-planning.create' => 'gated when the module lands',
         'work-planning.read' => 'gated when the module lands',
-        'work-planning.update' => 'gated when the module lands',
+        // work-planning.update — gated in WorkPlanningController (FR-2.4);
+        // delete lands when a delete surface is decided.
         'work-planning.delete' => 'gated when the module lands',
         // work-data — read/update gated in WorkDataController (FR-3.x);
         // create/delete land when the manual-creation surface is decided.

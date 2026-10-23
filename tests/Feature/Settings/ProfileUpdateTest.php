@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WorkOrder;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -65,6 +67,35 @@ test('user can delete their account', function () {
 
     $this->assertGuest();
     expect($user->fresh())->toBeNull();
+});
+
+test('user with work order history cannot delete their account', function () {
+    // Fix 2026-10-24: self-delete cascade menghapus riwayat WO cabang
+    // (work_orders.requester_user_id cascadeOnDelete) dan akun pengaju
+    // extend kena FK restrict (500). Self-delete hanya untuk akun bersih.
+    $tenant = Tenant::factory()->create();
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+
+    initTenant($tenant->code);
+
+    WorkOrder::factory()->create([
+        'requester_user_id' => $user->getKey(),
+    ]);
+
+    Tenant::forgetCurrent();
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('profile.edit'))
+        ->delete(route('profile.destroy'), [
+            'password' => 'password',
+        ]);
+
+    $response
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->fresh())->not->toBeNull()
+        ->and(WorkOrder::query()->where('requester_user_id', $user->getKey())->exists())->toBeTrue();
 });
 
 test('correct password must be provided to delete account', function () {

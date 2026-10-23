@@ -481,6 +481,9 @@ class EmployeeController extends Controller
      */
     protected function authorizeBan(Request $request): void
     {
-        abort_unless($request->user()?->is_super_admin, 403, 'Hanya superadmin yang dapat memblokir karyawan.');
+        // Single source of truth = User::isSuperAdmin() (ADR-0004): flag ATAU
+        // role super_admin — bukan flag saja (role-based super admin dulu
+        // salahnya ditolak 403).
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Hanya superadmin yang dapat memblokir karyawan.');
     }
 }

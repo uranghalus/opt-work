@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\WorkData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -43,11 +44,14 @@ class WorkDataController extends Controller
         }
 
         if (filled($filters['from'] ?? null)) {
-            $query->whereDate('tgl_selesai_aktual', '>=', $filters['from']);
+            // Batas datetime eksplisit (bukan whereDate yang membungkus kolom
+            // dengan DATE() dan mematikan index tgl_selesai_aktual); DATE
+            // MySQL dan string sqlite sama-sama benar dengan batas begin/end.
+            $query->where('tgl_selesai_aktual', '>=', Carbon::parse($filters['from'])->startOfDay());
         }
 
         if (filled($filters['to'] ?? null)) {
-            $query->whereDate('tgl_selesai_aktual', '<=', $filters['to']);
+            $query->where('tgl_selesai_aktual', '<=', Carbon::parse($filters['to'])->endOfDay());
         }
 
         return Inertia::render('work-data/index', [

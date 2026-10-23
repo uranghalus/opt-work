@@ -174,6 +174,27 @@ it('deactivates divisions that disappeared from the portal', function () {
         ->and(Division::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('optigate_division_id', '1')->first()?->is_active)->toBeTrue();
 });
 
+it('deactivates nothing when the portal returns an empty list (safety guard)', function () {
+    Tenant::forgetCurrent();
+
+    $kept = Division::withoutGlobalScopes()->make([
+        'optigate_division_id' => '7',
+        'kode_division' => 'KEEP',
+        'nama_division' => 'Kept Division',
+        'is_active' => true,
+    ]);
+    $kept->tenant_id = $this->hq->id;
+    $kept->save();
+
+    // Perbaikan 2026-10-24: response kosong = sinyal data tidak lengkap,
+    // bukan "semua divisi hilang" — data tetap aktif.
+    fakePortalDivisions([]);
+
+    $this->artisan('app:sync-divisions', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect(Division::withoutGlobalScopes()->find($kept->getKey())->is_active)->toBeTrue();
+});
+
 it('persists last_division_synced_at on the tenant after a successful sync', function () {
     Tenant::forgetCurrent();
 

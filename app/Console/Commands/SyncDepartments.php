@@ -390,6 +390,14 @@ class SyncDepartments extends Command
             ->map(fn (array $dept) => (string) $dept['id'])
             ->values();
 
+        // Response kosong = sinyal data tidak lengkap (API regression), bukan
+        // "semua department hilang" — jangan menonaktifkan seluruh data.
+        if ($activeIds->isEmpty()) {
+            $this->warn("[{$tenant->code}] Tidak ada department dari Optigate — penonaktifan dilewati sebagai pengaman.");
+
+            return 0;
+        }
+
         $stale = Department::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereNotNull('optigate_department_id')

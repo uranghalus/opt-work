@@ -21,6 +21,7 @@ use LightSaml\Credential\KeyHelper;
 use LightSaml\Error\LightSamlException;
 use LightSaml\Error\LightSamlSecurityException;
 use LightSaml\Error\LightSamlValidationException;
+use LightSaml\Model\Assertion\Attribute;
 use LightSaml\Model\Metadata\KeyDescriptor;
 use LightSaml\Model\Protocol\LogoutResponse;
 use SocialiteProviders\Saml2\InvalidSignatureException;

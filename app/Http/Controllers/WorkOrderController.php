@@ -284,7 +284,12 @@ class WorkOrderController extends Controller
             'category' => ['required', Rule::enum(WorkOrderCategory::class)],
             'target_department_id' => [
                 'required',
-                Rule::exists('departments', 'id')->where('tenant_id', tenant()?->getTenantKey()),
+                // FR-4.1: hanya department AKTIF — department yang dinonaktifkan
+                // sync tidak boleh jadi tujuan WO baru (dropdown create juga
+                // hanya menampilkan yang aktif).
+                Rule::exists('departments', 'id')
+                    ->where('tenant_id', tenant()?->getTenantKey())
+                    ->where('is_active', true),
             ],
             'requested_schedule_date' => [
                 'nullable',

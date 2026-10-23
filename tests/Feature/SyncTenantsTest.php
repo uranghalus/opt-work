@@ -89,7 +89,10 @@ it('deactivates tenants whose company disappeared from the api', function () {
         ->and($manual->deactivated_at)->toBeNull();
 });
 
-it('deactivates every api managed tenant when the api returns no companies', function () {
+it('deactivates nothing when the api returns an empty list (safety guard)', function () {
+    // Perbaikan 2026-10-24: response kosong diperlakukan sebagai sinyal data
+    // tidak lengkap (regresi API/token scope), bukan "semua perusahaan hilang"
+    // — cron 01:00 tidak boleh menonaktifkan seluruh tenant terkelola.
     Tenant::factory()->create(['optigate_company_id' => 1, 'code' => 'top', 'name' => 'Top', 'is_active' => true]);
 
     Http::fake([
@@ -98,7 +101,7 @@ it('deactivates every api managed tenant when the api returns no companies', fun
 
     $this->artisan('app:sync-tenants')->assertSuccessful();
 
-    expect(Tenant::query()->where('code', 'top')->sole()->is_active)->toBeFalse();
+    expect(Tenant::query()->where('code', 'top')->sole()->is_active)->toBeTrue();
 });
 
 it('reactivates a tenant when its company reappears in the api', function () {

@@ -24,15 +24,33 @@ class WorkPlanningService
 {
     /**
      * Dipanggil dari WorkOrderService::review() saat HOD memilih
-     * 'schedule' — satu planning per WO.
+     * 'schedule' — satu planning per WO (unique work_order_id), sehingga
+     * re-review saat WO kembali ke Scheduled memakai updateOrCreate, bukan
+     * create yang akan menabrak constraint sebagai QueryException 500.
      */
     public function createForWorkOrder(WorkOrder $workOrder): WorkPlanning
     {
-        return WorkPlanning::create([
-            'work_order_id' => $workOrder->getKey(),
-            'tgl_jadwal' => $workOrder->scheduled_date,
-            'status_jadwal' => WorkPlanning::STATUS_PLANNED,
-        ]);
+        return WorkPlanning::query()->updateOrCreate(
+            ['work_order_id' => $workOrder->getKey()],
+            [
+                'tgl_jadwal' => $workOrder->scheduled_date,
+                'status_jadwal' => WorkPlanning::STATUS_PLANNED,
+                'proposed_tgl_jadwal' => null,
+            ],
+        );
+    }
+
+    /**
+     * HOD membatalkan keputusan jadwal (re-review memilih eksekusi langsung):
+     * planning yang tersisa dihapus agar tidak ada jadwal yatim di belakang
+     * WO yang tidak lagi terjadwal.
+     */
+    public function discardForWorkOrder(WorkOrder $workOrder): void
+    {
+        WorkPlanning::query()
+            ->where('work_order_id', $workOrder->getKey())
+            ->where('status_jadwal', '!=', WorkPlanning::STATUS_PENDING)
+            ->delete();
     }
 
     /**
@@ -113,6 +131,13 @@ class WorkPlanningService
                 ->firstOrFail();
 
             $workOrder = $planning->workOrder;
+
+            // Konsisten dengan requestExtend: perpindahan jadwal hanya untuk
+            // WO yang masih terjadwal — WO in-execution/closed tidak boleh
+            // digeser jadwalnya oleh approval yang datang terlambat.
+            if ($workOrder->status !== WorkOrderStatus::Scheduled) {
+                abort(409, 'Extend jadwal hanya berlaku untuk WO yang sedang terjadwal.');
+            }
 
             if (! $planning->isPending()) {
                 abort(409, 'Tidak ada pengajuan extend jadwal yang menunggu keputusan.');

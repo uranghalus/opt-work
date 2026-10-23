@@ -50,10 +50,18 @@ class DailyWorkController extends Controller
         }
 
         $dailyWork = DailyWork::query()
-            ->when($employee !== null, fn ($query) => $query->where('employee_id', $employee->getKey()))
-            // whereDate: sqlite menyimpan kolom date 'Y-m-d H:i:s' —
-            // perbandingan string Y-m-d kosong di sqlite (MySQL DATE cocok).
-            ->whereDate('work_date', $date->toDateString())
+            ->when(
+                $employee !== null,
+                // Daftar harian milik karyawan yang login (FR-5.3)…
+                fn ($query) => $query->where('employee_id', $employee->getKey()),
+                // …dan HANYA miliknya: akun tanpa link karyawan tidak boleh
+                // melihat daftar seluruh tenant (kebocoran lintas-karyawan).
+                fn ($query) => $query->whereRaw('1 = 0'),
+            )
+            // Batas begin/end hari (bukan whereDate yang membungkus kolom
+            // dengan DATE() dan mematikan index work_date); DATE MySQL dan
+            // string sqlite sama-sama benar dengan batas begin/end.
+            ->whereBetween('work_date', [$date->startOfDay(), $date->endOfDay()])
             ->when($validated['search'] ?? null, fn ($query, $search) => $query->where('title', 'like', "%{$search}%"))
             ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('created_at')
@@ -299,7 +307,7 @@ class DailyWorkController extends Controller
 
         $dailyWork = DailyWork::query()
             ->where('employee_id', $employee->getKey())
-            ->whereDate('work_date', $date->toDateString())
+            ->whereBetween('work_date', [$date->startOfDay(), $date->endOfDay()])
             ->when($validated['search'] ?? null, fn ($query, $search) => $query->where('title', 'like', "%{$search}%"))
             ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('created_at')

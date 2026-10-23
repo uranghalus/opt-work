@@ -16,6 +16,7 @@ use App\Notifications\WorkOrderReviewed;
 use App\Notifications\WorkOrderSubmitted;
 use App\Notifications\WorkOrderVerified;
 use App\WorkOrderStatus;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -35,17 +36,35 @@ class WorkOrderService
     public function create(User $requester, Department $targetDepartment, array $data, array $attachments = []): WorkOrder
     {
         return DB::transaction(function () use ($requester, $targetDepartment, $data, $attachments): WorkOrder {
-            $workOrder = WorkOrder::create([
-                'nomor_wo' => $this->generateNomorWo($targetDepartment),
-                'requester_user_id' => $requester->getKey(),
-                'target_department_id' => $targetDepartment->getKey(),
-                'category' => $data['category'],
-                'title' => $data['title'],
-                'description' => $data['description'],
-                'attachments' => $attachments === [] ? null : $attachments,
-                'status' => WorkOrderStatus::WaitingHod->value,
-                'requested_schedule_date' => $data['requested_schedule_date'] ?? null,
-            ]);
+            // Nomor WO dihitung dari max(nomor_wo) tanpa lock — dua store()
+            // bersamaan bisa menghitung nomor sama; unique(tenant_id, nomor_wo)
+            // menolak yang kedua. Ulangi dengan nomor segar (max kini terlihat
+            // karena transaksi pertama sudah commit saat INSERT kedua gagal).
+            $attempt = 0;
+
+            while (true) {
+                try {
+                    $workOrder = WorkOrder::create([
+                        'nomor_wo' => $this->generateNomorWo($targetDepartment),
+                        'requester_user_id' => $requester->getKey(),
+                        'target_department_id' => $targetDepartment->getKey(),
+                        'category' => $data['category'],
+                        'title' => $data['title'],
+                        'description' => $data['description'],
+                        'attachments' => $attachments === [] ? null : $attachments,
+                        'status' => WorkOrderStatus::WaitingHod->value,
+                        'requested_schedule_date' => $data['requested_schedule_date'] ?? null,
+                    ]);
+
+                    break;
+                } catch (QueryException $exception) {
+                    $attempt++;
+
+                    if ($attempt >= 5 || ! $this->isDuplicateKey($exception)) {
+                        throw $exception;
+                    }
+                }
+            }
 
             $this->hodNotificationResolver
                 ->resolve($targetDepartment)
@@ -53,6 +72,17 @@ class WorkOrderService
 
             return $workOrder;
         });
+    }
+
+    /**
+     * Unique-constraint violation across drivers: MySQL 1062, sqlite 19/2067.
+     */
+    private function isDuplicateKey(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? '');
+        $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+
+        return $sqlState === '23000' && in_array($driverCode, [1062, 19, 2067], true);
     }
 
     /**
@@ -93,9 +123,13 @@ class WorkOrderService
                 'status' => $to,
             ]);
 
-            // FR-2.4: planning row lahir bersama keputusan jadwal.
+            // FR-2.4: planning row lahir bersama keputusan jadwal (idempoten —
+            // unique work_order_id). Bila HOD berbalik ke eksekusi langsung,
+            // planning yang tersisa dihapus agar tidak ada jadwal yatim.
             if ($action === 'schedule') {
                 $this->workPlanningService->createForWorkOrder($workOrder);
+            } else {
+                $this->workPlanningService->discardForWorkOrder($workOrder);
             }
 
             WorkOrderEvent::record(
@@ -145,6 +179,7 @@ class WorkOrderService
             }
 
             $employees = Employee::query()
+                ->with('user')
                 ->whereIn('id', $data['employees'])
                 ->get();
 

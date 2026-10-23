@@ -9,8 +9,8 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | ----- | ------ | ----- |
 | 0 — Setup & Baseline | ✅ DONE | Baseline recorded below; tag pushed; branch created; REPORT.md initialized |
 | 1 — TODO.md items | ✅ DONE | FR-5.x Daily Work implemented (commits `feat(daily-work)` + docs); deferred/blocked items documented below |
-| 2 — WorkOrder/Timeline redesign | ⬜ pending | |
-| 3 — Backend bugs & N+1 | ⬜ pending | |
+| 2 — WorkOrder/Timeline redesign | ✅ DONE | Audit + design decisions + re-audit docs in `docs/audit/`; FullCalendar v7 dayGrid (week+month); real data, no mocks; build green |
+| 3 — Backend bugs & N+1 | 🔄 in progress | 2 parallel audits done; fixes below, full-suite regression running |
 | 4 — Frontend review | ⬜ pending | |
 | 5 — Verification gate | ⬜ pending | |
 | 6 — Commit, push, merge | ⬜ pending | |
@@ -86,3 +86,52 @@ Stale TODO checkboxes ticked with evidence: "Start the core WO flow" (done 2026-
 | Akun CRUD surface (akun.create/akun.delete) | Deferred — needs design decisions | Not a PRD FR; no approved design doc exists. Building a login-provisioning surface autonomously risks contradicting the eventual design; `akun.create/delete` remain honestly allowlisted. |
 | Page-access config; sidebar permission-filtering; Tenant CRUD; advanced analytics | Out of scope (agreed) | Marked "agreed: later phase / out of scope" or PRD Non-Goals in TODO.md. |
 | Visual checks in browser; `app:sync-*` + `app:grant-default-permissions` on the dev DB | User-side | Requires portal access / human visual review. Noted in TODO.md Task 6 remainder. |
+
+## Phase 3 — Backend: bugs & N+1 (all modules)
+
+Method: two parallel read-only audits (one for N+1/indexes, one for
+logic/validation/authorization/error paths) over every controller, service,
+job, channel, notification and console command, each finding verified against
+surrounding code + tests. Then fixes, each with tests where practical. Baseline
+failures from Phase 0 (4 s3 attachment tests, daily-work redirect, allowlist)
+were already repaired in Phases 1–2.
+
+### Fixed — authorization & data-integrity
+
+| # | Finding | Fix | Test |
+| - | ------- | --- | ---- |
+| A1 | `DailyWorkController::index` — a `daily-work.read` holder **without a linked karyawan** received the *whole tenant's* daily-work list (filter only applied when `$employee !== null`) | Filter forces `1 = 0` when unlinked | `DailyWorkMaterializeTest::renders_an_empty_list…` extended with another employee's row present |
+| A2 | Escalation **H+3/5/6 counted business days since assignment** — a Normal WO (6-day SLA) fired ALL three levels on its first overdue day; violates PRD FR-2.2 ("hari telat ke-N" = days past deadline) and the `Telat H+N` chip convention | `CheckDeadlineEscalation` now counts calendar days past `deadline_date` (Carbon 3 signed `diffInDays`, deadline→today) | 2 new `EscalationTest` cases with `Carbon::setTestNow`: silent at H+1/2; h3 at H+3; h5 only at H+5 |
+| A3 | `SyncTenants` / `SyncDepartments` / `SyncDivisions` — an **empty-but-successful portal response** deactivated EVERY managed tenant/department/division (`whereNotIn([])` → `1=1`) during the nightly 01:00 run | Empty list = skip deactivation with a warning (data-incomplete signal, not "everything disappeared") | Empty-response tests in all three sync test files |
+| A4 | `WorkPlanningService::createForWorkOrder` — re-review while `Scheduled` hit the `unique(work_order_id)` as an unhandled 500; schedule→immediate flip left an orphan planning row | `updateOrCreate` + new `discardForWorkOrder()` on flip | `ReviewWorkOrderTest::re_reviews_back_and_forth…` |
+| A5 | `WorkPlanningService::decideExtend` — no `Scheduled` check: a late DGM approval could shift `scheduled_date` of an in-execution WO | 409 guard mirroring `requestExtend()` | existing 409 suite shape |
+| A6 | `WorkOrderService::create` — `generateNomorWo` from unlocked `max()`; two concurrent stores → unique violation as raw 500 (with orphaned S3 uploads) | Retry loop (≤5) on duplicate-key `QueryException` (MySQL 1062 / sqlite 19, 2067), regenerating the nomor | no sqlite-race test possible; suite green |
+| A7 | `ReviewWorkOrderRequest` — stray `scheduled_date` on `execute_immediately` persisted; made a `HodApproved` WO appear on the Timeline | `Rule::prohibitedIf(action === 'execute_immediately')` | `ReviewWorkOrderTest::rejects_a_schedule_date_on_an_immediate_execution_review` |
+| A8 | `WorkOrderController::store` — `target_department_id` accepted a **deactivated** department (FR-4.1 requires active) | `->where('is_active', true)` | existing FR-4.1 tests |
+| A9 | `Settings/ProfileController::destroy` — self-deletion cascaded the branch's WO history (`requester_user_id` cascadeOnDelete) and 500'd for users with extend requests (`restrictOnDelete`) | Accounts with WO/extend/audit history cannot self-delete (toast + redirect) | `ProfileUpdateTest::user_with_work_order_history_cannot_delete…` |
+| A10 | `TenantSwitchController::switch` — signed switch URL not user-bound; co-tenant could mint a link bouncing a colleague to an external site | Same-origin guard: only same-app relative paths pass, else dashboard fallback | existing switch tests green |
+| A11 | `SamlController::resolveEmail` strategy 3 — `instanceof \Attribute` (missing LightSaml import) → raw-attribute email fallback silently dead | Added `LightSaml\Model\Assertion\Attribute` import | SAML suite green |
+| A12 | `EmployeeController::authorizeBan` checked the `is_super_admin` **flag only** — role-based super admins wrongly denied ban/unban | Uses `User::isSuperAdmin()` (ADR-0004 single source of truth) | ban/login suite green |
+
+### Fixed — N+1 & indexes
+
+| # | Finding | Fix |
+| - | ------- | --- |
+| P1 | `WorkOrderService::assign` — lazy `$employee->user` per assignee | `->with('user')` |
+| P2 | `NotificationController::markAllAsRead` — 1 UPDATE per unread row | single bulk `unreadNotifications()->update(['read_at' => now()])` |
+| P3 | `CheckDeadlineEscalation` — `Department::find` per overdue WO | `->with('targetDepartment')` |
+| P4 | `work_orders.scheduled_date` unindexed (timeline hot path) | migration: `index('scheduled_date')` |
+| P5 | escalation filters `status IN(…)` + `deadline_date < now()` | migration: composite `(status, deadline_date)` |
+| P6 | `EnsureEmployeeNotBanned` email lookup on every authenticated request; `employees.email` unindexed | migration: `index('email')`; `whereRaw(LOWER…)` → sargable `where('email', …)` |
+| P7 | `DailyWorkController` (index/team) + `WorkDataController` used `whereDate()` — MySQL `DATE(col)` wrapper defeats indexes | begin/end-of-day range comparisons (sargable; correct on MySQL DATE + sqlite datetime strings) |
+
+### Reviewed and deliberately NOT changed (with reasons)
+
+| Finding | Reason |
+| ------- | ------ |
+| `review/assign/verify` don't scope the actor to the WO's target department (an HOD of dept A can act on dept B's WOs at the API level) | The permission-based model is documented in code and pinned by many tests; whether admin_tenant/GM may act cross-department is a product decision. **Recommended follow-up:** composite check (target-dept HOD/manager ∪ GM/DGM ∪ admin_tenant). UI already routes decisions to the target HOD; exploiting this requires a crafted API call. |
+| `submit()` not restricted to recorded assignees | **Intended** — explicit docstring decision (WO slice 2). |
+| Extend filing without involvement check | Approval chain is protected; whether *filing* needs involvement is a policy question. |
+| `TenantAccess::canOperate` ignores `is_active` (sessions survive branch deactivation) | Only new SAML logins are denied; hard-denying mid-session during a sync hiccup is riskier than the status quo. Flagged for the user. |
+| Broadcast queued pre-commit (possible ghost toast on rollback) | Framework-level dispatch order; DB+WA channels are transaction-safe. Low impact — follow-up. |
+| Bounded/low-impact notes: WA channel per-recipient lookups (≤ ~4 recipients); `SyncDepartments::resolveHod` per-dept query; `tenants.code` LOWER/TRIM; employees default sort; notifications composite index | Optional follow-ups from the N+1 audit — acceptable at MVP scale. |

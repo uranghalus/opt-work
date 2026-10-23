@@ -118,6 +118,17 @@ it('renders an empty list safely for a user without linked employee', function (
     $user = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
     $user->givePermissionTo('daily-work.read');
 
+    // Akun tanpa link karyawan TIDAK boleh melihat daftar milik karyawan
+    // lain di tenant yang sama (fix 2026-10-24 — sebelumnya seluruh daftar
+    // tenant bocor karena filter employee_id hanya dipasang bila ada link).
+    $linkedEmployee = Employee::factory()->create([
+        'tenant_id' => Tenant::where('code', 'hq')->first()->id,
+    ]);
+    DailyWork::factory()->create([
+        'employee_id' => $linkedEmployee->getKey(),
+        'title' => 'Milik orang lain',
+    ]);
+
     $this->actingAs($user)->get('/hq/daily-work')
         ->assertOk()
         ->assertInertia(fn ($page) => $page

@@ -125,6 +125,27 @@ it('deactivates departments that disappeared from the portal', function () {
         ->and(Department::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('optigate_department_id', '1')->first()?->is_active)->toBeTrue();
 });
 
+it('deactivates nothing when the portal returns an empty list (safety guard)', function () {
+    Tenant::forgetCurrent();
+
+    $kept = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '7',
+        'kode_department' => 'KEEP',
+        'nama_department' => 'Kept Department',
+        'is_active' => true,
+    ]);
+    $kept->tenant_id = $this->hq->id;
+    $kept->save();
+
+    // Perbaikan 2026-10-24: response kosong = sinyal data tidak lengkap,
+    // bukan "semua department hilang" — data tetap aktif.
+    fakePortalDepartments([]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect(Department::withoutGlobalScopes()->find($kept->getKey())->is_active)->toBeTrue();
+});
+
 it('syncs every active optigate tenant when no tenant option is given', function () {
     Tenant::forgetCurrent();
 

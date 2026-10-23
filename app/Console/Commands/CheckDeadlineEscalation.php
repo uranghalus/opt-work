@@ -6,18 +6,16 @@ use App\Models\Department;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\WorkOrderDeadlineEscalated;
-use App\Services\DeadlineCalculator;
-use App\WorkOrderCategory;
 use App\WorkOrderStatus;
-use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('app:check-deadline-escalation')]
-#[Description('Cek Work Order terlambat dan kirim eskalasi berjenjang: H+3→Team Leader, H+5→HOD, H+6→DGM/GM')]
+#[Description('Cek Work Order terlambat dan kirim eskalasi berjenjang: H+3→Team Leader, H+5→HOD, H+6→DGM/GM (H+N = hari kalender melewati deadline — PRD FR-2.2)')]
 class CheckDeadlineEscalation extends Command
 {
     private const ESCALATION_H3_DAYS = 3;
@@ -26,7 +24,7 @@ class CheckDeadlineEscalation extends Command
 
     private const ESCALATION_H6_DAYS = 6;
 
-    public function handle(DeadlineCalculator $calculator): int
+    public function handle(): int
     {
         $activeStatuses = [
             WorkOrderStatus::Assigned->value,
@@ -36,6 +34,7 @@ class CheckDeadlineEscalation extends Command
         ];
 
         $overdueWOs = WorkOrder::withoutGlobalScope('tenant')
+            ->with('targetDepartment')
             ->where('deadline_date', '<', now())
             ->whereIn('status', $activeStatuses)
             ->whereNotNull('assigned_at')
@@ -51,7 +50,7 @@ class CheckDeadlineEscalation extends Command
         $this->info("Ditemukan {$overdueWOs->count()} WO terlambat, memproses eskalasi...");
 
         foreach ($overdueWOs as $workOrder) {
-            $this->processEscalation($workOrder, $calculator);
+            $this->processEscalation($workOrder);
         }
 
         $this->info('Pemeriksaan eskalasi selesai.');
@@ -59,41 +58,46 @@ class CheckDeadlineEscalation extends Command
         return Command::SUCCESS;
     }
 
-    private function processEscalation(WorkOrder $workOrder, DeadlineCalculator $calculator): void
+    private function processEscalation(WorkOrder $workOrder): void
     {
-        $department = Department::withoutGlobalScope('tenant')
-            ->find($workOrder->target_department_id);
+        $department = $workOrder->targetDepartment
+            ?? Department::withoutGlobalScope('tenant')->find($workOrder->target_department_id);
+
         if (! $department) {
             Log::error('Escalation: departemen tidak ditemukan', ['work_order_id' => $workOrder->id]);
 
             return;
         }
 
-        $businessDaysElapsed = $this->calculateBusinessDaysElapsed(
-            $workOrder->assigned_at,
-            now(),
-            $workOrder->category,
+        // PRD FR-2.2: "Hari telat ke-N" = hari kalender MELEWATI deadline —
+        // bukan hari kerja sejak assign. Menghitung dari assigned_at membuat
+        // WO normal (SLA 6 hari kerja) menembak ketiga level sekaligus pada
+        // hari telat pertamanya (≥7 hari kerja sejak assign). Konvensi sama
+        // dengan DeadlineChip ("Telat H+N") di WorkOrderController.
+        // (deadline -> today: diffInDays bertanda di Carbon 3, positif di sini.)
+        $daysLate = (int) $workOrder->deadline_date->startOfDay()->diffInDays(
+            Carbon::today()->startOfDay(),
         );
 
         // H+3: Team Leader (if exists) → HOD
-        if ($businessDaysElapsed >= self::ESCALATION_H3_DAYS
+        if ($daysLate >= self::ESCALATION_H3_DAYS
             && $workOrder->escalation_h3_sent_at === null
         ) {
-            $this->sendEscalation($workOrder, $department, 'h3', $businessDaysElapsed);
+            $this->sendEscalation($workOrder, $department, 'h3', $daysLate);
         }
 
         // H+5: HOD
-        if ($businessDaysElapsed >= self::ESCALATION_H5_DAYS
+        if ($daysLate >= self::ESCALATION_H5_DAYS
             && $workOrder->escalation_h5_sent_at === null
         ) {
-            $this->sendEscalation($workOrder, $department, 'h5', $businessDaysElapsed);
+            $this->sendEscalation($workOrder, $department, 'h5', $daysLate);
         }
 
         // H+6: DGM/GM
-        if ($businessDaysElapsed >= self::ESCALATION_H6_DAYS
+        if ($daysLate >= self::ESCALATION_H6_DAYS
             && $workOrder->escalation_h6_sent_at === null
         ) {
-            $this->sendEscalation($workOrder, $department, 'h6', $businessDaysElapsed);
+            $this->sendEscalation($workOrder, $department, 'h6', $daysLate);
         }
     }
 
@@ -249,38 +253,5 @@ class CheckDeadlineEscalation extends Command
         }
 
         return $recipients->unique('id');
-    }
-
-    private function calculateBusinessDaysElapsed(
-        ?CarbonInterface $assignedAt,
-        CarbonInterface $now,
-        WorkOrderCategory $category,
-    ): int {
-        if ($assignedAt === null) {
-            return 0;
-        }
-
-        $holidayLookup = array_flip(config('holidays', []));
-        $businessDays = 0;
-        $cursor = clone $assignedAt;
-        $maxIterations = 365 * 5; // Max 5 years of days
-
-        while ($cursor < $now && $maxIterations > 0) {
-            $cursor->addDay();
-            $maxIterations--;
-            // Skip weekends
-            if ($cursor->isWeekend()) {
-                continue;
-            }
-            // Skip holidays
-            $dateStr = $cursor->toDateString();
-            $formatStr = $cursor->format('m-d');
-            if (isset($holidayLookup[$dateStr]) || isset($holidayLookup[$formatStr])) {
-                continue;
-            }
-            $businessDays++;
-        }
-
-        return $businessDays;
     }
 }

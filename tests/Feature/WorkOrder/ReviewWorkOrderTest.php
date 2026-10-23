@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Models\WorkPlanning;
 use App\Notifications\WorkOrderReviewed;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
@@ -169,6 +170,51 @@ it('allows re-review until the work order is assigned', function () {
 
     $workOrder->refresh();
     expect($workOrder->status)->toBe(WorkOrderStatus::HodApproved);
+});
+
+it('rejects a schedule date on an immediate-execution review', function () {
+    // Fix 2026-10-24: mirror aturan store — tanggal pada eksekusi langsung
+    // membuat WO HodApproved muncul di Timeline (whereNotNull scheduled_date).
+    $workOrder = createReviewTestWorkOrder();
+
+    $this
+        ->actingAs(reviewUser())
+        ->post("/hq/work-orders/{$workOrder->getKey()}/review", [
+            'action' => 'execute_immediately',
+            'scheduled_date' => today()->addDays(3)->toDateString(),
+        ])
+        ->assertSessionHasErrors('scheduled_date');
+});
+
+it('re-reviews back and forth without colliding on the unique planning row', function () {
+    // Fix 2026-10-24: createForWorkOrder kini updateOrCreate — re-review
+    // schedule → immediate → schedule tidak menabrak unique(work_order_id).
+    $workOrder = createReviewTestWorkOrder();
+
+    $this->actingAs(reviewUser())
+        ->post("/hq/work-orders/{$workOrder->getKey()}/review", [
+            'action' => 'schedule',
+            'scheduled_date' => today()->addDays(3)->toDateString(),
+        ])
+        ->assertRedirect();
+
+    $this->actingAs(reviewUser())
+        ->post("/hq/work-orders/{$workOrder->getKey()}/review", [
+            'action' => 'execute_immediately',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs(reviewUser())
+        ->post("/hq/work-orders/{$workOrder->getKey()}/review", [
+            'action' => 'schedule',
+            'scheduled_date' => today()->addDays(5)->toDateString(),
+        ])
+        ->assertRedirect();
+
+    $workOrder->refresh();
+    expect($workOrder->status)->toBe(WorkOrderStatus::Scheduled)
+        ->and($workOrder->scheduled_date?->toDateString())->toBe(today()->addDays(5)->toDateString())
+        ->and(WorkPlanning::query()->where('work_order_id', $workOrder->getKey())->count())->toBe(1);
 });
 
 it('refuses to review a work order that already left the review stage', function () {

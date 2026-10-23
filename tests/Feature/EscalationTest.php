@@ -418,6 +418,80 @@ it('skips closed work orders', function () {
 });
 
 /**
+ * PRD FR-2.2 semantics (fix 2026-10-24): "Hari telat ke-N" = hari kalender
+ * MELEWATI deadline, bukan hari kerja sejak assign. Sebelum perbaikan, WO
+ * normal (SLA 6 hari kerja) menembak ketiga level sekaligus pada hari telat
+ * pertamanya karena hitungan sejak assign sudah ≥ 7 hari kerja.
+ */
+it('sends no escalation while the WO is only 1-2 days past its deadline', function () {
+    Notification::fake();
+    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    makeHod($hod);
+
+    // Waktu uji: 1-2 hari kalender setelah deadline (Oct 9) → belum H+3.
+    Carbon::setTestNow(Carbon::parse('2026-10-11 09:00:00'));
+
+    $workOrder = createOverdueWorkOrder(
+        WorkOrderCategory::Normal,
+        hodUserId: $hod->getKey(),
+    );
+
+    Artisan::call('app:check-deadline-escalation');
+
+    $workOrder->refresh();
+    expect($workOrder->escalation_h3_sent_at)->toBeNull()
+        ->and($workOrder->escalation_h5_sent_at)->toBeNull()
+        ->and($workOrder->escalation_h6_sent_at)->toBeNull()
+        ->and($workOrder->is_escalated)->toBeFalse();
+
+    Notification::assertNotSentTo($hod, WorkOrderDeadlineEscalated::class);
+
+    Carbon::setTestNow();
+});
+
+it('escalates level by level as calendar days past the deadline accumulate', function () {
+    Notification::fake();
+    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    makeHod($hod);
+
+    // Deadline Oct 9 (Normal, assigned Kamis Oct 1 = 6 hari kerja → Jumat
+    // Oct 9). Hari telat ke-3 = Oct 12.
+    Carbon::setTestNow(Carbon::parse('2026-10-12 09:00:00'));
+
+    $workOrder = createOverdueWorkOrder(
+        WorkOrderCategory::Normal,
+        hodUserId: $hod->getKey(),
+    );
+
+    Artisan::call('app:check-deadline-escalation');
+
+    $workOrder->refresh();
+    expect($workOrder->escalation_h3_sent_at)->not->toBeNull()
+        ->and($workOrder->escalation_h5_sent_at)->toBeNull()
+        ->and($workOrder->escalation_h6_sent_at)->toBeNull();
+
+    Notification::assertSentTo($hod, WorkOrderDeadlineEscalated::class, function ($notification) {
+        return $notification->level === 'h3';
+    });
+
+    // Lima hari telat (Oct 14): baru h5 menyusul — h3 tidak diulang.
+    Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00'));
+    Notification::fake();
+
+    Artisan::call('app:check-deadline-escalation');
+
+    $workOrder->refresh();
+    expect($workOrder->escalation_h5_sent_at)->not->toBeNull()
+        ->and($workOrder->escalation_h6_sent_at)->toBeNull();
+
+    Notification::assertSentTo($hod, WorkOrderDeadlineEscalated::class, function ($notification) {
+        return $notification->level === 'h5';
+    });
+
+    Carbon::setTestNow();
+});
+
+/**
  * Defect broadcast pre-existing (rencana 2026-10-22 langkah 5): notify()
  * tanpa tenant current (jalur command eskalasi) hanya mengantre saluran
  * broadcast — spatie unwraps `BroadcastEvent` ke `BroadcastNotificationCreated`

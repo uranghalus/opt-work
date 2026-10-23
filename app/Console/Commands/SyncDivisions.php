@@ -257,6 +257,14 @@ class SyncDivisions extends Command
             ->map(fn (array $div) => (string) $div['id'])
             ->values();
 
+        // Response kosong = sinyal data tidak lengkap (API regression), bukan
+        // "semua divisi hilang" — jangan menonaktifkan seluruh data.
+        if ($activeIds->isEmpty()) {
+            $this->warn("[{$tenant->code}] Tidak ada divisi dari Optigate — penonaktifan dilewati sebagai pengaman.");
+
+            return 0;
+        }
+
         $stale = Division::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereNotNull('optigate_division_id')

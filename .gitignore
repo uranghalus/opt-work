@@ -46,3 +46,5 @@ AGENTS.md
 /boost.json
 /opencode.json
 /opencode.jsonc
+.superpowers/
+.agents_tmp/

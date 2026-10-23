@@ -2,14 +2,15 @@
 
 namespace App\Http\Requests\Employee;
 
+use App\Models\Role;
 use Closure;
-use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SyncAkunRolesRequest extends FormRequest
 {
     /**
-     * Authorization happens in the controller via Gate::authorize('akun.update').
+     * Authorization happens in the controller: only a platform superadmin
+     * may grant or revoke roles (ADR-0008).
      */
     public function authorize(): bool
     {
@@ -20,18 +21,20 @@ class SyncAkunRolesRequest extends FormRequest
      * The submitted set replaces the akun's current roles, so it must be
      * present (empty array = revoke everything allowed). Validation reports a
      * single error under the `roles` key — the dialog surfaces exactly that
-     * destructive alert (ADR-0005). super_admin is never assignable here
-     * (ADR-0005 decision 4): it exists in the roles table, so an exists rule
-     * would pass it; the closure rejects it explicitly regardless of who asks.
+     * destructive alert (ADR-0005). Roles are loaded from the database so
+     * custom roles created through Hak Akses are assignable; super_admin is
+     * never assignable here (ADR-0005 decision 4) even though it exists in
+     * the same table.
      *
      * @return array<string, list<mixed>>
      */
     public function rules(): array
     {
-        $assignable = array_values(array_diff(
-            RoleAndPermissionSeeder::SYSTEM_ROLES,
-            ['super_admin'],
-        ));
+        $assignable = Role::query()
+            ->where('name', '!=', 'super_admin')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
 
         return [
             'roles' => [
@@ -39,12 +42,14 @@ class SyncAkunRolesRequest extends FormRequest
                 'array',
                 function (string $attribute, mixed $value, Closure $fail) use ($assignable): void {
                     foreach ((array) $value as $role) {
+                        if ($role === 'super_admin') {
+                            $fail('Peran super_admin tidak dapat diberikan lewat sini.');
+
+                            return;
+                        }
+
                         if (! is_string($role) || ! in_array($role, $assignable, true)) {
-                            $fail(
-                                $role === 'super_admin'
-                                    ? 'Peran super_admin tidak dapat diberikan lewat sini.'
-                                    : 'Peran '.$role.' tidak ditemukan.'
-                            );
+                            $fail('Peran '.(is_string($role) ? $role : 'tidak valid').' tidak ditemukan.');
 
                             return;
                         }

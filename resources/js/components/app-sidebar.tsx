@@ -42,7 +42,7 @@ import type { InertiaConfig } from '@inertiajs/core';
  * and footer identity strip. Collapses to 4.5rem icon rail.
  */
 
-/** Group hues: identity for a navigation area — never a status signal. */
+/** Group hues: identity for a navigation area â€” never a status signal. */
 const groupTones: Record<string, string> = {
     ops: navToneStyles.ops.icon,
     master: navToneStyles.master.icon,
@@ -81,14 +81,14 @@ function PanelNavItem({
     const active = !item.disabled && isCurrentOrParentUrl(item.href);
 
     const itemClasses = cn(
-        'group/nav relative h-10 gap-3 rounded-xl px-3 text-[0.8125rem] font-medium text-panel-ink-muted overflow-hidden',
+        'group/nav relative h-10 gap-3 overflow-hidden rounded-xl px-3 text-[0.8125rem] font-medium text-panel-ink-muted',
         'transition-[background-color,color] duration-200 ease-standard motion-reduce:transition-none',
         'hover:bg-white/5 hover:text-panel-ink',
         'data-[active=true]:bg-brand-strong/15! data-[active=true]:font-semibold data-[active=true]:text-brand-strong',
         'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
         // Collapsed, the button is a 40px square (size-10!) inside a full-width row, so
-        // justify-center no longer centers anything — mx-auto does.
-        'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto',
+        // justify-center no longer centers anything â€” mx-auto does.
+        'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center',
     );
 
     const icon = (
@@ -110,7 +110,7 @@ function PanelNavItem({
                             aria-disabled="true"
                             className={cn(
                                 itemClasses,
-                                'cursor-not-allowed opacity-55 overflow-hidden',
+                                'cursor-not-allowed overflow-hidden opacity-55',
                             )}
                         >
                             {icon}
@@ -198,11 +198,14 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
                 title="Pilih cabang untuk membuat Work Order"
                 className={cn(
                     'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-white/60',
-                    'bg-slate-700/60 cursor-not-allowed',
+                    'cursor-not-allowed bg-slate-700/60',
                     'group-data-[collapsible=icon]:hidden',
                 )}
             >
-                <Plus aria-hidden="true" className="size-5 shrink-0 opacity-60" />
+                <Plus
+                    aria-hidden="true"
+                    className="size-5 shrink-0 opacity-60"
+                />
                 <span>Buat Work Order</span>
             </span>
         );
@@ -235,20 +238,24 @@ export function AppSidebar() {
         activeTenant,
         isSuperAdmin: auth?.isSuperAdmin,
         canReadRoles: auth?.can?.['role.read'],
+        canReadPermissions: auth?.can?.['permission.read'],
+        canReadWorkData: auth?.can?.['work-data.read'],
+        canReadDailyWork: auth?.can?.['daily-work.read'],
+        canManageDailyWork: auth?.can?.['daily-work.create'],
     });
     const unread = Number(unreadNotificationsCount ?? 0);
 
     return (
         <Sidebar
             collapsible="icon"
-            className="bg-[#0B151C] text-panel-ink group-data-[side=left]:border-r group-data-[side=left]:border-slate-800 overflow-x-hidden"
+            className="overflow-x-hidden bg-[#0B151C] text-panel-ink group-data-[side=left]:border-r group-data-[side=left]:border-slate-800"
         >
-            <SidebarHeader className="gap-4 px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2 overflow-hidden">
+            <SidebarHeader className="gap-4 overflow-hidden px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
                 <Link
                     href={home()}
                     prefetch
                     aria-label="Beranda OptiWorks"
-                    className="-m-1 flex items-center gap-3 rounded-md px-2 py-1 transition-colors duration-150 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none group-data-[collapsible=icon]:justify-center"
+                    className="-m-1 flex items-center gap-3 rounded-md px-2 py-1 transition-colors duration-150 group-data-[collapsible=icon]:justify-center hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
                 >
                     <AppLogo
                         variant="panel"
@@ -281,5 +288,3 @@ export function AppSidebar() {
         </Sidebar>
     );
 }
-
-

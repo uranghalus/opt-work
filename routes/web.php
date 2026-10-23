@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\DailyWorkController;
+use App\Http\Controllers\ExtendRequestController;
 use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
@@ -9,7 +11,9 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSwitchController;
+use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\WorkPlanningController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +103,7 @@ Route::prefix('saml')->group(function () {
             'inactive' => 'Unit bisnis Anda sedang tidak aktif. Hubungi administrator untuk mengaktifkannya kembali.',
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
+            'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
         ];
 
         $reason = session('saml.denial_reason');
@@ -130,14 +135,68 @@ Route::prefix('saml')->group(function () {
 Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
+    // Registered before the resource: the {workOrder} wildcard would otherwise
+    // swallow the literal "timeline" segment.
+    Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
+        ->name('work-orders.timeline');
+
     Route::resource('work-orders', WorkOrderController::class)
+        ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
     Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
         ->name('work-orders.assign');
-    Route::get('work-orders/{workOrder}/attachments/{index}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+    Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
+        ->name('work-orders.submit');
+    Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
+        ->name('work-orders.verify');
+    Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
+        ->name('work-orders.reject');
+    Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+    Route::post('work-orders/{workOrder}/extend-requests', [ExtendRequestController::class, 'store'])
+        ->name('work-orders.extend-requests.store');
+    Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/approve', [ExtendRequestController::class, 'approve'])
+        ->name('work-orders.extend-requests.approve');
+    Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/reject', [ExtendRequestController::class, 'reject'])
+        ->name('work-orders.extend-requests.reject');
+
+    // FR-3.x Work Data — read-only + finalisasi analitik sekali (append-only).
+    Route::get('work-data', [WorkDataController::class, 'index'])->name('work-data.index');
+    Route::get('work-data/{workData}', [WorkDataController::class, 'show'])->name('work-data.show');
+    Route::post('work-data/{workData}/finalize', [WorkDataController::class, 'finalize'])->name('work-data.finalize');
+
+    // FR-2.4 Work Planning — detail jadwal + Extend Work Schedule (DGM/GM).
+    Route::patch('work-planning/{workPlanning}', [WorkPlanningController::class, 'update'])
+        ->name('work-planning.update');
+    Route::post('work-planning/{workPlanning}/extend', [WorkPlanningController::class, 'extend'])
+        ->name('work-planning.extend');
+    Route::post('work-planning/{workPlanning}/approve', [WorkPlanningController::class, 'approve'])
+        ->name('work-planning.approve');
+    Route::post('work-planning/{workPlanning}/reject', [WorkPlanningController::class, 'reject'])
+        ->name('work-planning.reject');
+
+    // FR-5.x Daily Work - daftar harian karyawan (materialize-on-view)
+    // + update status/lokasi item milik sendiri.
+    Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
+    Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
+        ->name('daily-work.update');
+
+    // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
+    // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).
+    Route::get('daily-work/templates', [DailyWorkController::class, 'templatesIndex'])
+        ->name('daily-work.templates');
+    Route::post('daily-work/templates', [DailyWorkController::class, 'templateStore'])
+        ->name('daily-work.templates.store');
+    Route::patch('daily-work/templates/{template}', [DailyWorkController::class, 'templateUpdate'])
+        ->name('daily-work.templates.update');
+    Route::delete('daily-work/templates/{template}', [DailyWorkController::class, 'templateDestroy'])
+        ->name('daily-work.templates.destroy');
+    Route::post('daily-work/adhoc', [DailyWorkController::class, 'adhocStore'])
+        ->name('daily-work.adhoc.store');
+    Route::get('daily-work/team', [DailyWorkController::class, 'teamIndex'])
+        ->name('daily-work.team');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');
@@ -150,14 +209,26 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     // controller authorizes via Gate::authorize('akun.update').
     Route::post('employees/{employee}/akun/roles', [EmployeeController::class, 'syncAkunRoles'])
         ->name('employees.akun.roles.sync');
+    Route::get('employees/{employee}/akun/search', [EmployeeController::class, 'akunSearch'])
+        ->name('employees.akun.search');
+
+    Route::post('employees/{employee}/akun', [EmployeeController::class, 'linkAkun'])
+        ->name('employees.akun.link');
+    Route::delete('employees/{employee}/akun', [EmployeeController::class, 'unlinkAkun'])
+        ->name('employees.akun.unlink');
     // Record-level block on a karyawan (superadmin only); survives portal syncs.
     Route::post('employees/{employee}/ban', [EmployeeController::class, 'ban'])->name('employees.ban');
     Route::post('employees/{employee}/unban', [EmployeeController::class, 'unban'])->name('employees.unban');
 
-    Route::resource('departments', DepartmentController::class)->names('departments');
+    Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
+    Route::get('departments/{department}', [DepartmentController::class, 'show'])->name('departments.show');
     Route::post('departments/sync', [DepartmentController::class, 'sync'])->name('departments.sync');
 
-    Route::resource('positions', PositionController::class)->names('positions');
+    Route::get('positions', [PositionController::class, 'index'])->name('positions.index');
+    Route::get('positions/tree', [PositionTreeController::class, 'index'])->name('positions.tree');
+    Route::get('positions/tree/{position}', [PositionTreeController::class, 'show'])->name('positions.tree.root');
+    Route::get('positions/{position}', [PositionController::class, 'show'])->name('positions.show');
+    Route::post('positions/sync', [PositionController::class, 'sync'])->name('positions.sync');
 });
 
 require __DIR__.'/hak-akses.php';

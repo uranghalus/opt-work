@@ -4,7 +4,6 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SamlTenantResolver;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 use Spatie\Permission\Models\Role;
 use Tests\Support\FakeIdentityProvider;
@@ -20,8 +19,6 @@ beforeEach(function () {
     config(['auth.super_admin_email' => 'superadmin@appdutamall.com']);
 
     Socialite::forgetDrivers();
-
-    URL::forceRootUrl(config('app.url'));
 });
 
 /** Seed the unit bisnis the fake assertion's company attribute points at. */

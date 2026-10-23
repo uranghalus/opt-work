@@ -35,7 +35,11 @@ class NotificationController extends Controller
 
     public function markAllAsRead(Request $request): RedirectResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        // Satu UPDATE bulk: unreadNotifications->markAsRead() memuat semua
+        // baris lalu menjalankan satu UPDATE per notifikasi (N+1).
+        $request->user()
+            ->unreadNotifications()
+            ->update(['read_at' => now()]);
 
         return back();
     }

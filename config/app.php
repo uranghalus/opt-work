@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // D2 (design .scratch/wo-review-decisions/design.md): jam operasional
+    // cabang — assign/deadline/eskalasi diukur di WITA, bukan UTC.
+    'timezone' => 'Asia/Makassar',
 
     /*
     |--------------------------------------------------------------------------

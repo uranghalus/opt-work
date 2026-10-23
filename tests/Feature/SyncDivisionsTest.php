@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Department;
 use App\Models\Division;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Http;
@@ -60,6 +61,35 @@ it('creates divisions from the portal payload keyed by the portal division id', 
         ->and($division->kode_division)->toBe('AST')
         ->and($division->nama_division)->toBe('Asset Management')
         ->and($division->is_active)->toBeTrue();
+});
+
+it('maps the portal parent department and keeps direct divisions explicit', function () {
+    Tenant::forgetCurrent();
+
+    $department = Department::withoutGlobalScopes()->make([
+        'kode_department' => 'IT',
+        'nama_department' => 'Information Technology',
+        'optigate_department_id' => '10',
+    ]);
+    $department->tenant_id = $this->hq->id;
+    $department->save();
+
+    fakePortalDivisions([
+        ['id' => 1, 'code' => 'APP', 'name' => 'Application', 'department_id' => 10, 'is_direct' => false],
+        ['id' => 2, 'code' => 'DIR', 'name' => 'Direct', 'department_id' => null, 'is_direct' => true],
+    ]);
+
+    $this->artisan('app:sync-divisions', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $application = Division::withoutGlobalScopes()->where('optigate_division_id', '1')->first();
+    $direct = Division::withoutGlobalScopes()->where('optigate_division_id', '2')->first();
+
+    expect($application)->not->toBeNull()
+        ->and($application->department_id)->toBe($department->id)
+        ->and($application->is_direct)->toBeFalse()
+        ->and($direct)->not->toBeNull()
+        ->and($direct->department_id)->toBeNull()
+        ->and($direct->is_direct)->toBeTrue();
 });
 
 it('scopes the portal request to the tenant optigate company', function () {
@@ -142,6 +172,27 @@ it('deactivates divisions that disappeared from the portal', function () {
         ->and($stale->kode_division)->toBe('OLD')
         ->and($stale->is_active)->toBeFalse()
         ->and(Division::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('optigate_division_id', '1')->first()?->is_active)->toBeTrue();
+});
+
+it('deactivates nothing when the portal returns an empty list (safety guard)', function () {
+    Tenant::forgetCurrent();
+
+    $kept = Division::withoutGlobalScopes()->make([
+        'optigate_division_id' => '7',
+        'kode_division' => 'KEEP',
+        'nama_division' => 'Kept Division',
+        'is_active' => true,
+    ]);
+    $kept->tenant_id = $this->hq->id;
+    $kept->save();
+
+    // Perbaikan 2026-10-24: response kosong = sinyal data tidak lengkap,
+    // bukan "semua divisi hilang" — data tetap aktif.
+    fakePortalDivisions([]);
+
+    $this->artisan('app:sync-divisions', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect(Division::withoutGlobalScopes()->find($kept->getKey())->is_active)->toBeTrue();
 });
 
 it('persists last_division_synced_at on the tenant after a successful sync', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\PositionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -10,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use App\Models\Concerns\BelongsToTenant;
 
 /**
  * @property string $id
@@ -19,10 +19,25 @@ use App\Models\Concerns\BelongsToTenant;
  * @property string|null $department_id
  * @property string|null $division_id
  * @property string|null $optigate_position_id
+ * @property int|null $level
+ * @property string|null $level_label
+ * @property string|null $parent_position_id
+ * @property bool $is_direct
+ * @property bool $is_vacant
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['nama_position', 'department_id', 'division_id', 'optigate_position_id'])]
+#[Fillable([
+    'nama_position',
+    'department_id',
+    'division_id',
+    'optigate_position_id',
+    'level',
+    'level_label',
+    'parent_position_id',
+    'is_direct',
+    'is_vacant',
+])]
 class Position extends Model
 {
     /** @use HasFactory<PositionFactory> */
@@ -50,5 +65,29 @@ class Position extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class, 'position_id');
+    }
+
+    /**
+     * @return BelongsTo<Position, $this>
+     */
+    public function parentPosition(): BelongsTo
+    {
+        return $this->belongsTo(Position::class, 'parent_position_id');
+    }
+
+    /**
+     * @return HasMany<Position, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Position::class, 'parent_position_id');
+    }
+
+    /**
+     * Check if position has no employees (vacant).
+     */
+    public function isVacant(): bool
+    {
+        return $this->employees_count === 0;
     }
 }

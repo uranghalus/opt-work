@@ -7,11 +7,15 @@ use App\WorkOrderCategory;
 use App\WorkOrderStatus;
 use Database\Factories\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property string $id
@@ -29,7 +33,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $scheduled_date
  * @property Carbon|null $assigned_at
  * @property string|null $hod_notes
- * @property list<int>|null $assigned_employees
+ * @property list<string>|null $assigned_employees
  * @property string|null $assignment_notes
  * @property Carbon|null $deadline_date
  * @property Carbon|null $escalation_h3_sent_at
@@ -39,6 +43,8 @@ use Illuminate\Support\Carbon;
  * @property int $extend_count
  * @property string|null $extend_reason
  * @property Carbon|null $extended_at
+ * @property string|null $result_notes
+ * @property array<int, string>|null $result_attachments
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -66,6 +72,8 @@ use Illuminate\Support\Carbon;
     'extend_count',
     'extend_reason',
     'extended_at',
+    'result_notes',
+    'result_attachments',
 ])]
 class WorkOrder extends Model
 {
@@ -93,6 +101,7 @@ class WorkOrder extends Model
             'escalation_h6_sent_at' => 'datetime',
             'is_escalated' => 'boolean',
             'extended_at' => 'datetime',
+            'result_attachments' => 'array',
         ];
     }
 
@@ -110,6 +119,63 @@ class WorkOrder extends Model
     public function targetDepartment(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'target_department_id');
+    }
+
+    /**
+     * D1 — pihak yang berhak melihat daftar WO, dipakai index + timeline
+     * bersama: Requester, reviewer department target (hod_user_id /
+     * manager_user_id), DAN pelaksana yang tercantum di assigned_employees —
+     * pelaksana lintas department sebelumnya hanya menjangkau WO-nya lewat
+     * link notifikasi (memblokir FR-1.7 submit).
+     *
+     * Semua klausul or-nya hidup di satu grup where agar men AND dengan
+     * filter lain milik pemanggil (mis. WHERE scheduled_date BETWEEN ...).
+     *
+     * @param  Collection<int|string, mixed>  $departmentIds  id department yang
+     *                                                        dipegang user
+     *                                                        (hod/manager).
+     *                                                        Boleh kosong.
+     */
+    public function scopeVisibleFor(Builder $query, User $user, Collection $departmentIds): void
+    {
+        $query->where(function ($group) use ($user, $departmentIds): void {
+            $group->where('requester_user_id', $user->getKey());
+
+            if ($departmentIds->isNotEmpty()) {
+                $group->orWhereIn('target_department_id', $departmentIds);
+            }
+
+            if ($user->employee_id !== null) {
+                $group->orWhereJsonContains('assigned_employees', (string) $user->employee_id);
+            }
+        });
+    }
+
+    /**
+     * @return HasMany<WorkOrderEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(WorkOrderEvent::class);
+    }
+
+    /**
+     * @return HasMany<ExtendRequest, $this>
+     */
+    public function extendRequests(): HasMany
+    {
+        return $this->hasMany(ExtendRequest::class);
+    }
+
+    /**
+     * FR-2.4: detail jadwal per WO Terjadwal — dibuat saat review
+     * 'schedule'; null untuk WO non-terjadwal.
+     *
+     * @return HasOne<WorkPlanning, $this>
+     */
+    public function planning(): HasOne
+    {
+        return $this->hasOne(WorkPlanning::class);
     }
 
     /**

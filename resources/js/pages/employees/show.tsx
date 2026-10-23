@@ -1,21 +1,26 @@
-import { Head, usePage, useForm } from '@inertiajs/react';
+import { Head, Link, usePage, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
-    BadgeCheck,
-    Briefcase,
-    Building2,
-    Hash,
+    Link2,
     LoaderCircle,
     Lock,
-    Mail,
     Pencil,
-    Phone,
     ShieldCheck,
-    User,
+    Unlink,
 } from 'lucide-react';
-import { useState } from 'react';
-import { sync } from '@/routes/employees/akun/roles';
+import { useEffect, useState } from 'react';
 import { useRequiredTenant } from '@/lib/tenant';
+import { index as employeesIndex } from '@/routes/employees';
+import {
+    AccountStatusBadge,
+    BannedBadge,
+    DepartmentValue,
+    EmployeeAvatar,
+    MissingDataChip,
+    TextValue,
+} from '@/components/employees/employee-display';
+import { link, search, unlink } from '@/routes/employees/akun';
+import { sync } from '@/routes/employees/akun/roles';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,6 +33,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import type { InertiaConfig } from '@inertiajs/core';
 
 type Department = {
@@ -64,49 +70,53 @@ type Akun = {
     roles?: string[];
 };
 
+type AvailableAccount = {
+    id: string | number;
+    name: string;
+    email: string;
+};
+
+type AkunSearchPage = {
+    data: AvailableAccount[];
+    current_page: number;
+    last_page: number;
+    total: number;
+};
+
 type PageProps = {
     employee: Employee;
     akun?: Akun | null;
+    assignable_roles?: string[];
 };
 
 /**
- * Assignable roles on this surface: the canonical system roles minus
- * super_admin, which is never assignable (ADR-0005 decision 4).
- */
-const ASSIGNABLE_ROLES = [
-    'admin_tenant',
-    'general_manager',
-    'deputy_general_manager',
-    'hod',
-    'team_leader',
-    'karyawan',
-    'field_staff',
-    'viewer',
-] as const;
-
-function getInitials(name: string) {
-    return name
-        .split(' ')
-        .map(n => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-}
-
-/**
  * Self-contained heading-band-style action (SyncButton pattern): owns its
- * dialog, form state, and error surfacing. Hidden without `akun.update`.
+ * dialog, form state, and error surfacing. Hidden outside superadmin
+ * (ADR-0008); `akun.update` gates link/unlink only.
  */
-function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun }) {
+function UbahPeranAction({
+    employeeId,
+    akun,
+    assignableRoles,
+}: {
+    employeeId: string;
+    akun: Akun;
+    assignableRoles: string[];
+}) {
     const tenant = useRequiredTenant('employees.show');
     const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
     const [open, setOpen] = useState(false);
+    const initialRoles = akun.roles ?? [];
     const form = useForm<{ roles: string[] }>({
-        roles: akun.roles ?? [],
+        roles: initialRoles,
     });
+    const rolesChanged =
+        form.data.roles.length !== initialRoles.length ||
+        [...form.data.roles].sort().join('|') !==
+            [...initialRoles].sort().join('|');
 
-    // Hidden without akun.update; the server rejects regardless (ADR-0005).
-    if (!auth?.can?.['akun.update']) {
+    // Hidden outside superadmin; the server rejects regardless (ADR-0008).
+    if (!auth?.isSuperAdmin) {
         return null;
     }
 
@@ -137,7 +147,12 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
 
     return (
         <Dialog open={open} onOpenChange={close}>
-            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+            <Button
+                variant="outline"
+                size="sm"
+                className="h-10"
+                onClick={() => setOpen(true)}
+            >
                 <Pencil aria-hidden className="size-3.5" />
                 Ubah Peran
             </Button>
@@ -156,30 +171,38 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
                 )}
                 <form onSubmit={submit} className="space-y-4">
                     <div className="space-y-2">
-                        {ASSIGNABLE_ROLES.map(role => (
-                            <div
-                                key={role}
-                                className="flex items-center justify-between rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800"
-                            >
-                                <Label
-                                    htmlFor={`akun-role-${role}`}
-                                    className="cursor-pointer font-mono text-sm"
+                        {assignableRoles.length === 0 ? (
+                            <p className="text-sm text-ink-muted">
+                                Belum ada peran yang dapat diberikan.
+                            </p>
+                        ) : (
+                            assignableRoles.map(role => (
+                                <div
+                                    key={role}
+                                    className="flex items-center justify-between rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800"
                                 >
-                                    {role}
-                                </Label>
-                                <Checkbox
-                                    id={`akun-role-${role}`}
-                                    checked={form.data.roles.includes(role)}
-                                    onCheckedChange={checked =>
-                                        toggle(role, checked === true)
-                                    }
-                                />
-                            </div>
-                        ))}
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <Label
+                                        htmlFor={`akun-role-${role}`}
+                                        className="cursor-pointer font-mono text-sm"
+                                    >
+                                        {role}
+                                    </Label>
+                                    <Checkbox
+                                        id={`akun-role-${role}`}
+                                        checked={form.data.roles.includes(role)}
+                                        onCheckedChange={checked =>
+                                            toggle(role, checked === true)
+                                        }
+                                    />
+                                </div>
+                            ))
+                        )}
+                        <p className="text-xs text-ink-muted">
                             field_staff selalu berpasangan dengan karyawan:
                             memberikan field_staff otomatis menambahkan
-                            karyawan.
+                            karyawan. Peran guest adalah penanda akun tanpa
+                            peran dan akan tergantikan saat peran nyata
+                            diberikan.
                         </p>
                     </div>
                     <DialogFooter>
@@ -190,7 +213,13 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
                         >
                             Batal
                         </Button>
-                        <Button type="submit" disabled={form.processing}>
+                        <Button
+                            type="submit"
+                            disabled={
+                                form.processing ||
+                                !rolesChanged
+                            }
+                        >
                             {form.processing && (
                                 <LoaderCircle
                                     aria-hidden
@@ -206,214 +235,630 @@ function UbahPeranAction({ employeeId, akun }: { employeeId: string; akun: Akun 
     );
 }
 
-export default function ShowEmployee({ employee, akun }: PageProps) {
-    const initials = getInitials(employee.nama_employee);
+function TautkanAkunAction({ employeeId }: { employeeId: string }) {
+    const tenant = useRequiredTenant('employees.show');
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<AvailableAccount[]>([]);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
+    const [searchRetryToken, setSearchRetryToken] = useState(0);
+    const [selected, setSelected] = useState<AvailableAccount | null>(null);
+    const form = useForm<{ user_id: string }>({ user_id: '' });
 
-    const items = [
-        {
-            label: 'NIK',
-            value: employee.nik_employee ?? '—',
-            icon: Hash,
-            color: 'from-fuchsia-500 to-pink-500',
-        },
-        {
-            label: 'Email',
-            value: employee.email ?? '—',
-            icon: Mail,
-            color: 'from-sky-500 to-indigo-500',
-        },
-        {
-            label: 'Telepon',
-            value: employee.number ?? '—',
-            icon: Phone,
-            color: 'from-emerald-500 to-teal-500',
-        },
-        {
-            label: 'Department',
-            value: employee.department
-                ? `${employee.department.kode_department} — ${employee.department.nama_department ?? ''}`
-                : '—',
-            icon: Building2,
-            color: 'from-amber-500 to-orange-500',
-        },
-        {
-            label: 'Position',
-            value: employee.position?.nama_position ?? '—',
-            icon: Briefcase,
-            color: 'from-violet-500 to-purple-500',
-        },
-        {
-            label: 'Divisi',
-            value: employee.division?.nama_division ?? '—',
-            icon: User,
-            color: 'from-rose-500 to-red-500',
-        },
-    ];
+    // Combobox async: candidates come from the paginated akun/search
+    // endpoint (debounce 300ms + AbortController), replacing the old static
+    // limit(100) prop.
+    useEffect(() => {
+        if (!open) return;
 
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setSearchError(null);
+
+            try {
+                const response = await fetch(
+                    search.url(
+                        { tenant, employee: employeeId },
+                        { query: { q: query } },
+                    ),
+                    {
+                        headers: { Accept: 'application/json' },
+                        signal: controller.signal,
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const page = (await response.json()) as AkunSearchPage;
+                setResults(page.data);
+                setTotal(page.total);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+
+                setResults([]);
+                setTotal(0);
+                setSearchError('Gagal memuat kandidat akun. Coba lagi.');
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        }, 300);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [query, open, tenant, employeeId, searchRetryToken]);
+
+    const retrySearch = () => {
+        setSearchRetryToken(token => token + 1);
+    };
+
+    if (!auth?.can?.['akun.update']) {
+        return null;
+    }
+
+    const close = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            form.clearErrors();
+        }
+    };
+
+    const select = (account: AvailableAccount) => {
+        setSelected(account);
+        form.setData('user_id', String(account.id));
+        setResults([]);
+    };
+
+    const clearSelection = () => {
+        setSelected(null);
+        form.setData('user_id', '');
+        setQuery('');
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.post(link({ tenant, employee: employeeId }).url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                close(false);
+                clearSelection();
+            },
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={close}>
+            <Button
+                variant="outline"
+                size="sm"
+                className="h-10"
+                onClick={() => setOpen(true)}
+            >
+                <Link2 aria-hidden className="size-3.5" />
+                Tautkan Akun
+            </Button>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Tautkan Akun</DialogTitle>
+                    <DialogDescription>
+                        Pilih akun cabang ini yang belum tertaut ke karyawan
+                        lain. Akun super admin tidak dapat dipilih.
+                    </DialogDescription>
+                </DialogHeader>
+                {form.errors.user_id && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{form.errors.user_id}</AlertDescription>
+                    </Alert>
+                )}
+                <form onSubmit={submit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="akun-user">Akun</Label>
+                        {selected ? (
+                            <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/60 px-3 py-2 dark:border-slate-800">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                        {selected.name}
+                                    </p>
+                                    <p className="truncate text-xs text-ink-muted">
+                                        {selected.email}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearSelection}
+                                >
+                                    Ganti
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                <Input
+                                    id="akun-user"
+                                    type="search"
+                                    placeholder="Ketik nama atau email akun…"
+                                    value={query}
+                                    onChange={event =>
+                                        setQuery(event.target.value)
+                                    }
+                                    autoComplete="off"
+                                />
+                                {searchError ? (
+                                    <div
+                                        role="alert"
+                                        className="rounded-lg border border-destructive/30 bg-destructive/10 p-3"
+                                    >
+                                        <p className="text-sm text-destructive">
+                                            {searchError}
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-2 h-9"
+                                            onClick={retrySearch}
+                                        >
+                                            Coba lagi
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto rounded-xl border border-border">
+                                        {loading ? (
+                                            <p className="px-4 py-3 text-sm text-ink-muted">
+                                                <LoaderCircle
+                                                    aria-hidden
+                                                    className="mr-2 inline size-3.5 animate-spin"
+                                                />
+                                                Memuat kandidat akun…
+                                            </p>
+                                        ) : results.length === 0 ? (
+                                            <p className="px-4 py-3 text-sm text-ink-muted">
+                                                Tidak ada akun yang cocok. Akun
+                                                harus berada di cabang ini,
+                                                belum tertaut, dan bukan super
+                                                admin.
+                                            </p>
+                                        ) : (
+                                            <ul>
+                                                {results.map(account => (
+                                                    <li key={account.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                select(account)
+                                                            }
+                                                            className="w-full px-4 py-2 text-left hover:bg-accent"
+                                                        >
+                                                            <span className="block truncate text-sm font-medium">
+                                                                {account.name}
+                                                            </span>
+                                                            <span className="block truncate text-xs text-ink-muted">
+                                                                {account.email}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                                {total > results.length && !loading && (
+                                    <p className="text-xs text-ink-muted">
+                                        Menampilkan {results.length} dari{' '}
+                                        {total} akun — ketik untuk mempersempit.
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <p className="text-xs text-ink-muted">
+                        Akun tanpa peran otomatis menerima role guest (izin
+                        nol) saat ditautkan; superadmin dapat mengubah perannya
+                        setelahnya.
+                    </p>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => close(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={
+                                form.processing || form.data.user_id === ''
+                            }
+                        >
+                            {form.processing && (
+                                <LoaderCircle
+                                    aria-hidden
+                                    className="size-3.5 animate-spin"
+                                />
+                            )}
+                            Tautkan
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function LepasAkunAction({
+    employeeId,
+    email,
+}: {
+    employeeId: string;
+    email?: string | null;
+}) {
+    const tenant = useRequiredTenant('employees.show');
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ akun?: string }>({});
+
+    if (!auth?.can?.['akun.update']) {
+        return null;
+    }
+
+    const close = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            form.clearErrors();
+        }
+    };
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.delete(unlink({ tenant, employee: employeeId }).url, {
+            preserveScroll: true,
+            onSuccess: () => close(false),
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={close}>
+            <Button
+                variant="outline"
+                size="sm"
+                className="h-10 text-destructive hover:bg-destructive/10"
+                onClick={() => setOpen(true)}
+            >
+                <Unlink aria-hidden className="size-3.5" />
+                Lepas Tautan
+            </Button>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Lepas Tautan Akun</DialogTitle>
+                    <DialogDescription>
+                        Lepas tautan {email ?? 'akun ini'} dari karyawan? Akun
+                        tetap ada dan tidak dihapus; hanya hubungan ke karyawan
+                        ini yang dilepas.
+                    </DialogDescription>
+                </DialogHeader>
+                {form.errors.akun && (
+                    <Alert variant="destructive" role="alert">
+                        <AlertDescription>{form.errors.akun}</AlertDescription>
+                    </Alert>
+                )}
+                <form onSubmit={submit}>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => close(false)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            disabled={form.processing}
+                        >
+                            {form.processing && (
+                                <LoaderCircle
+                                    aria-hidden
+                                    className="size-3.5 animate-spin"
+                                />
+                            )}
+                            Lepas Tautan
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+export default function ShowEmployee({
+    employee,
+    akun,
+    assignable_roles = [],
+}: PageProps) {
+    const { auth } = usePage<InertiaConfig['sharedPageProps']>().props;
+    const tenant = useRequiredTenant('employees.show');
+    const canManageRoles = auth?.isSuperAdmin === true;
     const akunSealed = akun?.roles?.includes('super_admin') ?? false;
+    const missingDepartment =
+        !employee.department?.kode_department &&
+        !employee.department?.nama_department;
 
     return (
         <>
             <Head title={employee.nama_employee} />
-            <div className="min-h-[100vh] bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
-                <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-                    <Button variant="ghost" size="sm" className="mb-6" onClick={() => window.history.back()}>
-                        <ArrowLeft className="mr-2 size-4" />
-                        Kembali
-                    </Button>
 
-                    <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-[1px] shadow-[0_20px_80px_-20px_rgba(124,58,237,0.5)]">
-                        <div className="relative rounded-[2rem] bg-white dark:bg-slate-950 p-8 sm:p-10">
-                            <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
-                                <div className="relative">
-                                    <div className="absolute -inset-4 rounded-full bg-gradient-to-br from-indigo-400/30 to-fuchsia-400/30 blur-2xl" />
-                                    <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-4xl font-bold text-white shadow-lg">
-                                        {employee.photo_url ? (
-                                            <img
-                                                src={employee.photo_url}
-                                                alt={employee.nama_employee}
-                                                className="h-full w-full rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            initials
-                                        )}
-                                    </div>
-                                    <span className={`absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br ${items[0].color} text-white ring-4 ring-white dark:ring-slate-950`}>
-                                        <BadgeCheck className="size-4" />
-                                    </span>
-                                </div>
-                                <div className="flex-1">
-                                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
-                                        {employee.nama_employee}
-                                    </h1>
-                                    <p className="mt-2 text-slate-600 dark:text-slate-400">
-                                        {employee.position?.nama_position ?? 'Karyawan'} • {employee.department?.nama_department ?? '—'}
-                                    </p>
-                                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                                        {employee.has_account !== false && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                                <BadgeCheck className="size-3.5" />
-                                                Akun Aktif
-                                            </span>
-                                        )}
-                                        {employee.is_banned && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">
-                                                Diblokir
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
+                <Link
+                    href={employeesIndex({ tenant })}
+                    className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium text-ink shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                    <ArrowLeft aria-hidden className="size-4" />
+                    Kembali ke daftar karyawan
+                </Link>
 
-                    <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {items.map((item) => {
-                            const Icon = item.icon;
-                            return (
-                                <div
-                                    key={item.label}
-                                    className="group relative overflow-hidden rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm transition hover:shadow-xl dark:border-slate-800 dark:bg-slate-900"
-                                >
-                                    <div className={`absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${item.color} opacity-20 blur-2xl transition group-hover:opacity-30`} />
-                                    <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${item.color} text-white shadow-md`}>
-                                        <Icon className="size-6" />
-                                    </div>
-                                    <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">{item.label}</p>
-                                    <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white break-words">{item.value}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
+                {/* Identity + primary actions live together: linking/unlinking an
+                    akun is a top-level record operation, not a buried card. */}
+                <section className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex min-w-0 items-start gap-4">
+                            <EmployeeAvatar
+                                src={employee.photo_url}
+                                name={employee.nama_employee}
+                                size="size-16"
+                                textClass="text-lg"
+                            />
 
-                    <div className="mt-10 grid gap-6 lg:grid-cols-3">
-                        <div className="lg:col-span-2 rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
-                                <User className="size-5 text-violet-500" />
-                                Ringkasan Profil
-                            </h2>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-800/50 dark:to-slate-800/20">
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">ID Karyawan</p>
-                                    <p className="mt-1 font-mono text-sm text-slate-800 dark:text-slate-200">{employee.id}</p>
-                                </div>
-                                <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-800/50 dark:to-slate-800/20">
-                                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bergabung</p>
-                                    <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">
-                                        {employee.created_at ? new Date(employee.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-fuchsia-600 p-[1px] shadow-lg">
-                            <div className="rounded-3xl bg-white p-6 dark:bg-slate-950">
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Status</h3>
-                                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                                    {employee.is_banned ? 'Tidak Aktif' : 'Aktif'}
+                            <div className="min-w-0">
+                                <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                                    {employee.nama_employee}
+                                </h1>
+
+                                <p className="mt-1 text-sm text-ink-muted">
+                                    {employee.position?.nama_position ??
+                                        'Karyawan'}{' '}
+                                    •{' '}
+                                    {employee.department?.nama_department ??
+                                        'Departemen belum ada'}
                                 </p>
-                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                                    Data berasal dari portal Optigate
-                                </p>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <AccountStatusBadge
+                                        hasAccount={employee.has_account === true}
+                                    />
+
+                                    {employee.is_banned && <BannedBadge />}
+
+                                    {missingDepartment && (
+                                        <MissingDataChip label="Departemen belum ada" />
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {akun != null && (
-                        <div className="mt-10 rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
-                                    <ShieldCheck className="size-5 text-violet-500" />
-                                    Peran Akun
-                                </h2>
-                                {/* Not rendered at all when there is no linked
-                                    akun; read-only when the akun is sealed. */}
+                        {akun != null && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                {akun.exists &&
+                                    !akunSealed &&
+                                    canManageRoles && (
+                                        <UbahPeranAction
+                                            key={(akun.roles ?? []).join('|')}
+                                            employeeId={employee.id}
+                                            akun={akun}
+                                            assignableRoles={assignable_roles}
+                                        />
+                                    )}
                                 {akun.exists && !akunSealed && (
-                                    <UbahPeranAction
-                                        key={(akun.roles ?? []).join('|')}
+                                    <LepasAkunAction
                                         employeeId={employee.id}
-                                        akun={akun}
+                                        email={akun.email}
+                                    />
+                                )}
+                                {!akun.exists && (
+                                    <TautkanAkunAction
+                                        employeeId={employee.id}
                                     />
                                 )}
                             </div>
-                            {!akun.exists ? (
-                                <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-                                    Belum ada akun yang terhubung untuk karyawan ini.
-                                </p>
-                            ) : akunSealed ? (
-                                <div className="mt-3 rounded-xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-                                    <p className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
-                                        <Lock aria-hidden className="size-3.5" />
-                                        Akun super admin
-                                    </p>
-                                    <p className="mt-1 text-sm text-amber-700/90 dark:text-amber-300/80">
-                                        Akun ini melewati semua gate, sehingga
-                                        perannya tidak dapat diubah di sini.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="mt-3 space-y-3">
-                                    <p className="text-sm text-slate-600 dark:text-slate-400">{akun.email}</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(akun.roles ?? []).length > 0 ? (
-                                            akun.roles?.map((role) => (
-                                                <span
-                                                    key={role}
-                                                    className="inline-flex items-center rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
-                                                >
-                                                    {role}
-                                                </span>
-                                            ))
-                                        ) : (
-                                            <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                Akun ini belum memiliki peran.
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
+                </section>
+
+                <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+                    <section className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
+                        <h2 className="text-sm font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                            Identitas
+                        </h2>
+
+                        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                            <div className="rounded-lg border border-border bg-surface-raised p-4">
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    NIK
+                                </dt>
+                                <dd className="mt-1 font-mono text-sm text-ink">
+                                    {employee.nik_employee ?? 'Belum ada NIK'}
+                                </dd>
+                            </div>
+
+                            <div className="rounded-lg border border-border bg-surface-raised p-4">
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Email
+                                </dt>
+                                <dd className="mt-1 break-words">
+                                    <TextValue
+                                        value={employee.email}
+                                        fallbackLabel="Email belum ada"
+                                    />
+                                </dd>
+                            </div>
+
+                            <div className="rounded-lg border border-border bg-surface-raised p-4">
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Telepon
+                                </dt>
+                                <dd className="mt-1">
+                                    <TextValue
+                                        value={employee.number}
+                                        fallbackLabel="Telepon belum ada"
+                                    />
+                                </dd>
+                            </div>
+
+                            <div className="rounded-lg border border-border bg-surface-raised p-4">
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Data dibuat
+                                </dt>
+                                <dd className="mt-1 text-sm text-ink">
+                                    {employee.created_at
+                                        ? new Date(
+                                              employee.created_at,
+                                          ).toLocaleDateString('id-ID', {
+                                              day: '2-digit',
+                                              month: 'long',
+                                              year: 'numeric',
+                                          })
+                                        : 'Belum ada data'}
+                                </dd>
+                            </div>
+
+                            <div className="rounded-lg border border-border bg-surface-raised p-4 sm:col-span-2">
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    ID Karyawan
+                                </dt>
+                                <dd className="mt-1 font-mono text-sm break-all text-ink">
+                                    {employee.id}
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
+                        <h2 className="text-sm font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                            Organisasi
+                        </h2>
+
+                        <dl className="mt-4 space-y-4">
+                            <div>
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Departemen
+                                </dt>
+                                <dd className="mt-1">
+                                    <DepartmentValue
+                                        department={employee.department}
+                                    />
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Posisi
+                                </dt>
+                                <dd className="mt-1">
+                                    <TextValue
+                                        value={employee.position?.nama_position}
+                                        fallbackLabel="Posisi belum ada"
+                                    />
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt className="text-[11px] font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                                    Divisi
+                                </dt>
+                                <dd className="mt-1">
+                                    <TextValue
+                                        value={employee.division?.nama_division}
+                                        fallbackLabel="Divisi belum ada"
+                                    />
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
                 </div>
+
+                <section className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
+                    <h2 className="text-sm font-semibold tracking-[0.14em] text-ink-muted uppercase">
+                        Status lokal
+                    </h2>
+                    <p className="mt-3 text-lg font-semibold text-ink">
+                        {employee.is_banned ? 'Diblokir' : 'Tidak diblokir'}
+                    </p>
+                    <p className="mt-1 text-sm text-ink-muted">
+                        Blokir menempel pada karyawan dan tidak dihapus oleh
+                        sinkronisasi portal. Sinkronisasi tidak mengubah status
+                        aktif dari portal.
+                    </p>
+                </section>
+
+                {akun != null && (
+                    <section className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+                                <ShieldCheck
+                                    aria-hidden
+                                    className="size-5 text-info"
+                                />
+                                Akun & Peran
+                            </h2>
+                        </div>
+
+                        {!akun.exists ? (
+                            <p className="mt-3 text-sm text-ink-muted">
+                                Belum ada akun yang terhubung untuk karyawan ini.
+                                Tautkan akun yang sudah memiliki akses login ke
+                                cabang ini.
+                            </p>
+                        ) : akunSealed ? (
+                            <div className="mt-3 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3">
+                                <p className="flex items-center gap-2 text-sm font-medium text-warning-ink">
+                                    <Lock aria-hidden className="size-3.5" />
+                                    Akun super admin
+                                </p>
+                                <p className="mt-1 text-sm text-warning-ink">
+                                    Akun ini melewati semua gate, sehingga
+                                    perannya tidak dapat diubah di sini.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mt-3 space-y-3">
+                                <p className="text-sm text-ink-muted">
+                                    {akun.email}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {(akun.roles ?? []).length > 0 ? (
+                                        akun.roles?.map(role => (
+                                            <span
+                                                key={role}
+                                                className="inline-flex items-center rounded-full border border-border bg-surface-raised px-3 py-1 font-mono text-xs text-ink"
+                                            >
+                                                {role}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-sm text-ink-muted">
+                                            Akun ini belum memiliki peran.
+                                        </span>
+                                    )}
+                                </div>
+
+                                {!canManageRoles && (
+                                    <p className="text-xs text-ink-muted">
+                                        Hanya superadmin yang dapat mengubah
+                                        peran akun.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </section>
+                )}
             </div>
         </>
     );

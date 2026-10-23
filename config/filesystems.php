@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('FILESYSTEM_DISK', 'local'),
+    'default' => env('FILESYSTEM_DISK', 's3'),
 
     /*
     |--------------------------------------------------------------------------
@@ -53,10 +53,16 @@ return [
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),
             'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
+            // AWS_URL dipakai sebagai base URL publik untuk Storage::url().
+            // Pastikan tanpa trailing slash agar tidak jadi double-slash.
+            'url' => rtrim((string) env('AWS_URL', ''), '/'),
+            // AWS_ENDPOINT: endpoint S3-compatible (Minio, Cloudflare R2, dst).
+            // Trailing slash dihapus agar SDK tidak menghasilkan URL ganda.
+            'endpoint' => rtrim((string) env('AWS_ENDPOINT', ''), '/') ?: null,
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            // File diupload sebagai public agar bisa diakses langsung via CDN URL.
+            'visibility' => 'public',
+            'throw' => true,
             'report' => false,
         ],
 

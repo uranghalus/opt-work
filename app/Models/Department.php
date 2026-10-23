@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\DepartmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,13 +21,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $hod_user_id
  * @property string|null $hod_employee_id
  * @property int|null $manager_user_id
- * @property string|null $division_id
  * @property string|null $optigate_department_id
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'hod_employee_id', 'manager_user_id', 'division_id', 'optigate_department_id', 'is_active'])]
+#[Fillable(['kode_department', 'nama_department', 'hod_user_id', 'hod_employee_id', 'manager_user_id', 'optigate_department_id', 'is_active'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
@@ -37,11 +37,38 @@ class Department extends Model
     ];
 
     /**
-     * @return BelongsTo<Division, $this>
+     * HOD shown in the UI: prefer the linked user account, fall back to the
+     * synced employee when the HOD has not signed in yet.
      */
-    public function division(): BelongsTo
+    protected function hodDisplay(): Attribute
     {
-        return $this->belongsTo(Division::class, 'division_id');
+        return Attribute::get(function (): ?array {
+            if ($this->hod !== null) {
+                return [
+                    'name' => $this->hod->name,
+                    'email' => $this->hod->email,
+                    'photo_url' => $this->hod->employee?->photo_url,
+                ];
+            }
+
+            if ($this->hodEmployee !== null) {
+                return [
+                    'name' => $this->hodEmployee->nama_employee,
+                    'email' => $this->hodEmployee->email,
+                    'photo_url' => $this->hodEmployee->photo_url,
+                ];
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * @return HasMany<Division, $this>
+     */
+    public function divisions(): HasMany
+    {
+        return $this->hasMany(Division::class, 'department_id');
     }
 
     /**

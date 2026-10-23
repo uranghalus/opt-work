@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Department;
+use App\Models\Division;
 use App\Models\Position;
 use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
@@ -13,7 +15,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -22,6 +23,7 @@ use Throwable;
 class SyncPositions extends Command
 {
     protected const PER_PAGE = 100;
+
     protected const MAX_PAGES = 100;
 
     public function handle(): int
@@ -45,6 +47,7 @@ class SyncPositions extends Command
 
         $totalCreated = 0;
         $totalUpdated = 0;
+        $processedTenantIds = [];
 
         foreach ($tenants as $tenant) {
             if (blank($tenant->optigate_company_id)) {
@@ -63,6 +66,14 @@ class SyncPositions extends Command
 
             $totalCreated += $created;
             $totalUpdated += $updated;
+            $processedTenantIds[] = $tenant->id;
+        }
+
+        // Persist last sync timestamp on each tenant that was successfully processed.
+        if (! empty($processedTenantIds)) {
+            Tenant::query()->whereIn('id', $processedTenantIds)->update([
+                'last_position_synced_at' => now(),
+            ]);
         }
 
         $this->info("Sinkronisasi selesai: {$totalCreated} dibuat, {$totalUpdated} diperbarui.");
@@ -150,20 +161,27 @@ class SyncPositions extends Command
         $updated = 0;
 
         // Build portal department ID → local department ID map
-        $departmentsByPortalId = \App\Models\Department::withoutGlobalScopes()
+        $departmentsByPortalId = Department::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereNotNull('optigate_department_id')
             ->get()
             ->keyBy(fn ($d) => (string) $d->optigate_department_id);
 
         // Build portal division ID → local division ID map
-        $divisionsByPortalId = \App\Models\Division::withoutGlobalScopes()
+        $divisionsByPortalId = Division::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereNotNull('optigate_division_id')
             ->get()
             ->keyBy(fn ($d) => (string) $d->optigate_division_id);
 
-        DB::transaction(function () use ($tenant, $positions, $departmentsByPortalId, $divisionsByPortalId, &$created, &$updated) {
+        // Build portal position ID → local position ID map (for parent_position_id)
+        $positionsByPortalId = Position::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereNotNull('optigate_position_id')
+            ->get()
+            ->keyBy(fn ($p) => (string) $p->optigate_position_id);
+
+        DB::transaction(function () use ($tenant, $positions, $departmentsByPortalId, $divisionsByPortalId, $positionsByPortalId, &$created, &$updated) {
             foreach ($positions as $position) {
                 if (blank($position['id'] ?? null)) {
                     continue;
@@ -171,6 +189,7 @@ class SyncPositions extends Command
 
                 $portalDepartmentId = $position['department_id'] ?? null;
                 $portalDivisionId = $position['division_id'] ?? null;
+                $portalParentPositionId = $position['parent_position_id'] ?? null;
 
                 $localDepartmentId = $portalDepartmentId
                     ? $departmentsByPortalId->get((string) $portalDepartmentId)?->getKey()
@@ -179,6 +198,17 @@ class SyncPositions extends Command
                 $localDivisionId = $portalDivisionId
                     ? $divisionsByPortalId->get((string) $portalDivisionId)?->getKey()
                     : null;
+
+                $localParentPositionId = $portalParentPositionId
+                    ? $positionsByPortalId->get((string) $portalParentPositionId)?->getKey()
+                    : null;
+
+                // Determine is_vacant from OptiGate or compute locally
+                $isVacant = $position['is_vacant'] ?? true;
+                // If OptiGate doesn't provide is_vacant, compute from employees_count
+                if (! isset($position['is_vacant'])) {
+                    $isVacant = ($position['users_count'] ?? $position['employees_count'] ?? 0) === 0;
+                }
 
                 $record = Position::withoutGlobalScopes()->firstOrNew([
                     'tenant_id' => $tenant->id,
@@ -191,6 +221,11 @@ class SyncPositions extends Command
                     'nama_position' => $position['name'] ?? null,
                     'department_id' => $localDepartmentId,
                     'division_id' => $localDivisionId,
+                    'level' => $position['level'] ?? null,
+                    'level_label' => $position['level_label'] ?? null,
+                    'parent_position_id' => $localParentPositionId,
+                    'is_direct' => $position['is_direct'] ?? false,
+                    'is_vacant' => $isVacant,
                 ])->save();
 
                 $record->wasRecentlyCreated ? $created++ : $updated++;

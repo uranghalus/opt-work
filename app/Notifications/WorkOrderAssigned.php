@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\WahaWhatsAppChannel;
 use App\Models\WorkOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -22,7 +23,7 @@ class WorkOrderAssigned extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', WahaWhatsAppChannel::class];
     }
 
     /**
@@ -51,5 +52,44 @@ class WorkOrderAssigned extends Notification
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage($this->toArray($notifiable));
+    }
+
+    /**
+     * Outbox WhatsApp (ADR-0009): penugasan ke karyawan pelaksana — memuat
+     * deadline SLA (tanggal assign) karena itu aksi yang diharapkan dari penerima.
+     */
+    public function toWhatsApp(object $notifiable): string
+    {
+        $deadline = $this->workOrder->deadline_date?->isoFormat('D MMMM Y');
+
+        $lines = [
+            '👥 *ANDA DITUGASKAN WORK ORDER*',
+            '',
+            '*No:* '.$this->workOrder->nomor_wo,
+            '*Judul:* '.$this->workOrder->title,
+            '*Departemen:* '.($this->workOrder->targetDepartment?->nama_department ?? '-'),
+        ];
+
+        if ($deadline !== null) {
+            $lines[] = '*Deadline:* '.$deadline;
+        }
+
+        if (filled($this->workOrder->assignment_notes)) {
+            $lines[] = '*Catatan:* '.$this->workOrder->assignment_notes;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Detail:';
+        $lines[] = route('work-orders.show', [
+            'tenant' => $this->workOrder->tenant?->code,
+            'workOrder' => $this->workOrder->getKey(),
+        ]);
+
+        return implode("\n", $lines);
+    }
+
+    public function waEvent(): string
+    {
+        return 'work_order.assigned';
     }
 }

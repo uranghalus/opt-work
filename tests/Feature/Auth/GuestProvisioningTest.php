@@ -9,7 +9,6 @@ use App\Models\WorkOrder;
 use App\WorkOrderStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 use Spatie\Permission\Models\Role;
 use Tests\Support\FakeIdentityProvider;
@@ -42,8 +41,6 @@ beforeEach(function () {
     (new RoleAndPermissionSeeder)->run();
 
     Socialite::forgetDrivers();
-
-    URL::forceRootUrl(config('app.url'));
 
     Tenant::factory()->create([
         'name' => FakeIdentityProvider::COMPANY,

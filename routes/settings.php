@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -32,4 +33,15 @@ Route::middleware(['auth'])->prefix('settings/permissions')->name('permissions.'
     Route::post('/', [PermissionController::class, 'store'])->name('store');
     Route::patch('{permission}', [PermissionController::class, 'update'])->name('update');
     Route::delete('{permission}', [PermissionController::class, 'destroy'])->name('destroy');
+});
+
+// Gateway WhatsApp per tenant (ADR-0009 amendmen). Aksi kelola di-Gate di
+// controller (whatsapp.update), halaman sendiri butuh whatsapp.read — pola
+// sama dengan permissions di atas (tanpa route middleware permission).
+Route::middleware(['auth'])->prefix('settings/whatsapp')->name('whatsapp.')->group(function (): void {
+    Route::get('/', [WhatsAppController::class, 'index'])->name('index');
+    Route::post('/', [WhatsAppController::class, 'store'])->name('store');
+    Route::post('/start', [WhatsAppController::class, 'start'])->name('start');
+    Route::post('/stop', [WhatsAppController::class, 'stop'])->name('stop');
+    Route::get('/qr', [WhatsAppController::class, 'qr'])->name('qr');
 });

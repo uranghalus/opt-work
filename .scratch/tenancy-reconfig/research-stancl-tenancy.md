@@ -621,4 +621,4 @@ Yang **perlu diputuskan** saat rekonfigurasi (implikasi, bukan hasil riset):
 
 ## 10. Catatan wiki-link
 
-- Relasinya: `D:\SecondBrain\01 Projects\opti-works\Decisions\tenancy-reconfig.md` (belum dibuat — buat saat keputusan diambil).
+- Relasinya: `C:\Users\Administrator\OneDrive\SecondBrain\01 Projects\opti-works\Decisions\tenancy-reconfig.md` (belum dibuat — buat saat keputusan diambil).

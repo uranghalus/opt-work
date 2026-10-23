@@ -1,10 +1,13 @@
 import { Head } from '@inertiajs/react';
+import { index } from '@/routes/divisions';
+import type { InertiaConfig } from '@inertiajs/core';
 
 type Division = {
     id: string;
     kode_division: string | null;
     nama_division: string;
-    departments_count: number;
+    department: { nama_department: string | null } | null;
+    is_direct: boolean;
 };
 
 type PageProps = {
@@ -36,10 +39,13 @@ export default function ShowDivision({ division }: PageProps) {
                     </div>
                     <div className="flex items-center justify-between gap-4 px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
-                            Jumlah Department
+                            Department Induk
                         </dt>
-                        <dd className="text-sm tabular-nums">
-                            {division.departments_count}
+                        <dd className="text-sm">
+                            {division.department?.nama_department ??
+                                (division.is_direct
+                                    ? 'Direct (GM)'
+                                    : 'Belum dipetakan')}
                         </dd>
                     </div>
                 </dl>
@@ -48,8 +54,21 @@ export default function ShowDivision({ division }: PageProps) {
     );
 }
 
-ShowDivision.layout = {
-    breadcrumbs: [{ title: 'Data Master' }, { title: 'Divisi' }],
-    title: (division: Division) => division.nama_division,
-    description: 'Detail divisi',
+ShowDivision.layout = (
+    props: PageProps & InertiaConfig['sharedPageProps'],
+) => {
+    const tenant = props.activeTenant ?? undefined;
+
+    return {
+        breadcrumbs: [
+            { title: 'Data Master' },
+            {
+                title: 'Divisi',
+                href: tenant ? index({ tenant }) : undefined,
+            },
+            { title: props.division.nama_division },
+        ],
+        title: props.division.nama_division,
+        description: 'Detail divisi',
+    };
 };

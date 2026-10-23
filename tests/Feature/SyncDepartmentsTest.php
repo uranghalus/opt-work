@@ -125,6 +125,27 @@ it('deactivates departments that disappeared from the portal', function () {
         ->and(Department::withoutGlobalScopes()->where('tenant_id', $this->hq->id)->where('optigate_department_id', '1')->first()?->is_active)->toBeTrue();
 });
 
+it('deactivates nothing when the portal returns an empty list (safety guard)', function () {
+    Tenant::forgetCurrent();
+
+    $kept = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '7',
+        'kode_department' => 'KEEP',
+        'nama_department' => 'Kept Department',
+        'is_active' => true,
+    ]);
+    $kept->tenant_id = $this->hq->id;
+    $kept->save();
+
+    // Perbaikan 2026-10-24: response kosong = sinyal data tidak lengkap,
+    // bukan "semua department hilang" — data tetap aktif.
+    fakePortalDepartments([]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect(Department::withoutGlobalScopes()->find($kept->getKey())->is_active)->toBeTrue();
+});
+
 it('syncs every active optigate tenant when no tenant option is given', function () {
     Tenant::forgetCurrent();
 
@@ -230,6 +251,71 @@ it('clears hod_user_id when the portal no longer lists a hod', function () {
     $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
 
     expect($department->refresh()->hod_user_id)->toBeNull();
+});
+
+it('links manager_user_id via the portal manager relation', function () {
+    Tenant::forgetCurrent();
+
+    $managerEmployee = Employee::withoutGlobalScopes()->make([
+        'nama_employee' => 'Sari Manager',
+        'optigate_user_id' => 'manager-uuid-1',
+    ]);
+    $managerEmployee->tenant_id = $this->hq->id;
+    $managerEmployee->save();
+
+    $managerUser = User::create([
+        'name' => 'Sari Manager',
+        'email' => 'sari.manager@tataoptima.com',
+        'password' => bcrypt('password'),
+        'employee_id' => $managerEmployee->id,
+        'tenant_id' => $this->hq->id,
+    ]);
+
+    fakePortalDepartments([
+        [
+            'id' => 2,
+            'code' => 'IT',
+            'name' => 'Information Technology',
+            'hod' => ['id' => 'hod-uuid-1', 'name' => 'Budi HOD'],
+            'manager' => ['id' => 'manager-uuid-1', 'name' => 'Sari Manager'],
+        ],
+    ]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    $department = Department::withoutGlobalScopes()->where('optigate_department_id', '2')->first();
+
+    expect($department->manager_user_id)->toBe($managerUser->id)
+        // Manager yang belum punya employee/akun lokal tidak menggantung.
+        ->and($department->hod_user_id)->toBeNull();
+});
+
+it('clears manager_user_id when the portal no longer lists a manager', function () {
+    Tenant::forgetCurrent();
+
+    $department = Department::withoutGlobalScopes()->make([
+        'optigate_department_id' => '5',
+        'kode_department' => 'HRD',
+        'nama_department' => 'Human Resources',
+    ]);
+    $department->tenant_id = $this->hq->id;
+    $department->save();
+
+    $oldManager = User::create([
+        'name' => 'Manager Lama',
+        'email' => 'manager.lama@tataoptima.com',
+        'password' => bcrypt('password'),
+        'tenant_id' => $this->hq->id,
+    ]);
+    $department->forceFill(['manager_user_id' => $oldManager->id])->save();
+
+    fakePortalDepartments([
+        ['id' => 5, 'code' => 'HRD', 'name' => 'Human Resources'],
+    ]);
+
+    $this->artisan('app:sync-departments', ['--tenant' => $this->hq->id])->assertSuccessful();
+
+    expect($department->refresh()->manager_user_id)->toBeNull();
 });
 
 it('persists last_department_synced_at on the tenant after a successful sync', function () {

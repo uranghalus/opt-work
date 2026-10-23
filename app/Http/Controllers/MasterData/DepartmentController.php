@@ -4,113 +4,154 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Models\Department;
-use App\Models\Division;
-use App\Models\User;
+use App\Models\Employee;
+use App\Models\Tenant;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DepartmentController extends Controller
 {
+    /**
+     * Master data is a short list — a branch has a dozen departments, not a
+     * thousand. A generous page size keeps the whole list on one screen, and
+     * the pagination footer stays as a safety net so a bigger branch is still
+     * fully reachable.
+     */
+    private const PER_PAGE = 50;
+
+    /** @var list<string> */
+    private const MONTH_NAMES = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+    ];
+
     public function index(): Response
     {
         $tenant = tenant();
 
         $departments = Department::query()
-            ->with(['division', 'hodEmployee', 'hod'])
-            ->withCount(['employees', 'positions'])
+            ->with([
+                'divisions' => fn ($query) => $query
+                    ->select(['id', 'department_id', 'nama_division'])
+                    ->orderBy('nama_division'),
+                'hodEmployee',
+                'hod.employee',
+                'manager',
+            ])
+            ->withCount(['employees', 'positions', 'divisions'])
             ->orderBy('kode_department')
-            ->paginate(10)
-            ->withQueryString();
+            ->paginate(self::PER_PAGE)
+            ->withQueryString()
+            ->through(fn (Department $department) => $department->append('hod_display'));
 
         return Inertia::render('departments/index', [
             'departments' => $departments,
-            'last_synced_at' => $tenant?->last_department_synced_at,
+            'stats' => $this->orgStats(),
+            'last_synced_at' => $tenant?->last_department_synced_at?->toIso8601String(),
+            'last_synced_label' => $this->formatSyncedAt($tenant?->last_department_synced_at),
         ]);
     }
 
-    public function create(): Response
+    /**
+     * The three numbers the index page is actually about: how many
+     * departments exist, how many people they hold, and where the HOD seat is
+     * still empty. The last figure decides whether the page shows a warning.
+     *
+     * @return array{departments: int, employees: int, without_hod: int, max_employees: int}
+     */
+    private function orgStats(): array
     {
-        return Inertia::render('departments/create', [
-            'divisions' => Division::query()->orderBy('nama_division')->get(['id', 'nama_division']),
-            'users' => User::query()->orderBy('name')->get(['id', 'name']),
-        ]);
+        $maxEmployees = Employee::query()
+            ->whereNotNull('department_id')
+            ->selectRaw('count(*) as aggregate')
+            ->groupBy('department_id')
+            ->orderByDesc('aggregate')
+            ->value('aggregate');
+
+        return [
+            'departments' => Department::query()->count(),
+            'employees' => Employee::query()->whereNotNull('department_id')->count(),
+            'without_hod' => Department::query()
+                ->whereNull('hod_user_id')
+                ->whereNull('hod_employee_id')
+                ->count(),
+            'max_employees' => (int) ($maxEmployees ?? 0),
+        ];
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * Format the last-sync timestamp on the server.
+     *
+     * A locale-dependent client format makes the server markup and the client
+     * render disagree, which React reports as a hydration mismatch and pays
+     * for by discarding the whole server-rendered tree. Formatting here keeps
+     * one locale and one timezone for both sides.
+     */
+    private function formatSyncedAt(?CarbonInterface $syncedAt): ?string
     {
-        $validated = $request->validate([
-            'kode_department' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('departments', 'kode_department')->where('tenant_id', tenant()?->getTenantKey()),
-            ],
-            'nama_department' => ['required', 'string', 'max:255'],
-            'division_id' => ['nullable', Rule::exists('divisions', 'id')->where('tenant_id', tenant()?->getTenantKey())],
-            'hod_user_id' => ['nullable', Rule::exists('users', 'id')],
-            'manager_user_id' => ['nullable', Rule::exists('users', 'id')],
-        ]);
+        if ($syncedAt === null) {
+            return null;
+        }
 
-        Department::create($validated);
+        $local = $syncedAt->copy()->setTimezone(config('app.timezone'));
 
-        return redirect()
-            ->route('departments.index', ['tenant' => tenant()?->code])
-            ->with('success', 'Department berhasil dibuat.');
+        // The month name is concatenated, never passed through format():
+        // "Okt" would be read as format specifiers (O = UTC offset, k = hour,
+        // t = days in month).
+        return $local->format('j').' '.self::MONTH_NAMES[$local->month - 1].' '.$local->format('Y, H:i');
     }
 
-    public function show(Department $department): Response
+    /**
+     * Departments are resolved manually against the route's tenant: implicit
+     * binding runs before tenancy bootstraps, so the BelongsToTenant scope
+     * cannot be trusted at bind time (same pattern as EmployeeController and
+     * WorkOrderController).
+     */
+    protected function resolveDepartmentFromRoute(Request $request): Department
     {
+        $tenant = Tenant::whereCode((string) $request->route('tenant'))->first();
+        abort_unless($tenant !== null, 404);
+
+        return Department::withoutGlobalScope('tenant')
+            ->where('id', (string) $request->route('department'))
+            ->where('tenant_id', $tenant->id)
+            ->firstOrFail();
+    }
+
+    public function show(Request $request): Response
+    {
+        $department = $this->resolveDepartmentFromRoute($request);
+
         return Inertia::render('departments/show', [
-            'department' => $department->load(['division', 'hod', 'manager'])->loadCount(['employees', 'positions']),
+            'department' => $department
+                ->load([
+                    'divisions' => fn ($query) => $query->orderBy('nama_division'),
+                    'positions' => fn ($query) => $query
+                        ->with('division')
+                        ->orderBy('nama_position'),
+                    'hod.employee',
+                    'hodEmployee',
+                    'manager',
+                ])
+                ->loadCount(['employees', 'positions', 'divisions'])
+                ->append('hod_display'),
         ]);
-    }
-
-    public function edit(Department $department): Response
-    {
-        return Inertia::render('departments/edit', [
-            'department' => $department,
-            'divisions' => Division::query()->orderBy('nama_division')->get(['id', 'nama_division']),
-            'users' => User::query()->orderBy('name')->get(['id', 'name']),
-        ]);
-    }
-
-    public function update(Request $request, Department $department): RedirectResponse
-    {
-        $validated = $request->validate([
-            'kode_department' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('departments', 'kode_department')
-                    ->where('tenant_id', $department->tenant_id)
-                    ->ignore($department),
-            ],
-            'nama_department' => ['required', 'string', 'max:255'],
-            'division_id' => ['nullable', Rule::exists('divisions', 'id')->where('tenant_id', $department->tenant_id)],
-            'hod_user_id' => ['nullable', Rule::exists('users', 'id')],
-            'manager_user_id' => ['nullable', Rule::exists('users', 'id')],
-        ]);
-
-        $department->update($validated);
-
-        return redirect()
-            ->route('departments.show', ['tenant' => $department->tenant->code, 'department' => $department])
-            ->with('success', 'Department berhasil diperbarui.');
-    }
-
-    public function destroy(Department $department): RedirectResponse
-    {
-        $department->delete();
-
-        return redirect()
-            ->route('departments.index', ['tenant' => tenant()?->code])
-            ->with('success', 'Department berhasil dihapus.');
     }
 
     /**

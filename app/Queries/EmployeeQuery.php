@@ -16,12 +16,15 @@ class EmployeeQuery
     ];
 
     /**
-     * Build the query with search, sorting, and eager loading.
+     * Build the query with search, sorting, filters, and eager loading.
+     *
+     * @param  array{department_id?: ?string, division_id?: ?string, position_id?: ?string, has_account?: ?bool, status?: string}  $filters
      */
     public function build(
         ?string $search,
         string $sort,
-        string $direction
+        string $direction,
+        array $filters = []
     ): Builder {
         $query = Employee::query()
             ->with(['department', 'position', 'division', 'user'])
@@ -35,6 +38,7 @@ class EmployeeQuery
                 'department_id',
                 'position_id',
                 'division_id',
+                'banned_at',
                 'created_at',
                 'tenant_id',
             ]);
@@ -53,6 +57,28 @@ class EmployeeQuery
                         ->orWhere('nama_division', 'like', $searchTerm));
             });
         }
+
+        $query
+            ->when(
+                $filters['department_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('department_id', $id)
+            )
+            ->when(
+                $filters['division_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('division_id', $id)
+            )
+            ->when(
+                $filters['position_id'] ?? null,
+                fn (Builder $q, string $id) => $q->where('position_id', $id)
+            )
+            ->when(
+                ($filters['has_account'] ?? null) !== null,
+                fn (Builder $q) => ($filters['has_account'] ?? false)
+                    ? $q->whereHas('user')
+                    : $q->whereDoesntHave('user')
+            )
+            ->when(($filters['status'] ?? 'all') === 'banned', fn (Builder $q) => $q->whereNotNull('banned_at'))
+            ->when(($filters['status'] ?? 'all') === 'active', fn (Builder $q) => $q->whereNull('banned_at'));
 
         $sort = in_array($sort, self::SORTABLE_COLUMNS, true) ? $sort : 'nama_employee';
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';

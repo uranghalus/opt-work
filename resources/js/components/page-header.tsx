@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+﻿import { usePage } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { navGroups, navIcon, navToneStyles } from '@/components/nav-items';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -31,6 +31,8 @@ export function PageHeader({
         activeTenant: tenant,
         isSuperAdmin: page.props.auth?.isSuperAdmin,
         canReadRoles: page.props.auth?.can?.['role.read'],
+        canReadPermissions: page.props.auth?.can?.['permission.read'],
+        canReadWorkData: page.props.auth?.can?.['work-data.read'],
     })
         .flatMap((group) => group.items)
         .find((item) => !item.disabled && isCurrentOrParentUrl(item.href));

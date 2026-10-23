@@ -29,6 +29,30 @@ class EmployeeIndexRequest extends FormRequest
             'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
             'sort' => ['nullable', 'string', Rule::in(EmployeeQuery::SORTABLE_COLUMNS)],
             'direction' => ['nullable', 'string', 'in:asc,desc'],
+            'department_id' => ['nullable', 'uuid'],
+            'division_id' => ['nullable', 'uuid'],
+            'position_id' => ['nullable', 'uuid'],
+            'has_account' => ['nullable', 'boolean'],
+            'status' => ['nullable', 'string', 'in:all,active,banned'],
+        ];
+    }
+
+    /**
+     * The validated organization/account/status filters, normalised for
+     * EmployeeQuery (null = no filter, status defaults to "all").
+     *
+     * @return array{department_id: ?string, division_id: ?string, position_id: ?string, has_account: ?bool, status: string}
+     */
+    public function filters(): array
+    {
+        $hasAccount = $this->validated('has_account');
+
+        return [
+            'department_id' => $this->validated('department_id'),
+            'division_id' => $this->validated('division_id'),
+            'position_id' => $this->validated('position_id'),
+            'has_account' => $hasAccount === null ? null : filter_var($hasAccount, FILTER_VALIDATE_BOOLEAN),
+            'status' => $this->validated('status', 'all'),
         ];
     }
 

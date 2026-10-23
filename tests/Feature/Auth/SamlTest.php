@@ -3,7 +3,6 @@
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
-use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 use LightSaml\SamlConstants;
 use SocialiteProviders\Manager\SocialiteWasCalled;
@@ -25,8 +24,6 @@ beforeEach(function () {
     // manager memoizes driver instances (including their resolved users)
     // across the multiple requests some tests make.
     Socialite::forgetDrivers();
-
-    URL::forceRootUrl(config('app.url'));
 });
 
 test('the saml2 driver is registered when SocialiteWasCalled is dispatched', function () {

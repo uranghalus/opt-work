@@ -148,6 +148,13 @@ class TenantSwitchController extends Controller
         // Redirect to the intended page or tenant dashboard - use code for route
         $redirectUrl = $request->query('redirect', $this->urlGenerator->route('dashboard', ['tenant' => $tenant->code]));
 
+        // Open-redirect guard: the signed switch URL is not user-bound, so a
+        // member of the same cabang could mint a link redirecting a colleague
+        // to an external site. Only same-app relative paths pass.
+        if (! is_string($redirectUrl) || (! str_starts_with($redirectUrl, '/') || str_starts_with($redirectUrl, '//'))) {
+            $redirectUrl = $this->urlGenerator->route('dashboard', ['tenant' => $tenant->code]);
+        }
+
         return redirect($redirectUrl)
             ->with('success', "Berpindah ke cabang: {$tenant->name}");
     }

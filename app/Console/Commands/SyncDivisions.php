@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Department;
 use App\Models\Division;
 use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
@@ -192,11 +193,37 @@ class SyncDivisions extends Command
         $created = 0;
         $updated = 0;
 
-        DB::transaction(function () use ($tenant, $divisions, &$created, &$updated) {
+        $departmentsByPortalId = Department::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereNotNull('optigate_department_id')
+            ->get()
+            ->keyBy(fn (Department $department) => (string) $department->optigate_department_id);
+
+        DB::transaction(function () use ($tenant, $divisions, $departmentsByPortalId, &$created, &$updated) {
             foreach ($divisions as $div) {
                 if (blank($div['id'] ?? null)) {
                     continue;
                 }
+
+                $portalDepartmentId = $div['department_id'] ?? null;
+                $localDepartmentId = filled($portalDepartmentId)
+                    ? $departmentsByPortalId->get((string) $portalDepartmentId)?->getKey()
+                    : null;
+
+                if (filled($portalDepartmentId) && $localDepartmentId === null) {
+                    Log::warning('Optigate division sync: parent department not found.', [
+                        'tenant_id' => $tenant->id,
+                        'division_optigate_id' => (string) $div['id'],
+                        'department_optigate_id' => (string) $portalDepartmentId,
+                    ]);
+                }
+
+                // is_direct is explicit in the portal payload. When the flag
+                // is absent, treat the division as unmapped rather than
+                // guessing that it is direct.
+                $isDirect = array_key_exists('is_direct', $div)
+                    ? (bool) $div['is_direct']
+                    : false;
 
                 $record = Division::withoutGlobalScopes()->firstOrNew([
                     'tenant_id' => $tenant->id,
@@ -206,8 +233,10 @@ class SyncDivisions extends Command
                 $record->forceFill([
                     'tenant_id' => $tenant->id,
                     'optigate_division_id' => (string) $div['id'],
+                    'department_id' => $localDepartmentId,
                     'kode_division' => $div['code'] ?? null,
                     'nama_division' => $div['name'] ?? null,
+                    'is_direct' => $isDirect,
                     'is_active' => true,
                 ])->save();
 
@@ -227,6 +256,14 @@ class SyncDivisions extends Command
             ->filter(fn (array $div) => filled($div['id'] ?? null))
             ->map(fn (array $div) => (string) $div['id'])
             ->values();
+
+        // Response kosong = sinyal data tidak lengkap (API regression), bukan
+        // "semua divisi hilang" — jangan menonaktifkan seluruh data.
+        if ($activeIds->isEmpty()) {
+            $this->warn("[{$tenant->code}] Tidak ada divisi dari Optigate — penonaktifan dilewati sebagai pengaman.");
+
+            return 0;
+        }
 
         $stale = Division::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)

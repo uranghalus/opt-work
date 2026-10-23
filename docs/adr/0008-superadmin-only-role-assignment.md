@@ -1,0 +1,35 @@
+---
+status: accepted
+---
+
+# Role grant/revoke is superadmin-only
+
+ADR-0005 put role assignment behind `akun.update` and left the grant hierarchy as an open question (Q6). The employee page could therefore let any `akun.update` holder assign roles such as `admin_tenant`, `general_manager`, or a custom role with elevated permissions. The policy selected for the MVP is the strict one: only the platform superadmin grants and revokes roles.
+
+## Decisions
+
+1. **Only a platform superadmin may grant or revoke roles.** The check is `User::isSuperAdmin()` (the `is_super_admin` flag or the `super_admin` role), not `akun.update`.
+2. **`akun.update` keeps its account-management meaning.** It still gates link/unlink and the tenant-scoped candidate list; it no longer exposes `assignable_roles` or authorizes `syncAkunRoles`.
+3. **The UI is read-only for everyone else.** A viewer with `akun.read` still sees the account and its current roles, but the "Ubah Peran" action is hidden and the card states that only a superadmin can change roles.
+4. **`super_admin` remains unassignable and sealed.** No caller, including a superadmin, can grant the bypass role through this surface or edit an account that already holds it.
+5. **Custom roles remain assignable by a superadmin.** They are not given a rank because there is no delegated hierarchy in this phase. If role management is later delegated, it needs an explicit rank/capability model, not an implicit `akun.update` grant.
+6. **Server-side enforcement is authoritative.** The FormRequest/UI are convenience layers; the controller returns 403 for every non-superadmin, including an `admin_tenant` that holds `akun.update`.
+
+## Consequences
+
+- `admin_tenant` can still link/unlink accounts, but cannot assign roles. A newly linked roleless account needs a superadmin before it can access the app.
+- `docs/adr/0005-user-role-assignment.md` decision 2 is amended: `akun.update` no longer gates role writes.
+- Existing role-assignment tests use a superadmin actor; new tests assert `admin_tenant` and permission-only actors receive 403 and see an empty `assignable_roles`.
+- Future delegation requires a new decision (for example an explicit role rank or a dedicated `role.assign` capability) rather than widening `akun.update` again.
+
+## Amendment (2026-10-22) — provisioning at link is not a manual grant
+
+Linking an account to a karyawan now provisions the zero-permission `guest` role inside the same transaction when the account holds no role at all (`EmployeeController::linkAkun`, surfaced in the audit trail as `after.auto_role`; decision Q4). This is **system provisioning, not a manual grant**: it runs automatically as part of the link the superadmin has already authorized, the actor never selects a role, and the only role it can ever provision is the sealed, zero-permission `guest` of Decision 4 — the same bootstrap `LoginProvisioningService` already applies at SSO login. It therefore falls outside this ADR's scope, which governs the *manual* grant and revoke of real roles: unlinking never revokes roles (including a provisioned `guest`), while granting or revoking any real role remains exclusively a platform superadmin action.
+
+## References
+
+- ADR-0005 — original `akun.update` role-assignment surface, amended here.
+- ADR-0004 — RBAC vocabulary, superadmin bypass, and global roles.
+- `.scratch/employee-page/research/employee-page-improvements.md` — Q6 gap and evidence.
+- `app/Http/Controllers/MasterData/EmployeeController.php` — `syncAkunRoles` and `show`.
+- `resources/js/pages/employees/show.tsx` — read-only role card for non-superadmins.

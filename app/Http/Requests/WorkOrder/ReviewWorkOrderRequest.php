@@ -3,6 +3,7 @@
 namespace App\Http\Requests\WorkOrder;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * The HOD execution decision (WO slice 1, ticket 02). Errors report under
@@ -28,6 +29,10 @@ class ReviewWorkOrderRequest extends FormRequest
             'action' => ['required', 'in:execute_immediately,schedule'],
             'scheduled_date' => [
                 'required_if:action,schedule',
+                // Mirror aturan store: WO eksekusi langsung tidak punya jadwal —
+                // tanggal liar akan membuat WO muncul di Timeline padahal
+                // statusnya HodApproved (whereNotNull scheduled_date).
+                Rule::prohibitedIf($this->input('action') === 'execute_immediately'),
                 'nullable',
                 'date',
                 'after_or_equal:today',

@@ -99,6 +99,11 @@ const compactLabel: Partial<Record<WoStatus, string>> = {
     in_progress: 'Dikerjakan',
 };
 
+/** Full label for a status — for text contexts without the badge (timelines). */
+export function statusLabel(status: WoStatus): string {
+    return statusSpec[status].label;
+}
+
 export function StatusBadge({
     status,
     compact = false,

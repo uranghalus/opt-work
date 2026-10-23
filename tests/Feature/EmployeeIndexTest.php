@@ -6,8 +6,8 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Tenant;
 use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->hq = createTestTenant([
@@ -22,9 +22,11 @@ beforeEach(function () {
     ]);
 
     // Seed roles
-    (new class extends Seeder {
-        public function run(): void {
-            (new \Database\Seeders\RoleAndPermissionSeeder)->run();
+    (new class extends Seeder
+    {
+        public function run(): void
+        {
+            (new RoleAndPermissionSeeder)->run();
         }
     })->run();
 });
@@ -35,8 +37,8 @@ afterEach(function () {
 
 it('returns paginated employees scoped to current tenant', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::factory()->count(15)->create([
@@ -63,8 +65,8 @@ it('returns paginated employees scoped to current tenant', function () {
 
 it('searches employees by NIK', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::create([
@@ -96,8 +98,8 @@ it('searches employees by NIK', function () {
 
 it('searches employees by name', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::create([
@@ -129,8 +131,8 @@ it('searches employees by name', function () {
 
 it('searches employees by email', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::create([
@@ -154,9 +156,9 @@ it('searches employees by email', function () {
 
 it('searches employees by department code', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
-    $department2 = Department::create(['kode_department' => 'DEP-HR', 'nama_department' => 'HR', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
+    $department2 = Department::create(['kode_department' => 'DEP-HR', 'nama_department' => 'HR']);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::create([
@@ -188,8 +190,8 @@ it('searches employees by department code', function () {
 
 it('searches employees by position name', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position1 = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
     $position2 = Position::create(['nama_position' => 'Manager', 'department_id' => $department->id]);
 
@@ -222,8 +224,8 @@ it('searches employees by position name', function () {
 
 it('paginates employees with per_page parameter', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::factory()->count(25)->create([
@@ -265,8 +267,8 @@ it('paginates employees with per_page parameter', function () {
 
 it('sorts employees by specified column and direction', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::create([
@@ -323,8 +325,8 @@ it('sorts employees by specified column and direction', function () {
 
 it('includes department, position, division, and user relations in response', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
     $user = createUser(['tenant_id' => $this->hq->id]);
 
@@ -357,8 +359,8 @@ it('includes department, position, division, and user relations in response', fu
 
 it('preserves URL state on pagination', function () {
     initTenant('hq');
-    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
-    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT', 'division_id' => $division->id]);
+    $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
+    $division = Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional', 'department_id' => $department->id]);
     $position = Position::create(['nama_position' => 'Developer', 'department_id' => $department->id]);
 
     Employee::factory()->count(25)->create([
@@ -399,13 +401,28 @@ it('denies access for users from another tenant', function () {
     $response->assertForbidden();
 });
 
-it('allows access for users with correct tenant linkage', function () {
+it('allows access for users with correct tenant linkage and employee.read', function () {
     initTenant('hq');
     Division::create(['kode_division' => 'DIV-OPS', 'nama_division' => 'Operasional']);
     $user = createUser(['tenant_id' => $this->hq->id]);
+    $user->givePermissionTo('employee.read');
 
     $response = $this->actingAs($user)->get('/hq/employees');
     $response->assertOk();
+});
+
+it('denies access for users without employee.read', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs($user)->get('/hq/employees')->assertForbidden();
+});
+
+it('denies the employee sync without employee.read', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => $this->hq->id]);
+
+    $this->actingAs($user)->post('/hq/employees/sync')->assertForbidden();
 });
 
 it('super admin can access any tenant employees', function () {

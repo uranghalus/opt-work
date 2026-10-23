@@ -4,15 +4,19 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Tenant;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderCreated;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
+    (new RoleAndPermissionSeeder)->run();
     createTestTenant([
         'optigate_company_id' => 1,
         'code' => 'hq',
@@ -63,7 +67,7 @@ it('stores image attachments for the work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    Storage::fake('public');
+    Storage::fake('s3');
 
     $this
         ->actingAs($requester)
@@ -77,7 +81,7 @@ it('stores image attachments for the work order', function () {
 
     $workOrder = WorkOrder::query()->sole();
     expect($workOrder->attachments)->toHaveCount(1);
-    expect(Storage::disk('public')->exists($workOrder->attachments[0]))->toBeTrue();
+    expect(Storage::disk('s3')->exists($workOrder->attachments[0]))->toBeTrue();
 });
 
 it('rejects a requested schedule date for urgent by accident', function () {
@@ -144,10 +148,11 @@ it('falls back to the department manager when no hod is set', function () {
 });
 
 it('falls back to hod-role users assigned to the department when no direct hod or manager is set', function () {
+    (new RoleAndPermissionSeeder)->run();
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-EL', 'nama_department' => 'Electrical']);
     $hodUser = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    makeHod($hodUser);
+    $hodUser->assignRole('hod');
     $employee = Employee::create(['nik_employee' => 'NIK-HOD-1', 'nama_employee' => 'HOD Dept']);
     $employee->update(['department_id' => $department->getKey()]);
     $hodUser->update(['employee_id' => $employee->getKey()]);
@@ -264,12 +269,13 @@ it('lists work orders for the requester and for reviewable departments', functio
         );
 });
 
-it('shows a work order to any user in the owning branch', function () {
+it('shows a work order to a member with work-order.read', function () {
     initTenant('hq');
     $hq = Tenant::where('code', 'hq')->first();
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => $hq->id]);
     $colleague = createUser(['tenant_id' => $hq->id]);
+    $colleague->givePermissionTo('work-order.read');
 
     $workOrder = WorkOrder::create([
         'nomor_wo' => 'WO-TEST-'.fake()->unique()->numerify('####'),
@@ -292,8 +298,7 @@ it('shows a work order to any user in the owning branch', function () {
         ->first();
     expect($controllerQuery)->not->toBeNull();
 
-    // Tenant-level isolation is the rule: within a branch, any authenticated
-    // user may read the work order — it is not restricted to the requester.
+    // D3: detail WO diproteksi gate work-order.view (pihak terlibat ATAU read)
     $this
         ->actingAs($colleague)
         ->get("/hq/work-orders/{$workOrder->getKey()}")
@@ -375,7 +380,7 @@ it('serves an attachment only to users of the owning branch', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
-    Storage::fake('public');
+    Storage::fake('s3');
 
     $this
         ->actingAs($requester)
@@ -390,14 +395,18 @@ it('serves an attachment only to users of the owning branch', function () {
     $workOrder = WorkOrder::query()->sole();
     $path = $workOrder->attachments[0];
 
+    $reader = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $reader->givePermissionTo('work-order.read');
+
+    // Commit 8b89c89 moved attachments to the s3 disk and the endpoint now
+    // redirects to the CDN/S3 URL instead of streaming the bytes.
     $this
-        ->actingAs(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]))
+        ->actingAs($reader)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/0")
-        ->assertOk()
-        ->assertHeader('content-type', 'image/png');
+        ->assertRedirect(Storage::disk('s3')->url($path));
 
     // Attachments are tenant-scoped, so a plain /storage/... URL must not work.
-    expect(Storage::disk('public')->path($path))->not->toBe(public_path('storage/'.$path));
+    expect(Storage::disk('s3')->path($path))->not->toBe(public_path('storage/'.$path));
 
     $plant1 = Tenant::where('code', 'plant-1')->first();
     $this
@@ -413,8 +422,78 @@ it('returns 404 for an attachment index that does not exist', function () {
         'target_department_id' => $department->getKey(),
     ]);
 
+    $reader = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $reader->givePermissionTo('work-order.read');
+
     $this
-        ->actingAs(createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]))
+        ->actingAs($reader)
         ->get("/hq/work-orders/{$workOrder->getKey()}/attachments/5")
         ->assertNotFound();
+});
+
+it('registers only the work order routes backed by controller methods', function () {
+    expect(Route::has('work-orders.index'))->toBeTrue()
+        ->and(Route::has('work-orders.create'))->toBeTrue()
+        ->and(Route::has('work-orders.store'))->toBeTrue()
+        ->and(Route::has('work-orders.show'))->toBeTrue()
+        ->and(Route::has('work-orders.timeline'))->toBeTrue()
+        ->and(Route::has('work-orders.assign'))->toBeTrue()
+        ->and(Route::has('work-orders.edit'))->toBeFalse()
+        ->and(Route::has('work-orders.update'))->toBeFalse()
+        ->and(Route::has('work-orders.destroy'))->toBeFalse();
+});
+
+it('passes the WO event history on the detail page', function () {
+    initTenant('hq');
+    $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $department = Department::create([
+        'kode_department' => 'DEP-IT',
+        'nama_department' => 'IT',
+    ]);
+    $workOrder = WorkOrder::create([
+        'nomor_wo' => 'WO-HIST-0001',
+        'requester_user_id' => $requester->getKey(),
+        'target_department_id' => $department->getKey(),
+        'category' => WorkOrderCategory::Normal,
+        'title' => 'Histori WO',
+        'description' => 'Test riwayat',
+        'status' => WorkOrderStatus::Assigned,
+    ]);
+
+    $created = WorkOrderEvent::record($workOrder, $requester, 'created', null, WorkOrderStatus::WaitingHod->value);
+    $created->forceFill(['created_at' => now()->subMinutes(5)])->save();
+    WorkOrderEvent::record($workOrder, $requester, 'assigned', WorkOrderStatus::WaitingHod->value, WorkOrderStatus::Assigned->value);
+
+    $this->actingAs($requester)
+        ->get(route('work-orders.show', ['tenant' => 'hq', 'workOrder' => $workOrder->getKey()]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/show')
+            ->has('events', 2)
+            ->where('events.0.action', 'assigned')
+            ->where('events.0.user_name', $requester->name)
+            ->where('events.1.action', 'created'));
+});
+
+it('lists only active departments on the WO create page', function () {
+    initTenant('hq');
+    $user = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    Department::create([
+        'kode_department' => 'DEP-AKTIF',
+        'nama_department' => 'Aktif',
+        'is_active' => true,
+    ]);
+    Department::create([
+        'kode_department' => 'DEP-NONAKTIF',
+        'nama_department' => 'Nonaktif',
+        'is_active' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('work-orders.create', ['tenant' => 'hq']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/create')
+            ->has('departments', 1)
+            ->where('departments.0.nama_department', 'Aktif'));
 });

@@ -6,7 +6,6 @@ use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
@@ -198,10 +197,19 @@ class SyncTenants extends Command
     {
         $seenIds = $companies->pluck('id')->filter()->all();
 
+        // Response kosong (API regression, token scope berubah, dll.) TIDAK
+        // boleh menonaktifkan seluruh tenant terkelola — perlakukan sebagai
+        // sinyal data tidak lengkap, bukan "semua perusahaan hilang".
+        if ($seenIds === []) {
+            $this->warn('Tidak ada perusahaan dari Optigate — penonaktifan dilewati sebagai pengaman.');
+
+            return 0;
+        }
+
         $missing = Tenant::query()
             ->whereNotNull('optigate_company_id')
             ->where('is_active', true)
-            ->when($seenIds !== [], fn (Builder $query) => $query->whereNotIn('optigate_company_id', $seenIds))
+            ->whereNotIn('optigate_company_id', $seenIds)
             ->get();
 
         foreach ($missing as $tenant) {

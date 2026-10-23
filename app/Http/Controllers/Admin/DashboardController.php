@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tenant;
-use App\Models\Division;
 use App\Models\Department;
-use App\Models\Position;
+use App\Models\Division;
 use App\Models\Employee;
+use App\Models\Position;
+use App\Models\Tenant;
 use App\Models\WorkOrder;
 use App\Services\TenantAccess;
 use Inertia\Inertia;

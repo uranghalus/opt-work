@@ -122,6 +122,25 @@ it('exposes the account status and ban state in the index response', function ()
     });
 });
 
+it('exposes the local ban state in the index response', function () {
+    initTenant('hq');
+    $this->admin = makeSuperAdmin(createUser());
+
+    Employee::create([
+        'tenant_id' => $this->hq->id,
+        'nama_employee' => 'Banned Employee',
+        'banned_at' => now(),
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get('/hq/employees')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('employees/index')
+            ->where('employees.data.0.is_banned', true)
+            ->where('employees.data.0.banned_at', fn ($value) => $value !== null));
+});
+
 it('keeps the ban flag when the portal sync runs', function () {
     initTenant('hq');
     $this->admin = makeSuperAdmin(createUser());

@@ -1,6 +1,4 @@
 import { TenantSelector } from '@/components/admin/TenantSelector';
-import { Building2, Users, Briefcase, FileText, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface TenantStats {
     id: string;
@@ -22,7 +20,7 @@ interface AdminDashboardProps {
     canManageTenants: boolean;
 }
 
-export default function AdminDashboard({ tenants, canManageTenants }: AdminDashboardProps) {
+export default function AdminDashboard({ tenants }: AdminDashboardProps) {
     return (
         <div className="space-y-6">
             {/* Page Header */}

@@ -47,7 +47,7 @@ it('keeps the forward-looking allowlist honest by failing on gated entries', fun
 function rbacAllowedVerbs(string $resource): array
 {
     return match ($resource) {
-        'work-order' => ['read', 'create', 'update', 'delete', 'review', 'assign', 'submit', 'verify'],
+        'work-order' => ['read', 'create', 'update', 'delete', 'view', 'review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
         default => ['read', 'create', 'update', 'delete'],
     };
 }
@@ -103,14 +103,10 @@ function rbacForwardLookingPermissions(): array
     return [
         // work-order — CRUD gating lands with the WO flow, same as the verbs below.
         'work-order.create' => 'gated when the WO flow lands',
-        'work-order.read' => 'gated when the WO flow lands',
         'work-order.update' => 'gated when the WO flow lands',
         'work-order.delete' => 'gated when the WO flow lands',
-        // work-order workflow verbs — review/assign gated as the WO flow
-        // slices land (review + assign: WorkOrderController, wo-slice-1);
-        // submit and verify stay forward-looking until issue 04 gates them.
-        'work-order.submit' => 'gated when the WO flow lands',
-        'work-order.verify' => 'gated when the WO flow lands',
+        // work-order workflow verbs — review/assign/submit/verify all
+        // gated in WorkOrderController.
 
         // Master data — gated when master data moves from flags to permissions.
         'division.create' => 'gated when master data moves to permissions',
@@ -121,7 +117,6 @@ function rbacForwardLookingPermissions(): array
         'department.read' => 'gated when master data moves to permissions',
         'department.update' => 'gated when master data moves to permissions',
         'department.delete' => 'gated when master data moves to permissions',
-        'employee.read' => 'gated when master data moves to permissions',
         'tenant.create' => 'gated when master data moves to permissions',
         'tenant.read' => 'gated when master data moves to permissions',
         'tenant.update' => 'gated when master data moves to permissions',
@@ -134,15 +129,15 @@ function rbacForwardLookingPermissions(): array
         // Work planning / work data / daily work — gated when those modules land.
         'work-planning.create' => 'gated when the module lands',
         'work-planning.read' => 'gated when the module lands',
-        'work-planning.update' => 'gated when the module lands',
+        // work-planning.update — gated in WorkPlanningController (FR-2.4);
+        // delete lands when a delete surface is decided.
         'work-planning.delete' => 'gated when the module lands',
+        // work-data — read/update gated in WorkDataController (FR-3.x);
+        // create/delete land when the manual-creation surface is decided.
         'work-data.create' => 'gated when the module lands',
-        'work-data.read' => 'gated when the module lands',
-        'work-data.update' => 'gated when the module lands',
         'work-data.delete' => 'gated when the module lands',
-        'daily-work.create' => 'gated when the module lands',
-        'daily-work.read' => 'gated when the module lands',
-        'daily-work.update' => 'gated when the module lands',
+        // daily-work — read/update/create/delete gated in DailyWorkController
+        // (FR-5.x: index/update karyawan; templates/adhoc/team HOD).
 
         // akun — role assignment (ADR-0005); update gated in
         // HandleInertiaRequests + EmployeeController, so it is no longer

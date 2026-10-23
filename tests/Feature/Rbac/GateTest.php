@@ -84,8 +84,20 @@ it('shares the full hak-akses flag set with a user holding them', function () {
         'permission.delete' => true,
         'akun.read' => false,
         'akun.update' => false,
+        'whatsapp.read' => false,
+        'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
+        'work-order.submit' => false,
+        'work-order.verify' => false,
+        'work-data.read' => false,
+        'work-data.update' => false,
+        'daily-work.read' => false,
+        'daily-work.update' => false,
+        'daily-work.create' => false,
+        'daily-work.delete' => false,
+        'work-order.extend' => false,
+        'work-order.extend-approve' => false,
     ]);
 });
 
@@ -108,8 +120,20 @@ it('shares only role.read with a read-only viewer', function () {
         'permission.delete' => false,
         'akun.read' => false,
         'akun.update' => false,
+        'whatsapp.read' => false,
+        'whatsapp.update' => false,
         'work-order.review' => false,
         'work-order.assign' => false,
+        'work-order.submit' => false,
+        'work-order.verify' => false,
+        'work-data.read' => false,
+        'work-data.update' => false,
+        'daily-work.read' => false,
+        'daily-work.update' => false,
+        'daily-work.create' => false,
+        'daily-work.delete' => false,
+        'work-order.extend' => false,
+        'work-order.extend-approve' => false,
     ]);
 });
 
@@ -130,8 +154,20 @@ it('shares the full hak-akses flag set with a super admin holding zero permissio
         'permission.delete' => true,
         'akun.read' => true,
         'akun.update' => true,
+        'whatsapp.read' => true,
+        'whatsapp.update' => true,
         'work-order.review' => true,
         'work-order.assign' => true,
+        'work-order.submit' => true,
+        'work-order.verify' => true,
+        'work-data.read' => true,
+        'work-data.update' => true,
+        'daily-work.read' => true,
+        'daily-work.update' => true,
+        'daily-work.create' => true,
+        'daily-work.delete' => true,
+        'work-order.extend' => true,
+        'work-order.extend-approve' => true,
     ]);
 });
 

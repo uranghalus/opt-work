@@ -29,8 +29,20 @@ export type Auth = {
         'permission.delete': boolean;
         'akun.read': boolean;
         'akun.update': boolean;
+        'whatsapp.read': boolean;
+        'whatsapp.update': boolean;
         'work-order.review': boolean;
         'work-order.assign': boolean;
+        'work-order.submit': boolean;
+        'work-order.verify': boolean;
+        'work-order.extend': boolean;
+        'work-order.extend-approve': boolean;
+        'work-data.read': boolean;
+        'work-data.update': boolean;
+        'daily-work.read': boolean;
+        'daily-work.update': boolean;
+        'daily-work.create': boolean;
+        'daily-work.delete': boolean;
     };
 };
 

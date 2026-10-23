@@ -1,5 +1,306 @@
 # TODO - Spatie Multitenancy v4 Migration Progress
 
+> **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
+
+## Daily Work FR-5.x (2026-10-23 → 2026-10-24) — DONE (Task 1–5 selesai; sisa Task 6 vault sync)
+
+Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`.
+
+### Selesai
+
+- [x] **Task 1 — Foundation (commit `7cca083`):** migrasi `daily_work_templates` (weekdays json 0–6, `is_active`) + `daily_works` (`status` pending|in_progress|done, `location`, `source` template|adhoc, unique `(template_id, work_date)`, FK template nullOnDelete) + model `DailyWorkTemplate`/`DailyWork` (pola `#[Fillable]`+`BelongsToTenant`+`HasUuids`) + factory + state `forTemplate`. Test `DailyWorkFoundationTest` 3/3 pass.
+- [x] **Task 2 — Materialize + index + update (commit sesi 2026-10-24):** `DailyWorkService::materializeFor` + `DailyWorkController` index/update + halaman `daily-work/index.tsx` + 2 test file hijau. Fix lintas-DB: kolom DATE di sqlite tersimpan `Y-m-d H:i:s` → query `whereDate()` + binding Carbon di `materializeFor` (perbandingan string Y-m-d menghasilkan daftar kosong). Redirect update balik ke tanggal item (`?date=` hilang bila item = hari ini).
+- [x] **Task 3 — Template CRUD + adhoc + team (commit sesi 2026-10-24):** endpoints `templates` (list/store/update/destroy) + `adhoc` (store, notifikasi) + `team` (preview) di `DailyWorkController`, scoping HOD (hod_user_id ∪ manager_user_id), izin `daily-work.delete` baru (katalog + roleDefaults HOD/admin), notifikasi `DailyWorkAssigned` (database+broadcast+WA outbox, no-op tanpa WAHA_URL, akun tak ter-link → log warning), allowlist honesty dibersihkan (read/update/create keluar).
+- [x] **Task 4 — UI karyawan:** `daily-work/index.tsx` — card list (bukan tabel), navigasi tanggal prev/next/"Hari ini", search debounce 300ms + filter status (pola `employees/index.tsx`), aksi status 3 tombol (Belum/Proses/Selesai, aria-pressed) + input lokasi inline hanya bila `can_update`, paginasi server-side, EmptyState, Skeleton saat navigating.
+- [x] **Task 5 — UI HOD:** `daily-work/templates.tsx` (card grid template, dialog create/edit + weekday picker toggle 7 hari, filter karyawan/search/status-aktif, hapus via ConfirmDialog, tugas tambahan dialog → redirect team) + `daily-work/team.tsx` (preview harian bawahan, read-only). Nav: "Daily Work" (gated `daily-work.read`) + "Template Daily" (gated `daily-work.create`) menggantikan placeholder "Segera".
+
+### Sisa (Task 6 — bukan kode)
+
+- [ ] Vault sync: catat sesi + ADR-lite keputusan (`daily-work.delete` verb, `whereDate` pola) — dijalankan sesi berikutnya.
+- [ ] `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete` belum di-grant ke role existing di DB dev — additive-only).
+
+---
+
+## WO Review Decisions (D1/D2/D3 + Frontend Redesign) — 2026-10-23 — DONE
+
+- [x] **D2 — Jam operasional WITA + migrasi data one-off (−8 jam):** config `app.timezone` → `Asia/Makassar`; migrasi eksplisit 21 tabel bisnis (47 kolom datetime/timestamp) dengan guard sqlite; kolom DATE (`deadline_date` dll.) TIDAK digeser; tabel runtime (jobs/sessions/cache) TIDAK digeser. Test: `AppTimezoneTest` (config + `now()` offset + `Carbon::today()`), `DeadlineCalculatorTest` pin bug SLA (Senin 07:00 WITA → deadline Kamis, bukan Rabu). Order-of-operations: config + migrasi dieksekusi bersamaan saat idle. Commit `2db886f`.
+
+- [x] **D1 — Visibilitas pelaksana (scopeVisibleFor):** scope `WorkOrder::scopeVisibleFor($query, User, Collection $deptIds)` dipakai index + timeline; klausul: requester ∪ dept (hod/deputy) ∪ assigned_employees (via `whereJsonContains`). Pelaksana lintas-dept kini lihat WO di daftar & timeline (memblokir FR-1.7 submit sebelumnya). Test `WorkOrderVisibilityTest` 4/4 (cross-dept assignee, timeline, unrelated out, requester/HOD unchanged). Commit `bf84e3f`.
+
+- [x] **D3 — Gate `work-order.view` di show/attachment:** komposit: requester / HOD/manager dept target / pelaksana (assigned_employees) ATAU `work-order.read`. Guest (role guest, nol permission ADR-0006) terblokir 403 + audit `access.denied`. Role staff default memegang `work-order.read`; GM/DGM sudah punya read. `work-order.read` dikeluarkan dari forward-looking allowlist (honesty test). Test `WorkOrderDetailViewGateTest` 8/8 (guest 403, requester 200, cross-dept assignee 200, HOD 200, reader 200, tanpa-read 403, cross-tenant 404, attachment gated). Commit `13d3a15`.
+
+- [x] **F1 — Index redesign (impeccable, mode Operate, dunia DESIGN.md):** card-list tanpa tabel, 3 sinyal (deadline rail 3px kiri, CategoryBadge, StatusBadge, due row + label proximity), pagination (prev/next + nomor halaman, pola `departments/index.tsx`), empty state + CTA. Payload index + `deadline_state`/`deadline_label`. Verifikasi: tsc + build + screenshot (desktop+mobile, light+dark). Commit `6a5fdaf`.
+
+- [x] **F2 — Show page defect cleanup:** hapus paragraf "Dimohon oleh" duplikat; breadcrumb hanya `Work Order`; urutan radio ReviewPanel (Eksekusi Langsung dulu); `min` date input pakai tanggal lokal; lampiran/hasil wrap `<a target="_blank" rel="noopener">`; ConfirmDialog pada "Setujui & Tutup WO" + "Setujui Extend"; DeadlineChip (3 sinyal) di atas badge; `DeadlineRail` fallback "On track" → "Sesuai jadwal". Commit `fa0d42d`.
+
+- [x] **F3 — Create page polish:** layout band ownership (hapus Heading lokal, pakai `.layout`); kategori → RadioCard 3 opsi (icon, label, konsekuensi); file list dengan max-3 client clamp + remove button; form dalam kartu kedalaman (Depth Rule). ConfirmDialog baru di `components/confirm-dialog.tsx` (Dialog tanpa Trigger, external open). RadioGroup component baru di `components/ui/radio-group.tsx`. Commit `3b4e5aa`.
+
+---
+
+## Extend deadline WO telat + re-assign pasc-assign (2026-10-23) — DONE
+
+- [x] **FR-2.3–2.5 extend deadline (`extend_requests`)** — commit `feat(work-order): extend deadline WO telat via extend_requests (FR-2.3-2.5)` + UI `1dd908c`:
+      tabel `extend_requests` (audit siapa/kapan/alasan: TL, HOD, reject reason) + enum
+      `pending_team_leader|pending_hod|approved|rejected`; service guard: WO telat +
+      status eksekusi aktif, maks 3 hari/request, maks 3 approved/WO, blokir pending
+      duplikat; approval berjenjang TL (jika dept punya TL) → HOD (rantai =
+      hod_user_id → manager → role hod → super admin, mirror eskalasi); pengaju tak
+      bisa memutuskan pengajuannya sendiri; HOD approve final menggeser deadline
+      **N hari kerja** (`DeadlineCalculator::addBusinessDays`, weekend+libur dilewati),
+      `extend_count`/`extend_reason`/`extended_at` terisi, event histori WO
+      `extend_requested/extend_tl_approved/extend_approved/extend_rejected`;
+      notifikasi database+broadcast (tanpa WA — ADR-0009 tepat 4 event); izin
+      `work-order.extend` (karyawan/field_staff/TL/HOD/admin) + `work-order.extend-approve`
+      (TL/HOD/admin, viewer dikecualikan) + `app:grant-default-permissions` dijalankan
+      (8 grant ke 5 peran, migrasi jalan di dev). 11 test `WorkOrderExtendTest` (store
+      TL/HOD-stage, 403, duplikat, rantai salah tahap, self-approval, finalize
+      deadline literal, reject, 409 decided, weekend+libur). UI: panel Ajukan Extend
+      (radio 1–3 hari + alasan) hanya saat WO telat & extendable, kartu status
+      pengajuan + keputusan Setujui/Tolak untuk approver, baris "Extend Deadline"
+      di Keputusan HOD, label riwayat 4 event; flag `can` + payload
+      `extend_requests`. **Extend Work Schedule (DGM/GM) tetap backlog** — butuh
+      `work_planning` (FR-2.4).
+- [x] **Catatan duplikasi (penting):** sesi paralel 2026-10-22 23:50 sempat
+      mengimplementasikan FR-2.3/2.5 yang sama di worktree terpisah — branch
+      `feature/extend-deadline` (tip `43208c2`, 8 commit, ada di origin, **belum
+      pernah di-merge**). Implementasi itu kini **superseded**; **delta uniknya
+      sudah di-port ke branch ini 2026-10-23** (commit `combine`): jendela
+      "mendekati telat" ≤2 hari kerja (keputusan user di sesi itu), WA outbound
+      untuk 3 event extend (ADR-0009 "event lain menyusul bersama fiturnya"),
+      props visibilitas panel server-side (`can_request_extend`/
+      `can_decide_extend` — mengganti kalkulasi jendela di browser), test
+      `DeadlineCalculatorTest`. **Tidak diport** (bentrok desain): filing
+      HOD-only (branch ini permission-based sesuai roleDefaults yang sudah
+      di-grant), skema `status=pending`+kolom `current_stage`, FormRequest,
+      factory. **Branch lama dihapus 2026-10-23 atas konfirmasi user**
+      (remote + ref lokal bersih; delta telah di-port sehingga tidak ada
+      pekerjaan yang hilang).
+- [x] **Keputusan grill 0(a) — re-assign pasc-assign dibuka** — commit `409a60c`:
+      `assign()` kini menerima status `assigned` (panel Revisi Penugasan fungsional);
+      `assigned_at`/deadline tetap dari assign pertama (SLA tidak bergeser);
+      `pending_verify`/`closed` tetap 409. 2 test baru di `WorkOrderVerifyTest`.
+- [x] **Keputusan 0(b)** — sudah dieksekusi sesi 2026-10-22 (audit `access.denied`
+      via render hook, commit `5aa64ec`). **0(c)** — field FR-1.1 (prioritas/jumlah
+      personel/jenis kerusakan) **ditunda** sesuai rekomendasi; tetap di Backlog.
+- [x] **Fix regression tsc** — commit `81d0793`: resolusi merge `4e83000` meninggalkan
+      `String(permission.id)` di halaman Izin (2 error tsc di HEAD) → kirim number;
+      `tsc --noEmit` kembali exit 0.
+- [x] **Verifikasi**: tsc exit 0; `npm run build` hijau; detector impeccable 0 temuan
+      (show.tsx + permissions); pint bersih; full suite lihat baris wrap-up di bawah.
+
+## Rencana besok (2026-10-22) — inti alur WO + defect audit — DONE (2026-10-22 + 2026-10-23)
+
+Detail/rationale lengkap: vault `Planning/2026-10-22-rencana-inti-alur-wo-dan-defect.md`. Prinsip: **tutup alur WO (submit → verify → close) dulu** sebelum modul lanjutan. Tiap langkah selesai → centang juga item Backlog yang cocok di bawah, lalu promosikan ke section DONE.
+
+- [x] **0. Grilling 3 keputusan kecil (XS):** (a) revisi assign pasc-assign — **DIBUKA** (commit `409a60c`, jaga `assigned_at`/deadline); (b) FR-6.3 log 403 — **audit_events** via render hook (commit `5aa64ec`); (c) field FR-1.1 kurang — **TUNDA** (tetap di Backlog).
+- [x] **1. Route WO tanpa method (XS):** `->only([index, create, store, show])` + test rute (commit `40714c8`).
+- [x] **2. Eskalasi H+6 → DGM/GM (S):** resolve GM/DGM dulu + bugfix `whereHasRoles` → `whereHas('roles')` (commit `40714c8`).
+- [x] **3. FR-1.7 submit hasil (M):** commits `5a03ae0`+`d205dc6`+`dd3f549`+`40714c8` (2026-10-22).
+- [x] **4. FR-1.8 verifikasi HOD (M):** approve → Closed; reject → Revision (deadline tidak reset) — commits `5a03ae0`+`d205dc6`+`dd3f549` (2026-10-22).
+- [x] **5. UI histori WO FR-1.9 (M):** load events di show + section Riwayat (commit `dd3f549`, 2026-10-22).
+- [x] **6. Listener realtime frontend (S):** `realtime-notifications.tsx` Echo handler toast+badge (commit `e81f041`, 2026-10-22).
+- [x] **7. FR-6.3 log 403 (S) + FR-4.1 filter `is_active` (XS):** commit `5aa64ec` + dropdown create WO (2026-10-22).
+- [x] **8. Wrap-up:** suite hijau (2026-10-23: **538 test, 530 passed, 8 skipped, 0 gagal**) + pint + tsc exit 0 + build; Backlog dicentang; commit per-topik; vault sync 2026-10-23.
+
+**Di luar besok:** Daily Work, Work Data, `extend_requests`, `work_planning` (sesi terpisah setelah alur close hijau); keputusan terbuka §8 (#2/#4/#5/#8) butuh konfirmasi user; UAT/pilot/metrics.
+
+## Backlog PRD audit 2026-10-21 (belum dikerjakan)
+
+Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-status.md) (bukti `file:line`/test per FR). Status hidup per section: [PRD.md](PRD.md). Checklist ini = semua 🟡/⬜ yang belum punya entri DONE di bawah.
+
+**Inti alur WO (prioritas MVP):**
+
+- [x] **FR-1.7 + FR-1.8 — submit hasil & verifikasi HOD (tutup WO):** **selesai 2026-10-22** (commits `5a03ae0`…`40714c8`; enum InProgress/PendingVerify/Revision/Closed kini tercapai). Issue `.scratch/wms-mvp/issues/04-submit-verify-work-data.md`.
+- [x] **FR-2.3–2.5 — extend deadline (`extend_requests`):** **selesai 2026-10-23** — lihat section "Extend deadline WO telat" di atas; maks 3 hari/request, maks 3 approved/WO, blokir pending duplikat, TL→HOD berjenjang. **FR-2.4 Extend Work Schedule (DGM/GM) tetap backlog** (butuh `work_planning`). Issue: `06-extend-work-order-schedule.md`.
+- [x] **FR-2.4 + WO Terjadwal lanjutan — `work_planning` + Extend Work Schedule (approval DGM/GM):** **selesai 2026-10-23** — tabel `work_plannings` (1 planning per WO, lahir saat review 'schedule'); detail jadwal (jam/jenis/durasi/budget/catatan) bebas diupdate HOD; `tgl_jadwal` HANYA bergeser lewat Extend Work Schedule: HOD mengaju (tanggal > jadwal berjalan + alasan) → `pending_extend_approval` → DGM/GM approve (WO `scheduled_date` bergeser, extend_count++, audit siapa/kapan/notes — FR-2.5) / reject (revert usulan); pengaju tak bisa memutuskan sendiri; notifikasi DGM/GM + pengaju (database+broadcast+WA); event histori `schedule_extend_*`; panel UI di WO show ter-gate props server-side. 11 test `WorkPlanningTest`. Commit gabungan dengan gate detail WO (D3) karena dua sesi di tree yang sama.
+- [x] **FR-3.x — Work Data Management:** **slice 1 selesai 2026-10-23** — tabel
+      `work_data`+`work_data_pekerja` (satu record per WO closed, unik per
+      `work_order_id`), auto-generate di `approve()` (snapshot no kerja,
+      department, jam pengerjaan assigned→closed, status, gambar
+      sebelum/sesudah, pekerja), finalisasi analitik post-mortem SEKALI
+      (conditional update `whereNull(finalized_at)` → append-only, beku
+      selamanya), index terfilter (department/tanggal/status) + detail
+      read-only + nav "Work Data" ter-gate `work-data.read`; izin
+      work-data.read/update keluar dari allowlist forward-looking (honesty
+      test). 8 test `WorkDataTest` + 3 update GateTest. OQ revisi
+      post-closing: WO closed terminal di MVP (`// OQ` di kode).
+- [x] **FR-5.x — Daily Work:** **SELESAI 2026-10-24** — Task 1–5 (foundation, materialize+index+update, template CRUD+adhoc+team, UI karyawan, UI HOD) — lihat section "Daily Work FR-5.x" di atas. Issue: `07-daily-work-templates.md` · plan: `.scratch/daily-work/plan.md` · design: `.scratch/daily-work/design.md`.
+- [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
+
+**Defect / keputusan kecil (temuan audit):**
+
+- [x] **Eskalasi H+6 → DGM/GM:** **selesai 2026-10-22** (commit `40714c8`) — GM/DGM di-resolve dulu, fallback rantai HOD.
+- [x] **Route WO tanpa method (latent 500):** **selesai 2026-10-22** (commit `40714c8`) — resource dibatasi `->only([index, create, store, show])`.
+- [x] **Revisi assign pasc-assign:** **dibuka 2026-10-23** (commit `409a60c`) — status `assigned` kini bisa di-re-assign, `assigned_at`/deadline tidak bergeser.
+- [x] **Listener realtime frontend:** **selesai 2026-10-22** (commit `e81f041`) — `realtime-notifications.tsx`: toast + reload badge saat `.notification()`.
+- [x] **FR-6.3 — "tercatat di log":** **selesai 2026-10-22** (commit `5aa64ec`) — `AccessDeniedAuditor` mencatat setiap 403 ke `audit_events` (subject synthetic `access`). **FR-6.2 gating sisa (masih terbuka):** `work-order.create/read/update/delete` + master data masih di forward-looking allowlist (`PermissionConsistencyTest`).
+- [x] **FR-1.9 — UI histori WO:** **selesai 2026-10-22** (commit `dd3f549`) — events di-load di `show` + section Riwayat; event extend menyusul 2026-10-23. **UI reader `audit_logs`/`audit_events` masih terbuka** (lanjutan dari item Audit trail).
+- [x] **FR-4.1** — dropdown department tujuan difilter `is_active` (**selesai 2026-10-22**, commit `40714c8`); **FR-7.1 event modul baru** (submit/revisi/extend/Daily Work) menyusul modulnya — submit/verify/extend kini ada (in-app), **§9 metrics** belum diinstrumentasi (angka PRD masih usulan).
+- [ ] **OQ-8 sisa:** 13 skenario UAT (artefak tidak ada di repo) + pilot live 1 department — suite hijau ✓ sudah.
+- [ ] **Keputusan terbuka §8 PRD (jangan diambil sendiri tanpa konfirmasi):** #2 re-assign karyawan resign/nonaktif · #4 SLA revisi berulang · #5 urutan antrean (FIFO?) · #8 delegasi approver extend.
+- [x] **Sinkronisasi dokumen (selesai 2026-10-23):** issue `.scratch/wms-mvp/issues` 02 → `done` (create/routing/notifikasi shipped; field FR-1.1 tetap Backlog) & 03 → `done` (slice 1 selesai, commits `6e47cf3`…`553c775`); TODO `### Deferred` dikoreksi — WA outbound shipped via ADR-0009, yang tertunda tinggal email gateway. Klaim "AGENTS.md belum ter-amend soal WA" ternyata **stale** — verifikasi disk 2026-10-23: 4 amendmen WA (Non-Goals §Goals, Notifikasi, Modul MVP, OQ-7 DIKECUALIKAN) sudah ada semua di file.
+
+## Rencana hari ini (2026-10-21, diperbarui pasca-grill) - DONE (2026-10-21 21:13)
+
+Semua keputusan di bawah SUDAH settled lewat grilling 2026-10-21 (user menerima semua rekomendasi). Rencana lengkap + urutan kerja: vault `Planning/2026-10-22-rencana-kerja-lanjutan.md`. **Implementasi selesai** — full suite 492 (484 passed, 8 skipped, 0 failed), pint/tsc/build hijau, migrasi `audit_logs` jalan di dev; log sesi: vault `Sessions/2026-10/21/2113-impl-audit-ban-broadcast-filter`.
+
+- [x] **Q7 - semantik ban/login (SETTLED: blokir login):** `EnsureEmployeeNotBanned` di grup `web` — employee ter-link ber-`banned_at` → logout + redirect `saml.denied` alasan `banned`; menutup login baru + sesi aktif. 7 test `EmployeeBanLoginTest` (sesi mati, password login ditolak, unban pulih, superadmin exempt, rute non-tenant).
+- [x] **Q4 - linked-but-roleless (SETTLED: auto-assign `karyawan` saat link):** hanya bila akun nol role, dalam transaksi link, tercatat di audit `after.auto_role`; bukan pelanggaran Q6 (UI grant/revoke manual tetap superadmin-only, ADR-0008; sebidang auto-`guest` ADR-0006). 4 test di `EmployeeAccountLinkTest` termasuk e2e login landing.
+- [x] **Q14 - staf lintas tenant (SETTLED: satu home tenant per akun, tanpa pivot):** last-assertion-wins dipertahankan; **ADR-0010** dibuat (`docs/adr/0010-satu-home-tenant-per-akun.md`, accepted); pivot `employee_user` = v2. Di-link dari vault Decisions.
+- [x] **Defect broadcast (SETTLED: perbaiki hari ini):** `BroadcastNotificationCreated::class` (unwrapped) masuk `not_tenant_aware_jobs` + `CallQueuedListener::class => 'class'` dikembalikan di `queueable_to_job`; test `BroadcastQueueTenancyTest` **red-green dibuktikan** (tanpa entry → `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`).
+- [x] **Audit trail durable:** tabel `audit_logs` + enum `AuditAction` + `AuditLog` + `AuditLogger` (tulisan dalam transaksi bisnis = atomic, tanpa dependency baru); `Log::info` link/unlink diganti audit; syncAkunRoles/ban/unban ikut tercatat; `Log::warning` race tetap log; 7 test `AuditTrailTest` (termasuk atomicity + tenant scoping). UI reader & input `reason` = lanjutan.
+- [x] **Employee page filters/search:** filter `department_id`/`division_id` (UUID), `status`, `akun` di `EmployeeIndexRequest`+`EmployeeQuery` + `filter_options` di payload; endpoint `GET employees/{employee}/akun/search` (gate `akun.update`, search+paginasi) menggantikan daftar statis `limit(100)` (dihapus dari payload show); `show.tsx` pakai combobox async (debounce+AbortController). 7 test `EmployeeIndexFilterTest` + 4 test search.
+- [x] **WhatsApp Gateway integration:** selesai hari ini (slice 1 outbound + slice 2
+      sesi-per-tenant) — lihat section "WhatsApp Gateway slice 1" dan "slice 2" di
+      bawah. Item ini tadinya "discovery dulu + di luar Non-Goals"; keputusan grill
+      G1–G7 + rencana slice 2 (Q1–Q5) + implementasi + test sudah masuk.
+
+## WhatsApp Gateway slice 1 — outbound (2026-10-21) — DONE
+
+- [x] **Grill G1–G7 dijawab user (semua mengikuti rekomendasi):** WAHA session global
+      (`WAHA_SESSION=optiworks`), secret di env (bukan tabel settings), slice = tepat 4
+      event (created/reviewed/assigned/escalated), nomor = `employees.number` fallback
+      `users.phone`, outbox `wa_messages`, command-bot inbound ditunda (route webhook
+      tidak dibuat), AGENTS.md di-amend + ADR-0009. Spec/issue:
+      `.scratch/wa-gateway/spec.md` + `issues.md`. Item Q1-exemption, Q6 min-1-role,
+      Q7 `resolveEmail()` = parkir ke sesi berikutnya (sesuai grill).
+- [x] **Implementasi:** `config/waha.php` + `.env.example` (WAHA_URL/WAHA_API_KEY/
+      WAHA_SESSION); `app/Services/WahaClient.php` (sendText `->throw()` tanpa auto-retry,
+      `normalizeChatId` 08xx→628xx@c.us + hormati chatId mentah, `sessionStatus`);
+      migrasi + model `app/Models/WaMessage.php` (outbox: pending/sent/failed/skipped,
+      attempts, last_error, sent_at; **tanpa `BelongsToTenant`** — dibaca job tanpa
+      konteks tenant, `tenant_id` = data); `app/Channels/WahaWhatsAppChannel.php`
+      (selalu di `via()`, no-op mutlak tanpa `WAHA_URL`, tulis outbox **dalam transaksi
+      bisnis** + dispatch after-commit, skipped bila nomor kosong);
+      `app/Jobs/SendWaMessageJob.php` (3x backoff [30,120], guard status pending =
+      idempoten, `failed()` → status failed, **implements `NotTenantAware`** — spatie v4
+      menghapus job tenant-aware yang tidak membawa tenantId, berarti dispatch dari
+      command eskalasi konsol tanpa tenant harus non-tenant-aware);
+      `toWhatsApp()` + `waEvent()` pada 4 kelas notifikasi (template per event, Bahasa
+      Indonesia, link `route('work-orders.show')`); `User::routeNotificationForWahaWhatsApp()`
+      (employee.number via `withoutGlobalScope('tenant')` → phone);
+      `app:waha-ping {phone?}` (config + status session + test send).
+- [x] **Test:** `tests/Feature/WahaGatewayTest.php` 14 + `tests/Unit/WahaClientTest.php` 4 —
+      unconfigured → nol baris/nol HTTP; sent (payload, chatId, X-Api-Key, session);
+      skipped tanpa nomor; preferensi employee number; channel tanpa tenant current; job
+      dispatch tanpa tenant current; template reviewed/assigned; gagal kirim → last_error + rethrow (retry), `failed()` → failed; eskalasi `app:check-deadline-escalation` →
+      outbox per penerima (payload `H+3`); ping exit code 0/1 + status WORKING/UNREACHABLE.
+      **Full suite 438: 430 passed, 8 skipped, 0 gagal, 0 warning** (warning awal dari
+      `use RuntimeException` di file test tanpa namespace — dihapus). `pint --dirty` bersih.
+      Tanpa perubahan frontend/JS (tsc/build tidak terpengaruh; tidak diubah).
+- [x] **Dokumen:** `AGENTS.md` 4 titik amendmen (Non-Goals email-only, Modul MVP + row
+      WA, bagian Notifikasi, OQ settled #7 DIKECUALIKAN) + `docs/adr/0009-whatsapp-gateway.md`
+      (**status: `accepted` — di-flip 2026-10-21 setelah grill Q8; migrasi +
+      `app:grant-default-permissions` terverifikasi 0 pending / 0 perubahan**).
+- [x] **DEFECT PRE-EXISTING (diperbaiki 2026-10-21, grill Q5/Q8 — lihat blok
+      "Rencana hari ini"):** `notify()` tanpa tenant current membuat job broadcast
+      tenant-aware by default → `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`
+      dan **di-queue-delete** spatie. Fix: `BroadcastNotificationCreated::class`
+      (kelas **unwrapped** — `BroadcastEvent` = no-op karena `queueable_to_job`
+      sudah membongkar) masuk `not_tenant_aware_jobs` + `CallQueuedListener::class => 'class'`
+      dikembalikan; test `BroadcastQueueTenancyTest` red-green dibuktikan
+      (tanpa entry → exception persis seperti produksi).
+- [x] Setelah user puas dengan gateway (dan ADR-0009 sudah `accepted`): item
+      Rencana yang di-parkir (Q7 ban, Q4 roleless, Q14 cross-tenant, audit trail,
+      employee filters) — **semua selesai 2026-10-21 21:13**, lihat blok
+      "Rencana hari ini" di atas.
+
+## WhatsApp Gateway slice 2 — sesi per tenant (2026-10-21) — DONE
+
+- [x] **Rencana + grill Q1–Q5 disetujui user (semua rekomendasi diterima):**
+      (Q1) halaman `/settings/whatsapp`; (Q2) izin `whatsapp.read`/`whatsapp.update`
+      khusus `admin_tenant` + bypass super admin; (Q3) rate limit rethrow → backoff
+      antrean, default 20/menit + jeda 2 dtk via `WAHA_RATE_PER_MINUTE`/
+      `WAHA_MIN_INTERVAL`; (Q4) putuskan = stop (fallback logout, perlu pairing
+      ulang); (Q5) ping tanpa `--tenant` = cek instance saja tanpa kirim. Skema:
+      `tenant_wa_sessions` (tenant_id unique, session_name `tw-{kode}` unique
+      global) + `wa_messages.session_name` snapshot + index `(tenant_id, status)`.
+- [x] **Migrasi + model/enum:** `2026_10_21_000002_create_tenant_wa_sessions_table`,
+      `2026_10_21_000003_add_session_name_to_wa_messages_table` (belum dijalankan ke
+      dev DB — jalankan `php artisan migrate` saat deploy); `TenantWaSession`
+      (`activeFor()`/`forTenant()`, trait `BelongsToTenant`+`HasUuids`),
+      `TenantWaSessionStatus` (stopped/starting/scan_qr/working/stopping/error/
+      missing + `isActive()`/`label()`/`fromWahaStatus()`).
+- [x] **Guard channel + job:** channel berurutan — URL kosong no-op → nomor kosong
+      skipped → tanpa tenant failed → tanpa sesi aktif failed (alasan menyebut
+      status baris sesi) → sesi aktif pending + snapshot `session_name` + dispatch.
+      Job re-resolve sesi saat run (sesi mati setelah dispatch → failed tanpa HTTP);
+      rate limit `RateLimiter` per `waha:send:minute:{session}` +
+      `waha:send:interval:{session}` — kena batas → tulis `last_error` → rethrow
+      (backoff antrean, attempts HTTP tidak terpakai), kunci per sesi menjamin
+      antrean tenant A tidak menahan tenant B.
+- [x] **Transport + sinkron:** `WahaClient` ditulis ulang (send wajib sesi eksplisit,
+      `listSessions`/`getSession` 404→null/`startOrCreateSession`/`qrImage`/
+      `stopSession` fallback logout; `sessionStatus` lama dihapus);
+      `app:waha-sync-sessions` cron `everyMinute` (`bootstrap/app.php`) — daftar sesi
+      → status lokal; instance tak terjangkau (Connection/Stray) → **tanpa flip
+      massal** + exit FAILURE; sesi hilang → Missing; `last_connected_at` hanya saat
+      transisi masuk working; `phone_number` dari `me.tel`. `app:waha-ping --tenant=`.
+- [x] **Izin + Gate + UI:** katalog + `roleDefaults` `whatsapp.read`/`whatsapp.update`
+      (grant via `php artisan app:grant-default-permissions`); flags `auth.can` di
+      `HandleInertiaRequests` + tipe TS `auth.ts`; `Settings\WhatsAppController`
+      (index/store/start/stop/qr, `Gate::authorize`, QR data URI on-demand) +
+      `routes/settings.php` (prefix `settings/whatsapp`); halaman
+      `resources/js/pages/settings/whatsapp.tsx` (status badge + `usePoll(15s)` +
+      QR auto-refresh 5dtk selama waiting + tombol gated), nav "WhatsApp" di
+      `layouts/settings/layout.tsx` gated `auth.can['whatsapp.read']`.
+- [x] **Test:** `WahaTenantSessionTest` 23 baru (isolasi dua tenant → nomor masing-
+      masing; tanpa sesi → failed + nol HTTP; sesi non-aktif → alasan status; sesi
+      mati setelah dispatch → failed tanpa HTTP; rate limit per sesi + interval;
+      sync happy/missing/unreachable/no-config; ping unknown/tanpa sesi; Gate 403
+      read/update + render + store/start/stop/qr); `WahaGatewayTest` rombak (sesi
+      aktif prasyarat, session `tw-hq`, ping `--tenant`, helper rate limit longgar);
+      `GateTest` +2 flag. **Full suite 462: 454 passed, 8 skipped, 0 gagal**;
+      `pint --dirty` bersih; `tsc --noEmit` 0; `npm run build` hijau
+      (wayfinder `--with-form` — tanpa flag itu helper `.form` hilang dan tsc
+      meledak di 10+ file lama).
+- [x] **Dokumen:** ADR-0009 di-amend (judul slice 1–2, keputusan 1/2/6/7/8/9 revisi,
+      references file slice 2) — **di-flip ke `accepted` 2026-10-21** (user menyetujui
+      semua rekomendasi grill Q1–Q8).
+- [x] `php artisan migrate` + `app:grant-default-permissions` di dev — diverifikasi
+      2026-10-21: tidak ada pending migration; `whatsapp.read`/`whatsapp.update`
+      sudah melekat di `admin_tenant`.
+- [ ] **Sisa manual (user):** isi `WAHA_URL`/`WAHA_API_KEY` di `.env`; daftar nomor
+      per tenant di `/settings/whatsapp` → Mulai Sesi → pindai QR; sinkron catatan
+      vault (Sessions/Decisions/changelog/Index).
+
+## Frontend HOD department (2026-10-20) — DONE
+
+- [x] **Tampilan HOD di frontend + fix binding latent:** kolom HOD di
+      `departments/index.tsx` dan baris HOD di `show.tsx` kini avatar (foto
+      karyawan, fallback inisial `useInitials`) + nama + email; kosong = "Belum
+      di-set". Payload: `DepartmentController` index/show eager-load
+      `hod.employee` (+ `hodEmployee`, `manager` di show).
+      **Bug latent diperbaiki**: implicit binding `{department}` jalan sebelum
+      `IdentifyTenant` (SubstituteBindings lebih awal di grup web) →
+      `Tenant::current()` null → scope `BelongsToTenant` = `whereRaw(1=0)` →
+      show/edit/update/destroy department gagal via URL. Dikonversi ke
+      `resolveDepartmentFromRoute()` manual (pola terdokumentasi di
+      `EmployeeController::resolveEmployeeFromRoute` + `WorkOrderController`).
+      Verifikasi: DepartmentHodDisplayTest 3/3 (payload index/show/null),
+      DepartmentTenantResolutionTest 2/2 (edit/update/destroy + 404 lintas
+      cabang), MasterData+BranchSwitcher+SyncDepartments 35/35, WorkOrder+
+      Notification 20/20, Employee 20/20; pint + tsc + `npm run build` hijau.
+      Session: `Sessions/2026-10/20/1320-frontend-hod-display.md`.
+
+## Paritas sync Department+HOD vs opti-work2 (2026-10-20) — DONE
+
+- [x] **Riset + implementasi gap tunggal `manager_user_id`:** background agent
+      mendokumentasikan fitur opti-work2 dengan sitasi file:line di
+      `.scratch/optigate-sync/research/opti-work2-department-hod-sync.md`.
+      Fitur ternyata sudah ada di opti-works (`b0be63f`, lebih baik dari referensi:
+      pagination + retry + transaction + deactivate + per-tenant); satu-satunya
+      perilaku referensi yang hilang = `manager_user_id` (opti-work2 men-sync-nya,
+      konsumen lokal sudah ada: fallback eskalasi, scoping WO, halaman show).
+      `SyncDepartments` kini kirim `with=hod,manager`, tulis `manager_user_id`
+      dari `dept['manager']['id']` via `portalUserMap()` (diekstrak, dipakai kedua
+      pass), semantik persis HOD (unlinked → null, hilang dari portal → dikosongkan).
+      Tanpa migrasi. Verifikasi: SyncDepartmentsTest 16/16 (2 test manager baru),
+      SyncEmployees+SyncDivisions 17/17, pint --dirty passed, tsc exit 0, full suite
+      381 → 363 passed + 8 skipped (10 error = `EscalationTest.php` WIP untracked
+      milik sesi paralel, bukan surface ini). Session log:
+      `Sessions/2026-10/20/1028-paritas-department-hod-sync-manager.md`.
+
 ## Unit Bisnis page revamp + URL move (2026-10-19) — DONE
 
 - [x] **Move `/settings/tenants` → `/tenants`:** routes/web.php (prefix `tenants`, names
@@ -33,8 +334,6 @@
       `pnpm-lock.yaml` dihapus (project pakai npm). Working tree bersih.
 - [x] Verifikasi akhir: full suite 369 (361 passed, 8 skipped, 0 failed), pint, tsc,
       `npm run build` hijau, push ke origin/main.
-
-
 
 ## Department/HOD sync relations (2026-10-17) — DONE, commit `b0be63f`
 
@@ -82,7 +381,7 @@
 - [x] **Role assignment ticket 01 (ADR-0005):** scope dippersempit via grill — assignment pada akun lewat halaman karyawan. Katalog `akun.*` + release grant ke admin_tenant; payload `akun` di `employees.show` ber-gate `akun.read` (resolusi manual mengikuti pola ban/WorkOrderController); section "Peran Akun" read-only. Ticket 02 (sync guarded) & 03 (can flags) siap di `.scratch/role-assignment/issues/`. Verifikasi: 277 tests (269 passed, 8 skipped), pint bersih, build exit 0. WIP sesi 11-10 (drop CRUD lokal karyawan) ikut di-commit.
 - [x] **Per-release grant command `app:grant-default-permissions`:** menutup gap seeder (default hanya disync saat role pertama dibuat → izin katalog baru tidak pernah sampai ke role existing). Additive-only (tidak pernah mencabut, kustomisasi Hak Akses selamat), membuat izin katalog yang hilang (firstOrCreate), provisioning 9 role kanonik + invarian `is_system`, tidak pernah memberi apa-apa ke super_admin (bypass gate), `--dry-run`, idempoten. Seeder `catalogue()`/`roleDefaults()` dipromosikan public static sebagai sumber kebenaran bersama. Verifikasi: 18/18 test (7 baru) + full suite 272 tests (264 passed, 8 skipped, 0 failed), pint bersih, dry-run live di DB dev = 0 perubahan. Commit `5071fec`.
 - [x] **Halaman Peran di-revamp total + keluar dari settings (Vault Console):** URL `/settings/roles` → `/hak-akses` (route names `roles.*` tetap), controller `Settings\RoleController` → `RoleController`, requests → `App\Http\Requests\Role\*`, routes dipindah ke `routes/hak-akses.php`, page `settings/roles/index.tsx` → `pages/roles/index.tsx` (AppLayout, bukan SettingsLayout), nav: grup baru "Hak Akses" (item "Peran") di antara Data Master dan Sistem. Desain baru: dark console stratum (panel tokens, gelap di kedua theme) — rail token peran (nama + mono id + mini coverage strip 12 segmen + count izin/pengguna, urutan hierarki PRD) + stage bank izin per resource (LED tri-state Penuh/Parsial/Kosong + count, master checkbox tri-state, verb chips ber-LED), super_admin = sealed plate tanpa switch, commit bar dirty-state + sweep animation, search debounce server-side + paginasi rail. Tabel dihapus. Verifikasi: `RoleControllerTest` 19/19, `npm run build` hijau, detector impeccable 0 temuan, screenshot Chrome headless (desktop/dirty/sealed/dark/mobile) via playwright-core --no-save (user sementara sudah dihapus). Bukti: `.impeccable/review/*.png`.
-- [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion). ← *desain Peran di atas sudah digantikan Vault Console; komponen vendor tetap dipakai di Izin.*
+- [x] RBAC v2 slices 6–8 green: frontend Peran page (table + system badges + dropdown actions + create/rename/delete dialogs + grouped tri-state permission Sheet dengan super_admin locked notice + SpotlightCard empty state + Reveal entrance), Izin page (table + group filter Select + batch create dialog resource×CRUD + rename/delete + pagination), nav "Hak Akses" di grup Sistem gated `auth.can['role.read']` (Auth type + 6 nav call sites). Komponen reactbits di-vendor: `AnimatedContent.tsx` (GSAP) + `SpotlightCard.tsx` (zero-dep, diadaptasi rounded/padding) + wrapper `reveal.tsx` (respects prefers-reduced-motion). ← _desain Peran di atas sudah digantikan Vault Console; komponen vendor tetap dipakai di Izin._
 - [x] Full suite 265 tests: 257 passed, 8 skipped (2FA), 0 failed. `npm run build` hijau (wayfinder + tsc + vp build). Impeccable mechanical detector pada 6 file UI: 0 temuan.
 - [x] Root-cause fix baseline merah: `types:check` gagal 44 error di HEAD (7 file pakai `usePage()` tanpa generic `InertiaConfig['sharedPageProps']`) → semua ditambahkan generic, tsc kini EXIT=0 di seluruh codebase.
 - [x] Bugfix `settings/tenants/index.tsx`: 4 tombol paginasi mengandung artifact backtick-n (JSX text nyasar) yang membuat Radix Slot crash saat paginasi Unit Bisnis — diperbaiki.
@@ -95,29 +394,29 @@
 4. [x] Verifikasi visual sisa slice 8 `/settings/permissions` — **Done 2026-10-17, automated:** user temp (role `viewer` + `role.read`/`permission.read` langsung; role wajib karena LoginLanding menolak user tanpa role) + screenshot headless via `.impeccable/review/capture-permissions.mjs`. Bukti: `perm-light.png`, `perm-dark.png` (tombol aksi tersembunyi tanpa permission — ticket 03 tervalidasi visual), `perm-dialog-error.png` (dialog Tambah Izin, submit kosong → field merah + pesan error). User temp + script temp dihapus. Catatan minor: pesan validasi dialog masih English (pre-existing), teks "Head Office" di tenant switcher kontras rendah di dark (pre-existing).
 5. [x] Vault sync — **Done 2026-10-17:** ADR-0005 → `Decisions/user-role-assignment-akun.md`, link dari `Index.md` (Last updated diubah). Catatan route `/hak-akses` ternyata sudah ada di `Decisions/peran-page-vault-console` — tidak diduplikasi.
 6. [x] **WO slice 1 selesai 2026-10-17** (issue 03 wms-mvp = review → assign + deadline + histori) —
-   tiket per seam di `.scratch/wo-slice-1/` (spec + 4 issues, semua done):
-   - `6e47cf3` foundation: migration hod_action/scheduled_date/assigned_at/hod_notes,
-     enum `HodApproved` ("Disetujui HOD"), `config/holidays.php` + `DeadlineCalculator`
-     (urgent 3 / normal 6 hari kerja dari tanggal assign; fixed Y-m-d + recurring MM-DD),
-     **fix cross-tenant read** di show()/attachment() (withoutGlobalScope dibuang; test
-     regresi: WO tenant lain → 404, sebelumnya 200)
-   - `ea6779d` review endpoint: POST .../review gated `work-order.review` (allowlist
-     dikeluarkan), Accident dipaksa eksekusi langsung, 409 pasca-review-stage,
-     `work_order_events` append-only + `WorkOrderReviewed` ke requester; **root-cause fix
-     config/multitenancy.php queueable_to_job tertukar** (BroadcastEvent→'mailable', dst —
-     setiap broadcast/mail queue crash di probe; kini event/mailable/notification)
-   - `937a474` assign endpoint: POST .../assign gated `work-order.assign` (allowlist
-     dikeluarkan), `assigned_employees` json + assignment_notes, assigned_at + deadline
-     hanya sekali (revisi mengganti orang tanpa geser SLA), `WorkOrderAssigned` ke akun
-     link saja (tanpa akun → meta event + log warning), 409 assign sebelum review
-   - `553c775` panel frontend: flag `can` work-order.review/assign, panel Keputusan
-     Review (Accident tanpa opsi jadwal), panel Assign (revisi mode), kartu Keputusan
-     HOD, badge hod_approved; bukti headless `.impeccable/review/wo-panel-*.png`
-   - Verifikasi: tsc + build hijau; suite 313/305/0 failed (6 failure = WIP merah sesi
-     paralel SyncEmployees, bukan slice ini); pint bersih; slice-1 komit bersih dari WIP
-     sesi paralel
-   - Sisa allowlist honesty test: work-order.create/read/update/delete/submit/verify
-     (gating menyusul saat permukaannya disentuh — issue 04+)
+       tiket per seam di `.scratch/wo-slice-1/` (spec + 4 issues, semua done):
+    - `6e47cf3` foundation: migration hod_action/scheduled_date/assigned_at/hod_notes,
+      enum `HodApproved` ("Disetujui HOD"), `config/holidays.php` + `DeadlineCalculator`
+      (urgent 3 / normal 6 hari kerja dari tanggal assign; fixed Y-m-d + recurring MM-DD),
+      **fix cross-tenant read** di show()/attachment() (withoutGlobalScope dibuang; test
+      regresi: WO tenant lain → 404, sebelumnya 200)
+    - `ea6779d` review endpoint: POST .../review gated `work-order.review` (allowlist
+      dikeluarkan), Accident dipaksa eksekusi langsung, 409 pasca-review-stage,
+      `work_order_events` append-only + `WorkOrderReviewed` ke requester; **root-cause fix
+      config/multitenancy.php queueable_to_job tertukar** (BroadcastEvent→'mailable', dst —
+      setiap broadcast/mail queue crash di probe; kini event/mailable/notification)
+    - `937a474` assign endpoint: POST .../assign gated `work-order.assign` (allowlist
+      dikeluarkan), `assigned_employees` json + assignment_notes, assigned_at + deadline
+      hanya sekali (revisi mengganti orang tanpa geser SLA), `WorkOrderAssigned` ke akun
+      link saja (tanpa akun → meta event + log warning), 409 assign sebelum review
+    - `553c775` panel frontend: flag `can` work-order.review/assign, panel Keputusan
+      Review (Accident tanpa opsi jadwal), panel Assign (revisi mode), kartu Keputusan
+      HOD, badge hod_approved; bukti headless `.impeccable/review/wo-panel-*.png`
+    - Verifikasi: tsc + build hijau; suite 313/305/0 failed (6 failure = WIP merah sesi
+      paralel SyncEmployees, bukan slice ini); pint bersih; slice-1 komit bersih dari WIP
+      sesi paralel
+    - Sisa allowlist honesty test: work-order.create/read/update/delete/submit/verify
+      (gating menyusul saat permukaannya disentuh — issue 04+)
 
 ### Bonus 2026-10-16 (commit `74d2a6c`) — role-aware login + superadmin
 
@@ -137,8 +436,8 @@
 
 ### Deferred
 
-- [ ] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S)
-- [ ] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L)
+- [x] Forward-looking allowlist upkeep — remove work-order.review/assign/submit/verify entries as WO gating lands; a stale entry fails the honesty test (S) — **selesai 2026-10-22**: review/assign digate + dihapus di slice sebelumnya, submit/verify digate + dihapus di sesi ini; allowlist kini kosong untuk semua verb work-order.
+- [x] Start the core WO flow: creation, category decision (Normal / Urgent by Accident / Urgent Request by Owner), HOD review → assign — the hak-akses permissions are in place to gate it (L) — **SELESAI 2026-10-22/23**: alur create→review→assign→submit→verify→close lengkap (WO slice 1–2), verba review/assign/submit/verify sudah digate.
 - [ ] Akun CRUD surface (link/unlink login) — owns `akun.create`/`akun.delete`, currently allowlisted "gated when the Akun surface lands"
 
 Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.md (Team Leader = role Spatie; deadline urgent 3/normal 6; extend 3 hari/3 approved; Direksi ditunda).
@@ -154,13 +453,13 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 - [ ] Page-access configuration (agreed: later phase, after CRUD)
 - [ ] Sidebar metadata permission-filtering (agreed: out of scope; single shared flag only)
 - [ ] Tenant (penyewa) CRUD (v2)
-- [ ] External notifications (WA/email gateway)
+- [x] External notifications (WA/email gateway) — WA outbound **shipped** 2026-10-21 (ADR-0009: 4 event WO + sesi per tenant, lihat section "WhatsApp Gateway slice 1/2" di atas); yang masih tertunda hanya **email gateway**
 - [ ] Advanced analytics/reporting
 
 ### Known tradeoffs
 
 - [ ] Seeder re-creates permissions deleted via the UI (safe: delete is blocked while attached, so nothing re-attaches silently)
-- [ ] Seeder does not push new default permissions to existing roles — handled by the explicit per-release grant step above
+- [x] Seeder does not push new default permissions to existing roles — handled by the explicit per-release grant step above (`app:grant-default-permissions`, shipped 2026-10-16, commit `5071fec`)
 
 ---
 
@@ -169,6 +468,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 **Full suite: 143 tests, 135 passed, 8 skipped, 0 failures.** Sync tests: 9/9 with `Http::fake`.
 
 `app:sync-tenants` rewritten from pre-migration legacy to spec:
+
 - Matches on **`optigate_company_id`** (was: API id written as tenant id — would have failed on NOT NULL `code`)
 - Sets `code` (lowercased slug) + `name` + `is_active`; landlord-side (no `Tenant::current()` requirement — the old version could never run from the scheduler)
 - **Pagination** loop (`paginate=true&per_page=100`, `meta.total` driven, MAX_PAGES guard)
@@ -182,6 +482,7 @@ Catatan: item "Resolve PRD Open Questions" dihapus — sudah SETTLED di AGENTS.m
 Follow-up (not started): `.scratch/optigate-sync/issues/01-align-department-employee-syncs.md`
 
 ## Completed
+
 - ✅ Replaced manual tenant CRUD with Optigate API sync approach
 - ✅ Tenant model uses ULID primary key, `optigate_company_id` (unique), `code` (URL slug)
 - ✅ Migration: Restructured tenants table with ULID id, optigate_company_id, code
@@ -204,9 +505,11 @@ Follow-up (not started): `.scratch/optigate-sync/issues/01-align-department-empl
 **Full suite: 134 tests, 126 passed, 8 skipped (intentional 2FA), 0 failures.**
 
 ### Root cause of the "queue bug"
+
 The bug was a phantom: `ProbeTenantContext` crashed mid-`handle()` on two v3-era leftovers,
 so every query capture below the crash point never ran and `visibleWorkOrders` stayed at its
 reset default `[]`:
+
 1. `tenancy()` helper — removed in Spatie v4 (v3-only) → "Call to undefined function"
 2. Undeclared static property `$visibleWorkOrdersWithoutScope` → fatal in PHP 8.2+
 
@@ -214,6 +517,7 @@ Tenancy itself worked end to end the whole time: container tenant restored at `J
 scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 
 ### Also fixed (surfaced by the full-suite run, all pre-existing)
+
 - `SamlController::acs()` had a committed `dd($samlUser)` — killed every SAML login AND
   segfaulted the test process (PHP crash dumping the LightSaml object graph). Removed.
 - `SamlTest` asserted `route('dashboard')` — stale: dashboard now requires `{tenant}`.
@@ -223,6 +527,7 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
   tenant-creation fallout from the Spatie migration. Repaired to committed behavior.
 
 ### Follow-ups (decisions needed, NOT started)
+
 - `config('fortify.home')` = `/dashboard` points at a dead route — where should password-login
   users land? Tied to the tenant-less-user landing gap below.
 - Tenant-less non-admin users land on `admin.dashboard` → 403 (EnsurePlatformTenantAccess).
@@ -234,10 +539,12 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
   are unaffected; avoid that chain when debugging SQL.
 
 ### Reference
+
 - Scratch issue: `.scratch/tenancy-reconfig/issues/06-enable-queue-tenancy-bootstrapper.md`
 - Vault plan: `Planning/2026-10-10-queue-tenant-awareness-fix` (status: done)
 
 ## Files Modified
+
 - app/Models/Tenant.php
 - database/migrations/2026_10_09_121502_restructure_tenants_table.php
 - app/TenantFinder.php
@@ -246,15 +553,15 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 - app/Http/Controllers/EnsureTenantAccess.php
 - app/Http/Controllers/WorkOrderController.php
 - app/Services/WorkOrderService.php
-- app/Http/Controllers/SamlController.php  ← 2026-10-10: removed committed dd() in acs()
+- app/Http/Controllers/SamlController.php ← 2026-10-10: removed committed dd() in acs()
 - routes/web.php
 - database/factories/TenantFactory.php
 - config/multitenancy.php
-- tests/Feature/DashboardTest.php  ← 2026-10-10: stale dashboard route + tenant-less user fixes
+- tests/Feature/DashboardTest.php ← 2026-10-10: stale dashboard route + tenant-less user fixes
 - tests/Feature/MultitenancyTest.php
-- tests/Feature/QueueTenancyBootstrapperTest.php  ← 2026-10-10: rewritten (see DONE section)
-- tests/Feature/AuthenticationTest.php  ← 2026-10-10: stale dashboard route fix
-- tests/Feature/Auth/SamlTest.php  ← 2026-10-10: stale redirect assertion fix
-- tests/Feature/NotificationTest.php  ← 2026-10-10: tenants table required-field fix
-- tests/Support/ProbeTenantContext.php  ← 2026-10-10: removed v3-era helpers, declared statics
+- tests/Feature/QueueTenancyBootstrapperTest.php ← 2026-10-10: rewritten (see DONE section)
+- tests/Feature/AuthenticationTest.php ← 2026-10-10: stale dashboard route fix
+- tests/Feature/Auth/SamlTest.php ← 2026-10-10: stale redirect assertion fix
+- tests/Feature/NotificationTest.php ← 2026-10-10: tenants table required-field fix
+- tests/Support/ProbeTenantContext.php ← 2026-10-10: removed v3-era helpers, declared statics
 - tests/Pest.php (createTestTenant, initTenant helpers)

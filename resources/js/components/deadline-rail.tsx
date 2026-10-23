@@ -16,7 +16,7 @@ const railToken: Record<DeadlineState, string> = {
 };
 
 const railLabel: Record<DeadlineState, string> = {
-    on_track: 'On track',
+    on_track: 'Sesuai jadwal',
     due_soon: 'Deadline besok',
     overdue: 'Telat',
     escalated: 'Eskalasi',

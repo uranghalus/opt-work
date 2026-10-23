@@ -94,9 +94,26 @@ class HandleInertiaRequests extends Middleware
                     'permission.delete' => (bool) ($user?->can('permission.delete')),
                     'akun.read' => (bool) ($user?->can('akun.read')),
                     'akun.update' => (bool) ($user?->can('akun.update')),
+                    // Gateway WhatsApp per tenant (ADR-0009 amendmen).
+                    'whatsapp.read' => (bool) ($user?->can('whatsapp.read')),
+                    'whatsapp.update' => (bool) ($user?->can('whatsapp.update')),
                     // WO slice 1: HOD review/assign actions on the show page.
                     'work-order.review' => (bool) ($user?->can('work-order.review')),
                     'work-order.assign' => (bool) ($user?->can('work-order.assign')),
+                    // WO slice 2: pelaksana submit hasil + HOD verify (FR-1.7/1.8).
+                    'work-order.submit' => (bool) ($user?->can('work-order.submit')),
+                    'work-order.verify' => (bool) ($user?->can('work-order.verify')),
+                    // FR-3.x Work Data — histori pekerjaan per WO closed.
+                    'work-data.read' => (bool) ($user?->can('work-data.read')),
+                    'work-data.update' => (bool) ($user?->can('work-data.update')),
+                    // FR-5.x Daily Work — daftar harian + kelola template/adhoc (HOD).
+                    'daily-work.read' => (bool) ($user?->can('daily-work.read')),
+                    'daily-work.update' => (bool) ($user?->can('daily-work.update')),
+                    'daily-work.create' => (bool) ($user?->can('daily-work.create')),
+                    'daily-work.delete' => (bool) ($user?->can('daily-work.delete')),
+                    // WO slice 3: extend deadline WO telat (FR-2.3–2.5).
+                    'work-order.extend' => (bool) ($user?->can('work-order.extend')),
+                    'work-order.extend-approve' => (bool) ($user?->can('work-order.extend-approve')),
                 ],
             ],
             'tenant' => $currentTenant,

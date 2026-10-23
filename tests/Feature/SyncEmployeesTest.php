@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Department;
+use App\Models\Division;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Tenant;
@@ -159,7 +160,7 @@ it('maps portal position_id to local position and resolves division from positio
     Tenant::forgetCurrent();
 
     // Create a division first.
-    $division = \App\Models\Division::withoutGlobalScopes()->make([
+    $division = Division::withoutGlobalScopes()->make([
         'optigate_division_id' => 'div-1',
         'kode_division' => 'IT-DEV',
         'nama_division' => 'Software Engineering',

@@ -19,7 +19,8 @@ type Division = {
     id: string;
     kode_division: string | null;
     nama_division: string;
-    departments_count: number;
+    department: { nama_department: string | null } | null;
+    is_direct: boolean;
 };
 
 type PageProps = {
@@ -63,7 +64,7 @@ function DivisionActions() {
                             aria-hidden
                             className="animate-spin"
                         />
-                        Sinkronisasi�
+                        Sinkronisasi…
                     </>
                 ) : (
                     <>
@@ -123,9 +124,7 @@ export default function Divisions(props: PageProps) {
                             <TableRow className="hover:bg-transparent">
                                 <TableHead>Kode</TableHead>
                                 <TableHead>Nama Divisi</TableHead>
-                                <TableHead className="text-right">
-                                    Department
-                                </TableHead>
+                                <TableHead>Department Induk</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -142,7 +141,7 @@ export default function Divisions(props: PageProps) {
                                 divisions.data.map((division) => (
                                     <TableRow key={division.id}>
                                         <TableCell className="font-mono text-sm">
-                                            {division.kode_division ?? '�'}
+                                            {division.kode_division ?? '…'}
                                         </TableCell>
                                         <TableCell className="font-semibold">
                                             <Link
@@ -155,8 +154,12 @@ export default function Divisions(props: PageProps) {
                                                 {division.nama_division}
                                             </Link>
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {division.departments_count}
+                                        <TableCell className="text-muted-foreground">
+                                            {division.department
+                                                ?.nama_department ??
+                                                (division.is_direct
+                                                    ? 'Direct (GM)'
+                                                    : 'Belum dipetakan')}
                                         </TableCell>
                                     </TableRow>
                                 ))

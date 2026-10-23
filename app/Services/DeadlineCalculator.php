@@ -45,6 +45,32 @@ class DeadlineCalculator
     }
 
     /**
+     * Adds N business days to a date, skipping weekends and configured
+     * holidays — the extend flow (FR-2.3) moves the deadline the same way
+     * the SLA clock counts it.
+     *
+     * @param  list<string>|null  $holidays  overrides config('holidays') —
+     *                                       lets tests pin the calendar
+     */
+    public function addBusinessDays(CarbonInterface $from, int $days, ?array $holidays = null): Carbon
+    {
+        $holidayLookup = array_flip($holidays ?? config('holidays', []));
+
+        // The app runs CarbonImmutable dates; normalize to a mutable cursor.
+        $cursor = Carbon::instance($from)->startOfDay();
+
+        while ($days > 0) {
+            $cursor->addDay();
+
+            if ($this->isBusinessDay($cursor, $holidayLookup)) {
+                $days--;
+            }
+        }
+
+        return $cursor;
+    }
+
+    /**
      * @param  array<int, int>  $holidayLookup
      */
     private function isBusinessDay(Carbon $date, array $holidayLookup): bool

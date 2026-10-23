@@ -958,19 +958,20 @@ function VerifyPanel({ workOrderId }: { workOrderId: string }) {
                 untuk dikerjakan ulang.
             </p>
 
-            <form
-                onSubmit={(event) => {
-                    event.preventDefault();
-                    approveForm.post(
-                        verify({ tenant, workOrder: workOrderId }).url,
-                        { preserveScroll: true },
-                    );
-                }}
+            <ConfirmDialog
+                open={approveOpen}
+                onOpenChange={setApproveOpen}
+                title="Tutup Work Order?"
+                description="Tindakan ini akan menutup WO secara permanen dan tidak dapat dibatalkan."
+                confirmLabel="Ya, tutup WO"
+                cancelLabel="Batal"
+                onConfirm={() => approveForm.post(verify({ tenant, workOrder: workOrderId }).url, { preserveScroll: true })}
+                processing={approveForm.processing}
             >
-                <Button type="submit" disabled={approveForm.processing}>
-                    Setujui &amp; Tutup WO
+                <Button type="button" onClick={() => setApproveOpen(true)} disabled={approveForm.processing}>
+                    Setujui & Tutup WO
                 </Button>
-            </form>
+            </ConfirmDialog>
 
             <Separator />
 
@@ -1014,7 +1015,7 @@ function VerifyPanel({ workOrderId }: { workOrderId: string }) {
                     variant="outline"
                     disabled={rejectForm.processing}
                 >
-                    Tolak &amp; Kembalikan untuk Revisi
+                    Tolak & Kembalikan untuk Revisi
                 </Button>
             </form>
         </section>
@@ -1147,6 +1148,7 @@ function ExtendStatusPanel({
     const rejectForm = useForm<{ reason: string }>({
         reason: '',
     });
+    const [approveOpen, setApproveOpen] = React.useState(false);
 
     const stageLabel =
         pendingRequest.status === 'pending_team_leader'
@@ -1193,26 +1195,24 @@ function ExtendStatusPanel({
 
             {canDecide && (
                 <>
-                    <form
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            approveForm.post(
-                                approveExtendRequest({
-                                    tenant,
-                                    workOrder: workOrderId,
-                                    extendRequest: pendingRequest.id,
-                                }).url,
-                                { preserveScroll: true },
-                            );
-                        }}
+                    <ConfirmDialog
+                        open={approveOpen}
+                        onOpenChange={setApproveOpen}
+                        title="Setujui Extend Deadline?"
+                        description={`Ini akan menambah ${pendingRequest.days} hari kerja ke deadline WO.`}
+                        confirmLabel="Ya, setujui"
+                        cancelLabel="Batal"
+                        onConfirm={() => approveForm.post(approveExtendRequest({
+                            tenant,
+                            workOrder: workOrderId,
+                            extendRequest: pendingRequest.id,
+                        }).url, { preserveScroll: true })}
+                        processing={approveForm.processing}
                     >
-                        <Button
-                            type="submit"
-                            disabled={approveForm.processing}
-                        >
+                        <Button type="button" onClick={() => setApproveOpen(true)} disabled={approveForm.processing}>
                             Setujui Extend
                         </Button>
-                    </form>
+                    </ConfirmDialog>
 
                     <Separator />
 
@@ -1262,7 +1262,7 @@ function ExtendStatusPanel({
                             variant="outline"
                             disabled={rejectForm.processing}
                         >
-                            Tolak Pengajuan
+                            Tolak Extend
                         </Button>
                     </form>
                 </>
@@ -1272,11 +1272,8 @@ function ExtendStatusPanel({
 }
 
 /**
- * FR-2.4 + FR-2.5: Work Planning untuk WO Terjadwal — detail jadwal
- * (jam, jenis pekerjaan, durasi, budget) bebas diperbarui HOD, tetapi
- * `tgl_jadwal` HANYA berpindah lewat Extend Work Schedule dengan
- * approval DGM/GM (alur terpisah dari extend WO telat). Server tetap
- * sumber kebenaran: `canUpdate`/`canDecide` dihitung di payload.
+ * FR-2.4: Work Planning — detail jadwal & status extend jadwal.
+ * HOD boleh memperbarui detail; DGM/GM memutuskan extend jadwal.
  */
 function PlanningPanel({
     planning,
@@ -1291,442 +1288,232 @@ function PlanningPanel({
 }) {
     const tenant = useRequiredTenant('work-planning.update');
 
-    const detailsForm = useForm<{
+    const updateForm = useForm<{
+        tgl_jadwal: string;
         jam_mulai: string;
         jam_selesai: string;
         jenis_pekerjaan: string;
-        lama_pekerjaan_hari: string;
-        budget: string;
+        lama_pekerjaan_hari: number;
+        budget: number;
         catatan: string;
     }>({
-        jam_mulai: planning.jam_mulai?.slice(0, 5) ?? '',
-        jam_selesai: planning.jam_selesai?.slice(0, 5) ?? '',
+        tgl_jadwal: planning.tgl_jadwal ?? '',
+        jam_mulai: planning.jam_mulai ?? '',
+        jam_selesai: planning.jam_selesai ?? '',
         jenis_pekerjaan: planning.jenis_pekerjaan ?? '',
-        lama_pekerjaan_hari:
-            planning.lama_pekerjaan_hari === null
-                ? ''
-                : String(planning.lama_pekerjaan_hari),
-        budget: planning.budget === null ? '' : String(planning.budget),
+        lama_pekerjaan_hari: planning.lama_pekerjaan_hari ?? 1,
+        budget: planning.budget ?? 0,
         catatan: planning.catatan ?? '',
     });
 
-    const extendForm = useForm<{
-        tgl_jadwal: string;
-        extend_reason: string;
-    }>({
-        tgl_jadwal: '',
-        extend_reason: '',
+    const approveForm = useForm({});
+    const rejectForm = useForm<{ catatan: string }>({
+        catatan: '',
     });
-
-    const decideForm = useForm<{ notes: string }>({ notes: '' });
-
-    const isPending = planning.pending;
-
-    const minProposedDate = (() => {
-        if (!planning.tgl_jadwal) return undefined;
-
-        const next = new Date(`${planning.tgl_jadwal}T00:00:00`);
-        next.setDate(next.getDate() + 1);
-
-        return next.toISOString().slice(0, 10);
-    })();
 
     return (
         <section className="space-y-3 rounded-lg border bg-card p-4">
             <div className="flex items-center gap-2">
                 <CalendarRange aria-hidden className="size-4 text-info" />
                 <h3 className="text-base font-semibold tracking-tight">
-                    Work Planning
+                    Detail Jadwal
                 </h3>
-                {isPending && (
-                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-subtle px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap text-warning-ink">
-                        <span
-                            aria-hidden="true"
-                            className="size-1.5 rounded-full bg-warning"
-                        />
-                        Menunggu approval DGM/GM
-                    </span>
-                )}
             </div>
 
-            <dl className="overflow-hidden rounded-lg border">
-                <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                    <dt className="text-sm text-muted-foreground">
-                        Jadwal berlaku
-                    </dt>
-                    <dd className="text-sm font-semibold tabular-nums">
-                        {planning.tgl_jadwal
-                            ? formatDate(planning.tgl_jadwal)
-                            : '—'}
-                        {planning.jam_mulai && (
-                            <span className="ml-2 text-ink-muted">
-                                {planning.jam_mulai.slice(0, 5)}
-                                {planning.jam_selesai
-                                    ? `–${planning.jam_selesai.slice(0, 5)}`
-                                    : ''}
-                            </span>
-                        )}
-                    </dd>
-                </div>
-                {planning.jenis_pekerjaan && (
-                    <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">
-                            Jenis pekerjaan
-                        </dt>
-                        <dd className="text-sm">
-                            {planning.jenis_pekerjaan}
-                        </dd>
-                    </div>
-                )}
-                {planning.extend_count > 0 && (
-                    <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">
-                            Extend jadwal
-                        </dt>
-                        <dd className="text-sm">
-                            {planning.extend_count}
-                            {'×'}
-                            {planning.original_tgl_jadwal && (
-                                <span className="text-muted-foreground">
-                                    {' — awal '}
-                                    {formatDate(planning.original_tgl_jadwal)}
-                                </span>
-                            )}
-                        </dd>
-                    </div>
-                )}
-                <div className="flex items-center justify-between gap-4 px-4 py-3">
-                    <dt className="text-sm text-muted-foreground">
-                        Status jadwal
-                    </dt>
-                    <dd className="text-sm">
-                        {isPending
-                            ? 'Menunggu approval'
-                            : planning.status_jadwal === 'rescheduled'
-                              ? 'Telah di-reschedule'
-                              : 'Terjadwal'}
-                    </dd>
-                </div>
-            </dl>
-
-            {/* Pengajuan pending: tampilkan usulan + keputusan DGM/GM. */}
-            {isPending && (
-                <div className="space-y-3">
-                    <dl className="overflow-hidden rounded-lg border">
-                        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                            <dt className="text-sm text-muted-foreground">
-                                Diajukan ke
-                            </dt>
-                            <dd className="text-sm font-semibold tabular-nums">
-                                {planning.proposed_tgl_jadwal
-                                    ? formatDate(planning.proposed_tgl_jadwal)
-                                    : '—'}
-                            </dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                            <dt className="text-sm text-muted-foreground">
-                                Pengaju
-                            </dt>
-                            <dd className="text-sm">
-                                {planning.requester_name ?? '—'}
-                            </dd>
-                        </div>
-                        <div className="flex items-start justify-between gap-4 px-4 py-3">
-                            <dt className="text-sm text-muted-foreground">
-                                Alasan
-                            </dt>
-                            <dd className="max-w-md text-right text-sm">
-                                {planning.extend_reason ?? '—'}
-                            </dd>
-                        </div>
-                    </dl>
-
-                    {canDecide && (
-                        <form
-                            className="space-y-3"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                decideForm.post(
-                                    approveScheduleExtend({
-                                        tenant,
-                                        workPlanning: planning.id,
-                                    }).url,
-                                    { preserveScroll: true },
-                                );
-                            }}
-                        >
-                            <div className="space-y-1.5">
-                                <Label htmlFor="schedule_decision_notes">
-                                    Catatan keputusan (opsional)
-                                </Label>
-                                <Textarea
-                                    id="schedule_decision_notes"
-                                    rows={2}
-                                    value={decideForm.data.notes}
-                                    onChange={(event) =>
-                                        decideForm.setData(
-                                            'notes',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    type="submit"
-                                    disabled={decideForm.processing}
-                                >
-                                    Setujui & Geser Jadwal
-                                </Button>
-                            </div>
-                        </form>
-                    )}
-
-                    {canDecide && (
-                        <form
-                            className="space-y-3"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                decideForm.post(
-                                    rejectScheduleExtend({
-                                        tenant,
-                                        workPlanning: planning.id,
-                                    }).url,
-                                    { preserveScroll: true },
-                                );
-                            }}
-                        >
-                            <Button
-                                type="submit"
-                                variant="outline"
-                                disabled={decideForm.processing}
-                            >
-                                Tolak Pengajuan
-                            </Button>
-                        </form>
-                    )}
-                </div>
+            {planning.pending && canDecide && (
+                <>
+                    <p className="text-xs text-warning">
+                        Ada pengajuan extend jadwal menunggu keputusan DGM/GM.
+                    </p>
+                    <Separator />
+                </>
             )}
 
-            {/* Tidak ada pengajuan: HOD bisa memperbarui detail + mengaju. */}
-            {!isPending && canUpdate && (
+            <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    if (canUpdate) {
+                        updateForm.post(
+                            updatePlanningDetails({
+                                tenant,
+                                workPlanning: planning.id,
+                            }).url,
+                            { preserveScroll: true },
+                        );
+                    }
+                }}
+            >
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="tgl_jadwal">Tanggal Jadwal</Label>
+                        <Input
+                            id="tgl_jadwal"
+                            type="date"
+                            value={updateForm.data.tgl_jadwal}
+                            onChange={(event) =>
+                                updateForm.setData('tgl_jadwal', event.target.value)
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="jam_mulai">Jam Mulai</Label>
+                        <Input
+                            id="jam_mulai"
+                            type="time"
+                            value={updateForm.data.jam_mulai}
+                            onChange={(event) =>
+                                updateForm.setData('jam_mulai', event.target.value)
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="jam_selesai">Jam Selesai</Label>
+                        <Input
+                            id="jam_selesai"
+                            type="time"
+                            value={updateForm.data.jam_selesai}
+                            onChange={(event) =>
+                                updateForm.setData('jam_selesai', event.target.value)
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="jenis_pekerjaan">Jenis Pekerjaan</Label>
+                        <Input
+                            id="jenis_pekerjaan"
+                            value={updateForm.data.jenis_pekerjaan}
+                            onChange={(event) =>
+                                updateForm.setData('jenis_pekerjaan', event.target.value)
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="lama_pekerjaan_hari">Lama (hari)</Label>
+                        <Input
+                            id="lama_pekerjaan_hari"
+                            type="number"
+                            min={1}
+                            value={updateForm.data.lama_pekerjaan_hari}
+                            onChange={(event) =>
+                                updateForm.setData(
+                                    'lama_pekerjaan_hari',
+                                    parseInt(event.target.value) || 1,
+                                )
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="budget">Anggaran</Label>
+                        <Input
+                            id="budget"
+                            type="number"
+                            min={0}
+                            step={1000}
+                            value={updateForm.data.budget}
+                            onChange={(event) =>
+                                updateForm.setData(
+                                    'budget',
+                                    parseInt(event.target.value) || 0,
+                                )
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="catatan">Catatan (opsional)</Label>
+                        <Textarea
+                            id="catatan"
+                            rows={2}
+                            value={updateForm.data.catatan}
+                            onChange={(event) =>
+                                updateForm.setData('catatan', event.target.value)
+                            }
+                            disabled={!canUpdate}
+                        />
+                    </div>
+                </div>
+
+                {canUpdate && (
+                    <Button type="submit" disabled={updateForm.processing}>
+                        Simpan Perubahan
+                    </Button>
+                )}
+            </form>
+
+            {planning.pending && canDecide && (
                 <>
-                    <form
-                        className="space-y-4"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            detailsForm.patch(
-                                updatePlanningDetails({
-                                    tenant,
-                                    workPlanning: planning.id,
-                                }).url,
-                                {
-                                    preserveScroll: true,
-                                    onSuccess: () => {},
-                                },
-                            );
-                        }}
+                    <Separator />
+                    <ConfirmDialog
+                        title="Setujui Extend Jadwal?"
+                        description="Jadwal WO akan bergeser ke tanggal yang diajukan."
+                        confirmLabel="Ya, setujui"
+                        cancelLabel="Batal"
+                        onConfirm={() => approveForm.post(approveScheduleExtend({
+                            tenant,
+                            workPlanning: planning.id,
+                        }).url, { preserveScroll: true })}
+                        processing={approveForm.processing}
                     >
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="planning_jam_mulai">
-                                    Jam mulai
-                                </Label>
-                                <Input
-                                    id="planning_jam_mulai"
-                                    type="time"
-                                    value={detailsForm.data.jam_mulai}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'jam_mulai',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="planning_jam_selesai">
-                                    Jam selesai
-                                </Label>
-                                <Input
-                                    id="planning_jam_selesai"
-                                    type="time"
-                                    value={detailsForm.data.jam_selesai}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'jam_selesai',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="planning_jenis">
-                                    Jenis pekerjaan
-                                </Label>
-                                <Input
-                                    id="planning_jenis"
-                                    value={detailsForm.data.jenis_pekerjaan}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'jenis_pekerjaan',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="planning_lama">
-                                    Lama pekerjaan (hari)
-                                </Label>
-                                <Input
-                                    id="planning_lama"
-                                    type="number"
-                                    min={1}
-                                    value={detailsForm.data.lama_pekerjaan_hari}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'lama_pekerjaan_hari',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label htmlFor="planning_budget">
-                                    Budget (Rp, opsional)
-                                </Label>
-                                <Input
-                                    id="planning_budget"
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={detailsForm.data.budget}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'budget',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label htmlFor="planning_catatan">
-                                    Catatan
-                                </Label>
-                                <Textarea
-                                    id="planning_catatan"
-                                    rows={2}
-                                    value={detailsForm.data.catatan}
-                                    onChange={(event) =>
-                                        detailsForm.setData(
-                                            'catatan',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Tanggal jadwal tidak bisa diubah di form ini —
-                            pergeseran tanggal wajib lewat Extend Work
-                            Schedule di bawah dengan approval DGM/GM.
-                        </p>
-                        <Button
-                            type="submit"
-                            variant="outline"
-                            disabled={detailsForm.processing}
-                        >
-                            Simpan Detail Jadwal
+                        <Button type="button" onClick={() => approveForm.post(approveScheduleExtend({
+                            tenant,
+                            workPlanning: planning.id,
+                        }).url, { preserveScroll: true })} disabled={approveForm.processing}>
+                            Setujui Extend Jadwal
                         </Button>
-                    </form>
+                    </ConfirmDialog>
 
                     <Separator />
 
                     <form
-                        className="space-y-4"
+                        className="space-y-3"
                         onSubmit={(event) => {
                             event.preventDefault();
-                            extendForm.post(
-                                requestScheduleExtend({
+                            rejectForm.post(
+                                rejectScheduleExtend({
                                     tenant,
                                     workPlanning: planning.id,
                                 }).url,
                                 {
                                     preserveScroll: true,
-                                    onSuccess: () => extendForm.reset(),
+                                    onSuccess: () => rejectForm.reset(),
                                 },
                             );
                         }}
                     >
                         <div className="space-y-1.5">
-                            <Label htmlFor="planning_extend_tgl">
-                                Jadwal baru (setelah{' '}
-                                {planning.tgl_jadwal
-                                    ? formatDate(planning.tgl_jadwal)
-                                    : '—'}
-                                )
-                            </Label>
-                            <Input
-                                id="planning_extend_tgl"
-                                type="date"
-                                min={minProposedDate}
-                                value={extendForm.data.tgl_jadwal}
-                                onChange={(event) =>
-                                    extendForm.setData(
-                                        'tgl_jadwal',
-                                        event.target.value,
-                                    )
-                                }
-                                aria-invalid={Boolean(
-                                    extendForm.errors.tgl_jadwal,
-                                )}
-                            />
-                            {extendForm.errors.tgl_jadwal && (
-                                <p className="text-xs text-danger">
-                                    {extendForm.errors.tgl_jadwal}
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="planning_extend_reason">
-                                Alasan perpanjangan
+                            <Label htmlFor="schedule_reject_catatan">
+                                Alasan Penolakan (wajib)
                             </Label>
                             <Textarea
-                                id="planning_extend_reason"
+                                id="schedule_reject_catatan"
                                 rows={2}
-                                value={extendForm.data.extend_reason}
+                                value={rejectForm.data.catatan}
                                 onChange={(event) =>
-                                    extendForm.setData(
-                                        'extend_reason',
-                                        event.target.value,
-                                    )
+                                    rejectForm.setData('catatan', event.target.value)
                                 }
-                                aria-invalid={Boolean(
-                                    extendForm.errors.extend_reason,
-                                )}
+                                aria-invalid={Boolean(rejectForm.errors.catatan)}
                             />
-                            {extendForm.errors.extend_reason && (
+                            {rejectForm.errors.catatan && (
                                 <p className="text-xs text-danger">
-                                    {extendForm.errors.extend_reason}
+                                    {rejectForm.errors.catatan}
                                 </p>
                             )}
                         </div>
-
-                        <Button type="submit" disabled={extendForm.processing}>
-                            Ajukan Extend Jadwal ke DGM/GM
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={rejectForm.processing}
+                        >
+                            Tolak Extend Jadwal
                         </Button>
                     </form>
                 </>
-            )}
-
-            {/* Pengaju pending yang bukan decider tetap melihat statusnya. */}
-            {isPending && !canDecide && (
-                <p className="text-xs text-muted-foreground">
-                    Pengajuan menunggu keputusan DGM/GM — jadwal berlaku belum
-                    berubah.
-                </p>
             )}
         </section>
     );

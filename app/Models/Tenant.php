@@ -27,6 +27,7 @@ class Tenant extends SpatieTenant
         'deactivated_at',
         'last_department_synced_at',
         'last_division_synced_at',
+        'last_position_synced_at',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class Tenant extends SpatieTenant
         'deactivated_at' => 'datetime',
         'last_department_synced_at' => 'datetime',
         'last_division_synced_at' => 'datetime',
+        'last_position_synced_at' => 'datetime',
     ];
 
     public function getTenantKey(): string

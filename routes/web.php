@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\ExtendRequestController;
 use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
@@ -176,6 +177,12 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('work-planning/{workPlanning}/reject', [WorkPlanningController::class, 'reject'])
         ->name('work-planning.reject');
 
+    // FR-5.x Daily Work — daftar harian karyawan (materialize-on-view)
+    // + update status/lokasi item milik sendiri. Template/adhoc/team di Task 3.
+    Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
+    Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
+        ->name('daily-work.update');
+
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');
     Route::post('divisions/sync', [DivisionController::class, 'sync'])->name('divisions.sync');
@@ -202,7 +209,11 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('departments/{department}', [DepartmentController::class, 'show'])->name('departments.show');
     Route::post('departments/sync', [DepartmentController::class, 'sync'])->name('departments.sync');
 
-    Route::resource('positions', PositionController::class)->names('positions');
+    Route::get('positions', [PositionController::class, 'index'])->name('positions.index');
+    Route::get('positions/tree', [PositionTreeController::class, 'index'])->name('positions.tree');
+    Route::get('positions/tree/{position}', [PositionTreeController::class, 'show'])->name('positions.tree.root');
+    Route::get('positions/{position}', [PositionController::class, 'show'])->name('positions.show');
+    Route::post('positions/sync', [PositionController::class, 'sync'])->name('positions.sync');
 });
 
 require __DIR__.'/hak-akses.php';

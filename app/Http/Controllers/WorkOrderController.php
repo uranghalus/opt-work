@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderController extends Controller
 {
@@ -302,7 +301,7 @@ class WorkOrderController extends Controller
         $targetDepartment = Department::query()->findOrFail($validated['target_department_id']);
 
         $attachments = collect($request->file('attachments', []))
-            ->map(fn ($file) => Storage::disk('public')->putFile('work-orders/'.tenant()?->getTenantKey(), $file))
+            ->map(fn ($file) => Storage::disk('s3')->putFile('work-orders/'.tenant()?->getTenantKey(), $file))
             ->all();
 
         $workOrder = $this->workOrderService->create(
@@ -366,7 +365,7 @@ class WorkOrderController extends Controller
         ]);
 
         $attachments = collect($request->file('result_attachments', []))
-            ->map(fn ($file) => Storage::disk('public')->putFile('work-orders/'.tenant()?->getTenantKey(), $file))
+            ->map(fn ($file) => Storage::disk('s3')->putFile('work-orders/'.tenant()?->getTenantKey(), $file))
             ->all();
 
         $this->workOrderService->submit(
@@ -562,21 +561,18 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Stream one attachment of a work order.
+     * Redirect browser to the S3 public URL for one attachment of a work order.
      *
-     * Attachments live on the tenant-suffixed public disk
-     * (`storage/tenant{id}/app/public/` — see the FilesystemTenancyBootstrapper),
-     * which the `public/storage` symlink does not cover, so they cannot be served
-     * from a plain `/storage/...` URL. Serving them from here also keeps them
-     * behind the tenant middleware stack: a raw storage URL would let any
-     * authenticated user read another branch's uploads by guessing the path.
+     * Attachments now live on S3 (visibility: public). We still route through
+     * this controller so the tenant middleware stack can verify ownership before
+     * handing the browser a CDN URL — no unauthenticated cross-branch access.
+     *
+     * @return RedirectResponse
      */
-    public function attachment(Request $request, string $index): StreamedResponse
+    public function attachment(Request $request, string $index)
     {
         $workOrderId = $request->route('workOrder');
 
-        // Same rule as show(): the tenant scope keeps another branch's WO
-        // (and its attachments) invisible even when the id is known.
         $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
             ->firstOrFail();
@@ -588,8 +584,11 @@ class WorkOrderController extends Controller
             default => $workOrderModel->attachments[(int) $index] ?? null,
         };
 
-        abort_if($path === null || ! Storage::disk('public')->exists($path), 404);
+        abort_if($path === null, 404);
 
-        return Storage::disk('public')->response($path);
+        abort_if(! Storage::disk('s3')->exists($path), 404);
+
+        // Redirect to the public CDN URL — no streaming through Laravel.
+        return redirect(Storage::disk('s3')->url($path));
     }
 }

@@ -2,6 +2,32 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Daily Work FR-5.x (2026-10-23) — IN PROGRESS (dihentikan atas permintaan user)
+
+Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`. Eksekusi inline (executing-plans) berhenti di tengah **Task 2**.
+
+### Selesai
+
+- [x] **Task 1 — Foundation (commit `7cca083`):** migrasi `daily_work_templates` (weekdays json 0–6, `is_active`) + `daily_works` (`status` pending|in_progress|done, `location`, `source` template|adhoc, unique `(template_id, work_date)`, FK template nullOnDelete) + model `DailyWorkTemplate`/`DailyWork` (pola `#[Fillable]`+`BelongsToTenant`+`HasUuids`) + factory + state `forTemplate`. Test `DailyWorkFoundationTest` 3/3 pass; full suite saat commit **585 (577 pass, 8 skip, 0 gagal)**.
+
+### Di working tree (BELUM di-commit — Task 2 in progress, test belum hijau)
+
+File baru: `app/Services/DailyWorkService.php` (`materializeFor` — firstOrCreate idempoten, progres tak pernah tertimpa, unik per template+tanggal), `app/Http/Controllers/DailyWorkController.php` (`index` materialize-on-view + filter search/status/paginasi + `update` status/lokasi item milik sendiri), test `DailyWorkMaterializeTest` + `DailyWorkUpdateTest` (**11 test: 4 pass, 5 fail, 2 error**). `routes/web.php` DIEDIT (`daily-work.index` + `daily-work.update`) tapi **sengaja ditahan tidak di-commit** — file itu juga memuat WIP sesi paralel halaman Position; commit menyusul setelah sesi itu commit (keputusan user 2026-10-23).
+
+### Sisa langkah Task 2 (urut)
+
+1. **Buat halaman stub `resources/js/pages/daily-work/index.tsx`** — 3 fail terkunci di `Inertia page component [daily-work/index] does not exist`; halaman penuh = Task 4 (card list + search + filter status + paginasi, shadcn, tanpa tabel — per design).
+2. **Investigasi prop `dailyWork.meta.total` tidak ada** (2 fail) — cek serialisasi paginator Inertia dari `paginate()->withQueryString()->through(...)`; sesuaikan payload atau assertion.
+3. **2 error "No query results for model DailyWork"** pada test re-materialize & hapus-template — baris belum terbentuk saat GET; cek alur `materializeFor` (employee_id/tenant_id/filter weekdays) setelah langkah 1.
+4. **Redirect update**: test mengharapkan `/hq/daily-work`, controller mengembalikan `?date=2026-10-26` — rekomendasi: pertahankan `date` di redirect, sesuaikan assertion test.
+5. **Honesty test**: hapus `daily-work.read` + `daily-work.update` dari allowlist `tests/Feature/Rbac/PermissionConsistencyTest.php:139-141` begitu gating final (`daily-work.create` menyusul di Task 3).
+6. Full suite hijau → `vendor/bin/pint --dirty` → commit Task 2 pathspec-limited (file Daily Work + routes/web.php + PermissionConsistencyTest) — **baru boleh setelah sesi paralel Position commit routes/web.php**.
+7. Lanjut **Task 3–6** sesuai plan: template CRUD HOD + adhoc + notif `DailyWorkAssigned` (DB+broadcast+WA) + team view + hapus allowlist `create` → UI karyawan (Task 4, wayfinder `--with-form`) → UI HOD (Task 5) → wrap-up grant izin + tick issue 07 + vault (Task 6).
+
+Catatan bug yang SUDAH diperbaiki dalam Task 2 ini (jangan diulang): `Illuminate\Support\CarbonImmutable` TIDAK ADA di Laravel ini → pakai `Carbon\CarbonImmutable`; redirect route grup tenant wajib kirim `['tenant' => tenant()?->code]`.
+
+---
+
 ## WO Review Decisions (D1/D2/D3 + Frontend Redesign) — 2026-10-23 — DONE
 
 - [x] **D2 — Jam operasional WITA + migrasi data one-off (−8 jam):** config `app.timezone` → `Asia/Makassar`; migrasi eksplisit 21 tabel bisnis (47 kolom datetime/timestamp) dengan guard sqlite; kolom DATE (`deadline_date` dll.) TIDAK digeser; tabel runtime (jobs/sessions/cache) TIDAK digeser. Test: `AppTimezoneTest` (config + `now()` offset + `Carbon::today()`), `DeadlineCalculatorTest` pin bug SLA (Senin 07:00 WITA → deadline Kamis, bukan Rabu). Order-of-operations: config + migrasi dieksekusi bersamaan saat idle. Commit `2db886f`.
@@ -105,7 +131,7 @@ Sumber: [audit implementasi PRD](.scratch/prd-audit/research/prd-implementation-
       work-data.read/update keluar dari allowlist forward-looking (honesty
       test). 8 test `WorkDataTest` + 3 update GateTest. OQ revisi
       post-closing: WO closed terminal di MVP (`// OQ` di kode).
-- [ ] **FR-5.x — Daily Work:** nol kode (OQ-4 settled: template per karyawan). Issue: `07-daily-work-templates.md`.
+- [ ] **FR-5.x — Daily Work:** **IN PROGRESS 2026-10-23** — Task 1 foundation done (commit `7cca083`); Task 2 materialize+index+update di working tree belum hijau. Status detail + sisa langkah → section "Daily Work FR-5.x" di atas. Issue: `07-daily-work-templates.md` · plan: `.scratch/daily-work/plan.md` · design: `.scratch/daily-work/design.md`.
 - [ ] **FR-1.1 — field kurang:** prioritas, jumlah personel dibutuhkan, jenis pekerjaan/kerusakan (kini hanya title + description + dept tujuan + kategori + lampiran).
 
 **Defect / keputusan kecil (temuan audit):**

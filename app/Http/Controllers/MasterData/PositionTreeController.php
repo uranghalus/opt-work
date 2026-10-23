@@ -69,7 +69,7 @@ class PositionTreeController extends Controller
                         }]);
                     }]);
                 }]);
-            });
+            }]);
 
         return Inertia::render('positions/tree', [
             'rootPositions' => collect([$position]),

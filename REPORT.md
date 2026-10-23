@@ -13,7 +13,7 @@ Safety tag: `backup/pre-agent-20261024` → main @ `85731fa` (pushed to origin)
 | 3 — Backend bugs & N+1 | ✅ DONE | 2 parallel audits; 19 fixes + 10 new tests; 3 findings documented-not-changed with reasons; suite 619/611/0 failed |
 | 4 — Frontend review | ✅ DONE | 25+ fixes (5 high, 8 med): dead 405 PATCH, dead ConfirmDialogs, 12 tenant-less dead links, filter-id mismatch, search wiring, mojibake, a11y markup; tsc+build green |
 | 5 — Verification gate | ✅ DONE | pint clean, tsc clean, build green, suite **619 tests / 611 passed / 0 failed / 8 skipped** (baseline: 576 passed / 10 failed + 2 errors); diff self-reviewed (no debug code/secrets) |
-| 6 — Commit, push, merge | 🔄 in progress | working branch pushed; dependabot merged; features/department-syncronize fully contained; escalation-scheduler has 0 unique commits |
+| 6 — Commit, push, merge | ✅ DONE | working branch pushed (`2d4acbd`); dependabot merged post-checks green; main merged `--no-ff` (`9c8def9`) and pushed; main build+suite verified; no branches deleted |
 
 ## Phase 0 — Setup & Baseline
 
@@ -210,5 +210,36 @@ fixed (`<li>`); unused `visibleColumns` state removed.
 | `wt/20261020-093704` (local worktree branch) | identical to main | Nothing to merge; the linked worktree was not touched. |
 
 After the working branch contained every mergeable branch and all checks were
-green, it was merged into `main` with `--no-ff` and pushed normally (no force).
-No branches were deleted.
+green, it was merged into `main` with `--no-ff` (merge commit `9c8def9`) and
+pushed normally (`85731fa..9c8def9`, no force). No branches were deleted.
+
+## Decisions made on your behalf (with reasons)
+
+| Decision | Reason |
+| -------- | ------ |
+| Working branch cut from `features/department-syncronize` @ `48c56c9`, not main @ `85731fa` | main was 64 commits behind the active line; branching from main would have forced re-resolving all 64 commits as conflicts and building Phase 2 against stale code. Phase 6 still landed everything on main. |
+| Completed the interrupted Daily Work session (missing page, Task 3 endpoints, HOD UI) per the committed, user-approved design doc (`.scratch/daily-work/design.md`) | It was the only TODO item both actionable and in-scope, and its missing page caused 6 baseline test failures. |
+| Gate verbs for Daily Work follow the committed catalogue (CRUD + new `daily-work.delete`) instead of the design doc's `daily-work.manage` | `manage` would fail the honesty test's verb map (`rbacAllowedVerbs`); the committed seeder already standardized on CRUD verbs. |
+| `DailyWorkController::update` redirects back to the viewed date (`?date=`), omitted when the item is today | Preserves list context when editing non-today items; the stale test was updated to match. |
+| `DailyWorkService` firstOrCreate matches on a Carbon instance and day queries use begin/end bounds instead of `whereDate` strings | DATE columns store `Y-m-d H:i:s` on sqlite — string equality silently returned empty lists; the Carbon/range binding is correct on both engines. |
+| s3 attachment tests updated to `Storage::fake('s3')` + redirect assertions | Commit `8b89c89` deliberately moved attachments to the s3 disk; the tests were left stale by that session. |
+| Sync empty-response = skip deactivation (re-pinned an old test that asserted mass deactivation) | An empty-but-HTTP-200 portal response is a data-incomplete signal, not "everything disappeared"; the nightly cron must not be able to deactivate the whole database. |
+| Escalation H+N reinterpreted as calendar days past deadline (PRD FR-2.2 + AGENTS.md wording) over the implementation's business-days-since-assignment | The old semantics fired all three escalation levels on a Normal WO's first overdue day; the test had pinned the implementation, not the PRD. |
+| Profile self-delete blocked for accounts with WO/extend/audit history | Cascade deletes would erase branch work history; the FK-restrict case was an unhandled 500. |
+| Timeline redesigned on FullCalendar v7 dayGrid (week + month), MIT plugins only | Only free candidate with a native day-unit week grid (the data has no time-of-day); full comparison in `docs/audit/workorder-timeline-design-decisions.md`. |
+| `interactionPlugin` (drag-drop) intentionally NOT installed | Moving `scheduled_date` is a governed action (FR-2.4/2.5 requires DGM/GM approval); a drag affordance would invite illegal mutations. |
+| Cross-department review/assign/verify scoping NOT changed | Permission-based model is documented in code and pinned by tests; the right policy needs your input (Phase 3 follow-up). |
+| Did not run `vp check --fix` (394 files) nor delete unused components/deps | Safety rule 5 (no deletions not explicitly requested); both listed as follow-up cleanups. |
+| Committed the interrupted session's untracked artifacts found in the working tree as part of the related commits | They belong to the features shipped in those commits (verified via the committed design docs/tests referencing them). |
+
+## Follow-ups you should review
+
+1. **Cross-department WO actions** (Phase 3, deliberately not changed): decide whether HODs may review/assign/verify WOs of departments they don't head at the API level, then gate accordingly.
+2. **Guest master-data gating** (open user decision in TODO.md): the division/department/position/tenant read surfaces and the `*/sync` write endpoints remain ungated by permission; the allowlist honesty test documents the plan ("gated when master data moves to permissions").
+3. **Akun CRUD surface** (`akun.create/delete` still honestly allowlisted) — needs a design doc before building.
+4. **PRD FR-1.1 fields** (prioritas, jumlah personel, jenis pekerjaan/kerusakan) — deferred by your earlier 0(c) decision; still in backlog.
+5. **OQ-8**: the 13 UAT scenarios + live 1-department pilot remain user activities.
+6. **§8 open decisions** #2/#4/#5/#8 (re-assign resigned employee, repeated-revision SLA, queue order, approver delegation) — untouched per AGENTS.md.
+7. **`app:grant-default-permissions`** on the dev DB (grants the new `daily-work.delete`), then a visual pass of the new Timeline (week/month, light/dark) and the Daily Work pages in a real browser.
+8. **Cleanup candidates** (kept, not deleted): `tests/debug-escalation.php`, unused components (`alert-error`, `appearance-tabs`, `greeting-header`, `module-card`, `nav-footer`, `nav-main`, `text-link`, `FormErrorSummary`, `PositionCard`, auth layouts, `use-clipboard`), unused npm deps (`@gsap/react`, `concurrently`), and a repo-wide `vp check --fix` formatting pass (394 files, pre-existing).
+9. **Broadcast pre-commit dispatch** (possible ghost toast on rollback) and **`TenantAccess::canOperate` ignoring `is_active`** — both flagged in Phase 3 as low-impact behavior questions.

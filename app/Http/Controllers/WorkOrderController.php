@@ -527,6 +527,10 @@ class WorkOrderController extends Controller
             && $user->can('work-planning.update')
             && ($user->is_super_admin || $user->hasAnyRole(['general_manager', 'deputy_general_manager']));
 
+        [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrderModel);
+        $workOrderModel->setAttribute('deadline_state', $deadlineState);
+        $workOrderModel->setAttribute('deadline_label', $deadlineLabel);
+
         return Inertia::render('work-orders/show', [
             'workOrder' => $workOrderModel,
             'employees' => $employees,

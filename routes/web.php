@@ -12,6 +12,7 @@ use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\WorkPlanningController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
@@ -164,6 +165,16 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-data', [WorkDataController::class, 'index'])->name('work-data.index');
     Route::get('work-data/{workData}', [WorkDataController::class, 'show'])->name('work-data.show');
     Route::post('work-data/{workData}/finalize', [WorkDataController::class, 'finalize'])->name('work-data.finalize');
+
+    // FR-2.4 Work Planning — detail jadwal + Extend Work Schedule (DGM/GM).
+    Route::patch('work-planning/{workPlanning}', [WorkPlanningController::class, 'update'])
+        ->name('work-planning.update');
+    Route::post('work-planning/{workPlanning}/extend', [WorkPlanningController::class, 'extend'])
+        ->name('work-planning.extend');
+    Route::post('work-planning/{workPlanning}/approve', [WorkPlanningController::class, 'approve'])
+        ->name('work-planning.approve');
+    Route::post('work-planning/{workPlanning}/reject', [WorkPlanningController::class, 'reject'])
+        ->name('work-planning.reject');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

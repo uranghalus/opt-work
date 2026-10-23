@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -164,6 +165,17 @@ class WorkOrder extends Model
     public function extendRequests(): HasMany
     {
         return $this->hasMany(ExtendRequest::class);
+    }
+
+    /**
+     * FR-2.4: detail jadwal per WO Terjadwal — dibuat saat review
+     * 'schedule'; null untuk WO non-terjadwal.
+     *
+     * @return HasOne<WorkPlanning, $this>
+     */
+    public function planning(): HasOne
+    {
+        return $this->hasOne(WorkPlanning::class);
     }
 
     /**

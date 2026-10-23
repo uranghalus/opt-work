@@ -23,7 +23,10 @@ use Illuminate\Validation\ValidationException;
 
 class WorkOrderService
 {
-    public function __construct(private HodNotificationResolver $hodNotificationResolver) {}
+    public function __construct(
+        private HodNotificationResolver $hodNotificationResolver,
+        private WorkPlanningService $workPlanningService,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -89,6 +92,11 @@ class WorkOrderService
                 'hod_notes' => $data['hod_notes'] ?? null,
                 'status' => $to,
             ]);
+
+            // FR-2.4: planning row lahir bersama keputusan jadwal.
+            if ($action === 'schedule') {
+                $this->workPlanningService->createForWorkOrder($workOrder);
+            }
 
             WorkOrderEvent::record(
                 $workOrder,

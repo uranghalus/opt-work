@@ -28,6 +28,17 @@
     background-color: var(--surface);
 }
 
+/*
+ * Week view keeps readable day columns on phones: the grid gets a minimum
+ * width and the labelled wrapper scrolls it horizontally (WCAG 2.1.1;
+ * DESIGN.md "scrolls inside its own region").
+ */
+@media (max-width: 767px) {
+    .wotl-calendar .fc-dayGridWeek-view {
+        min-width: 640px;
+    }
+}
+
 /* other-month cells dim (data stays visible) */
 .wotl-calendar .fc-daygrid-day.fc-day-other .fc-daygrid-day-number,
 .wotl-calendar .fc-daygrid-day.fc-day-other .fc-daygrid-day-top {
@@ -88,8 +99,17 @@
     font-weight: 600;
     font-size: 0.8125rem;
     padding: 6px 12px;
+    min-height: 40px;
     box-shadow: none;
     text-transform: none;
+}
+
+/* Touch targets: 44px on coarse pointers (ui-ux-pro-max touch rule). */
+@media (pointer: coarse) {
+    .wotl-calendar .fc .fc-button {
+        min-height: 44px;
+        min-width: 44px;
+    }
 }
 
 .wotl-calendar .fc .fc-button:hover {

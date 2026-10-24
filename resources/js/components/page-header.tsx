@@ -33,6 +33,14 @@ export function PageHeader({
         canReadRoles: page.props.auth?.can?.['role.read'],
         canReadPermissions: page.props.auth?.can?.['permission.read'],
         canReadWorkData: page.props.auth?.can?.['work-data.read'],
+        hasEmployeeLink: page.props.auth?.user?.employee_id != null,
+        canDecideExtends:
+            (page.props.auth?.can?.['work-order.extend-approve'] ?? false) ||
+            (page.props.auth?.isSuperAdmin ?? false) ||
+            (page.props.auth?.user?.roles?.includes('general_manager') ??
+                false) ||
+            (page.props.auth?.user?.roles?.includes('deputy_general_manager') ??
+                false),
     })
         .flatMap((group) => group.items)
         .find((item) => !item.disabled && isCurrentOrParentUrl(item.href));

@@ -6,6 +6,10 @@ export type User = {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
+    /** Link ke karyawan (pelaksana potensial) — null untuk akun platform. */
+    employee_id: string | null;
+    /** Nama-nama role Spatie (HandleInertiaRequests::share). */
+    roles: string[];
     [key: string]: unknown;
 };
 
@@ -37,6 +41,7 @@ export type Auth = {
         'work-order.verify': boolean;
         'work-order.extend': boolean;
         'work-order.extend-approve': boolean;
+        'work-order.approve-request': boolean;
         'work-data.read': boolean;
         'work-data.update': boolean;
         'daily-work.read': boolean;

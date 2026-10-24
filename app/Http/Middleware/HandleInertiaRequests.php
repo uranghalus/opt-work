@@ -114,6 +114,9 @@ class HandleInertiaRequests extends Middleware
                     // WO slice 3: extend deadline WO telat (FR-2.3–2.5).
                     'work-order.extend' => (bool) ($user?->can('work-order.extend')),
                     'work-order.extend-approve' => (bool) ($user?->can('work-order.extend-approve')),
+                    // ADR-0011: gerbang approval lintas-department — inbox
+                    // approver department pengaju.
+                    'work-order.approve-request' => (bool) ($user?->can('work-order.approve-request')),
                 ],
             ],
             'tenant' => $currentTenant,

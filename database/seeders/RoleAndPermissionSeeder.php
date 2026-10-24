@@ -40,6 +40,11 @@ class RoleAndPermissionSeeder extends Seeder
         'general_manager',
         'deputy_general_manager',
         'hod',
+        // Staf admin department (OQ-8, keputusan user 2026-10-24): co-approver
+        // permintaan WO lintas-department dari department-nya sendiri.
+        // Department binding tetap lewat employees.department_id (pola sama
+        // dengan rantai role hod).
+        'staf_admin_dept',
         'team_leader',
         'karyawan',
         'field_staff',
@@ -63,7 +68,7 @@ class RoleAndPermissionSeeder extends Seeder
      * @var array<string, list<string>>
      */
     public const RESOURCE_VERBS = [
-        'work-order' => ['review', 'assign', 'submit', 'verify', 'extend', 'extend-approve'],
+        'work-order' => ['review', 'assign', 'submit', 'verify', 'extend', 'extend-approve', 'approve-request'],
     ];
 
     /**
@@ -151,6 +156,8 @@ class RoleAndPermissionSeeder extends Seeder
             'work-order.review', 'work-order.assign', 'work-order.submit', 'work-order.verify',
             // Extend flow (FR-2.3–2.5): request + approval berjenjang TL → HOD.
             'work-order.extend', 'work-order.extend-approve',
+            // Gerbang approval lintas-department (ADR-0011, R2).
+            'work-order.approve-request',
         ];
 
         $workPlanningPermissions = [
@@ -268,6 +275,7 @@ class RoleAndPermissionSeeder extends Seeder
                 ...$akunPermissions,
                 ...$whatsappPermissions,
                 ...$workOrderPermissions,
+                'work-order.approve-request',
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
@@ -296,10 +304,21 @@ class RoleAndPermissionSeeder extends Seeder
                 'division.read', 'department.read', 'department.update', 'employee.read',
                 'work-order.read', 'work-order.review', 'work-order.assign', 'work-order.verify',
                 'work-order.extend', 'work-order.extend-approve',
+                // Gerbang approval lintas-department (R2): HOD department
+                // pengaju menyetujui/menolak permintaan karyawannya.
+                'work-order.approve-request',
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
                 'dashboard.read', 'reports.read',
+            ],
+
+            // Staf admin department — co-approver permintaan lintas-department
+            // dari department-nya (keputusan user, OQ-8). Akses minimal:
+            // melihat WO + inbox approval.
+            'staf_admin_dept' => [
+                'work-order.read', 'work-order.approve-request',
+                'dashboard.read',
             ],
 
             'team_leader' => [

@@ -1,11 +1,14 @@
 import { cn } from '@/lib/utils';
 import {
+    Ban,
     CalendarClock,
     CircleCheck,
     CircleDashed,
+    CircleX,
     ClipboardCheck,
     Eye,
     Hammer,
+    Hourglass,
     Inbox,
     RotateCcw,
     ShieldAlert,
@@ -20,6 +23,8 @@ import {
  */
 export type WoStatus =
     | 'draft'
+    | 'pending_dept_approval'
+    | 'rejected_by_dept'
     | 'waiting_hod'
     | 'hod_approved'
     | 'scheduled'
@@ -28,6 +33,7 @@ export type WoStatus =
     | 'pending_verify'
     | 'revision'
     | 'closed'
+    | 'cancelled'
     | 'overdue'
     | 'escalated';
 
@@ -39,6 +45,16 @@ const statusSpec: Record<
         label: 'Draf',
         icon: CircleDashed,
         className: 'bg-surface-raised text-ink-muted border-border',
+    },
+    pending_dept_approval: {
+        label: 'Menunggu Persetujuan Dept Pengaju',
+        icon: Hourglass,
+        className: 'bg-info/10 text-info border-info/30',
+    },
+    rejected_by_dept: {
+        label: 'Ditolak Dept Pengaju',
+        icon: CircleX,
+        className: 'bg-danger/10 text-danger border-danger/30',
     },
     waiting_hod: {
         label: 'Menunggu Keputusan HOD',
@@ -80,6 +96,11 @@ const statusSpec: Record<
         icon: CircleCheck,
         className: 'bg-success/10 text-success border-success/30',
     },
+    cancelled: {
+        label: 'Dibatalkan',
+        icon: Ban,
+        className: 'bg-surface-raised text-ink-muted border-border',
+    },
     overdue: {
         label: 'Telat',
         icon: TimerOff,
@@ -94,6 +115,8 @@ const statusSpec: Record<
 
 /** Shorter labels for dense contexts (tables); meaning is preserved. */
 const compactLabel: Partial<Record<WoStatus, string>> = {
+    pending_dept_approval: 'Menunggu Dept',
+    rejected_by_dept: 'Ditolak Dept',
     waiting_hod: 'Menunggu HOD',
     pending_verify: 'Verifikasi',
     in_progress: 'Dikerjakan',

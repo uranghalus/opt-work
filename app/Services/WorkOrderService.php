@@ -27,6 +27,8 @@ class WorkOrderService
     public function __construct(
         private HodNotificationResolver $hodNotificationResolver,
         private WorkPlanningService $workPlanningService,
+        private WorkOrderRequestService $requestService,
+        private WorkTimeLogService $workTimeLogService,
     ) {}
 
     /**
@@ -36,6 +38,12 @@ class WorkOrderService
     public function create(User $requester, Department $targetDepartment, array $data, array $attachments = []): WorkOrder
     {
         return DB::transaction(function () use ($requester, $targetDepartment, $data, $attachments): WorkOrder {
+            // R5: gerbang approval department pengaju hanya untuk WO lintas
+            // department — requester tanpa department (akun admin) dan WO
+            // satu department sendiri langsung masuk alur lama (R7: SLA
+            // tetap dari tanggal assign, bukan dari rilis).
+            $needsApproval = $this->requestService->needsApproval($requester, $targetDepartment);
+
             // Nomor WO dihitung dari max(nomor_wo) tanpa lock — dua store()
             // bersamaan bisa menghitung nomor sama; unique(tenant_id, nomor_wo)
             // menolak yang kedua. Ulangi dengan nomor segar (max kini terlihat
@@ -51,8 +59,14 @@ class WorkOrderService
                         'category' => $data['category'],
                         'title' => $data['title'],
                         'description' => $data['description'],
+                        'location' => $data['location'] ?? null,
                         'attachments' => $attachments === [] ? null : $attachments,
-                        'status' => WorkOrderStatus::WaitingHod->value,
+                        'status' => $needsApproval
+                            ? WorkOrderStatus::PendingDeptApproval->value
+                            : WorkOrderStatus::WaitingHod->value,
+                        // R8: belum rilis = dept tujuan buta terhadap WO ini
+                        // sampai approver department pengaju menyetujui.
+                        'released_at' => $needsApproval ? null : now(),
                         'requested_schedule_date' => $data['requested_schedule_date'] ?? null,
                     ]);
 
@@ -66,9 +80,15 @@ class WorkOrderService
                 }
             }
 
-            $this->hodNotificationResolver
-                ->resolve($targetDepartment)
-                ->each(fn (User $recipient) => $recipient->notify(new WorkOrderCreated($workOrder)));
+            if ($needsApproval) {
+                // R11: notifikasi hanya ke approver department pengaju —
+                // dept tujuan baru diberi tahu saat approve.
+                $this->requestService->notifyApprovers($workOrder);
+            } else {
+                $this->hodNotificationResolver
+                    ->resolve($targetDepartment)
+                    ->each(fn (User $recipient) => $recipient->notify(new WorkOrderCreated($workOrder)));
+            }
 
             return $workOrder;
         });
@@ -278,7 +298,7 @@ class WorkOrderService
         return DB::transaction(function () use ($actor, $workOrder, $notes, $attachments): WorkOrder {
             $from = $workOrder->status;
 
-            if (! in_array($from, [WorkOrderStatus::Assigned, WorkOrderStatus::Revision], true)) {
+            if (! in_array($from, [WorkOrderStatus::Assigned, WorkOrderStatus::InProgress, WorkOrderStatus::Revision], true)) {
                 abort(409, 'Work Order belum ditugaskan atau sedang menunggu hasil verifikasi.');
             }
 
@@ -299,6 +319,12 @@ class WorkOrderService
                     'attachment_count' => count($attachments),
                 ],
             );
+
+            // R17/R18: menyerahkan hasil = mengakhiri timer pelaksana
+            // pengaju (segmen jeda yang terbuka ikut ditutup).
+            if ($actor->employee_id !== null) {
+                $this->workTimeLogService->finish($workOrder, (string) $actor->employee_id);
+            }
 
             $this->hodNotificationResolver
                 ->resolve($workOrder->targetDepartment)

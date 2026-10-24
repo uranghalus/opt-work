@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Console\Commands\SyncTenantData;
 use App\Http\Responses\LoginResponse;
 use App\Services\LoginLanding;
+use App\Services\WorkOrderRequestService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +105,14 @@ class AppServiceProvider extends ServiceProvider
             // requester
             if ($workOrder->requester_user_id === $user->getKey()) {
                 return true;
+            }
+
+            // R8: WO yang belum dirilis (masih di gerbang approval
+            // department pengaju) hanya terlihat oleh requester dan rantai
+            // approver department pengaju — department tujuan maupun
+            // pemegang work-order.read biasa diblokir sampai approve.
+            if ($workOrder->released_at === null) {
+                return app(WorkOrderRequestService::class)->isApprover($user, $workOrder);
             }
 
             // HOD / deputy dept target

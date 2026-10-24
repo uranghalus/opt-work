@@ -14,6 +14,7 @@ use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkPlanningController;
+use App\Http\Controllers\WorkTimeLogController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
@@ -140,6 +141,15 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
         ->name('work-orders.timeline');
 
+    Route::get('work-orders/approvals', [WorkOrderController::class, 'approvals'])
+        ->name('work-orders.approvals');
+
+    Route::get('work-orders/my', [WorkOrderController::class, 'my'])
+        ->name('work-orders.my');
+
+    Route::get('work-orders/extend-approvals', [ExtendRequestController::class, 'approvals'])
+        ->name('work-orders.extend-approvals');
+
     Route::resource('work-orders', WorkOrderController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')
@@ -154,7 +164,30 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('work-orders.verify');
     Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
         ->name('work-orders.reject');
+
+    // Gerbang approval lintas-department (R1–R12).
+    Route::post('work-orders/{workOrder}/request/approve', [WorkOrderController::class, 'approveRequest'])
+        ->name('work-orders.request.approve');
+    Route::post('work-orders/{workOrder}/request/reject', [WorkOrderController::class, 'rejectRequest'])
+        ->name('work-orders.request.reject');
+    Route::patch('work-orders/{workOrder}/request', [WorkOrderController::class, 'updateRequest'])
+        ->name('work-orders.request.update');
+    Route::post('work-orders/{workOrder}/request/resubmit', [WorkOrderController::class, 'resubmitRequest'])
+        ->name('work-orders.request.resubmit');
+    Route::post('work-orders/{workOrder}/request/cancel', [WorkOrderController::class, 'cancelRequest'])
+        ->name('work-orders.request.cancel');
+
+    // Timer durasi kerja pelaksana (R15–R18) — selesai otomatis via submit.
+    Route::post('work-orders/{workOrder}/work-time/accept', [WorkTimeLogController::class, 'accept'])
+        ->name('work-orders.work-time.accept');
+    Route::post('work-orders/{workOrder}/work-time/start', [WorkTimeLogController::class, 'start'])
+        ->name('work-orders.work-time.start');
+    Route::post('work-orders/{workOrder}/work-time/pause', [WorkTimeLogController::class, 'pause'])
+        ->name('work-orders.work-time.pause');
+    Route::post('work-orders/{workOrder}/work-time/resume', [WorkTimeLogController::class, 'resume'])
+        ->name('work-orders.work-time.resume');
     Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+
     Route::post('work-orders/{workOrder}/extend-requests', [ExtendRequestController::class, 'store'])
         ->name('work-orders.extend-requests.store');
     Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/approve', [ExtendRequestController::class, 'approve'])

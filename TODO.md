@@ -2,6 +2,21 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Gerbang Approval Lintas-Department + Timer Durasi (Stages 0–6, 2026-10-24/25) — DONE
+
+Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0011-cross-department-approval-gate.md) · UAT matrix: [PRD §11](PRD.md).
+
+- [x] **Stage 1 — Backend:** status `pending_dept_approval`/`rejected_by_dept`/`cancelled` + kolom `released_at`/`request_rejection_reason` (backfill WO lama); tabel `work_time_logs`; role baru `staf_admin_dept` + verb `work-order.approve-request` (hod/staf_admin_dept/admin_tenant); `WorkOrderRequestService` (rantai approver dept pengaju, self-approval terblokir, duplikat lintas-dept, approve/reject/cancel/resubmit); `WorkTimeLogService` (accept/start/pause/resume/finish server-side); 4 notifikasi WA (request submitted/approved/rejected/cancelled); Gate view + scope `released_at` (R8); hook `creating` auto-release untuk WO di luar gerbang.
+- [x] **Stage 2 — Tests alur (13+6):** dept tujuan buta (list+detail 403), approver salah dept 403, self-approval 403 + fallback deputy, reject alasan wajib, revisi+resubmit, cancel terminal, cancel-duplikat reviewer, urgent tetap ter-gerbang, timer sekuens+elapsed. **Temuan:** `submit()` menolak `in_progress` → diperbaiki (`Assigned|InProgress|Revision`).
+- [x] **Stage 3 — Frontend approval + tracker:** halaman `work-orders/approvals.tsx` (inbox terpisah, banner duplikat, Setujui/Tolak+alasan); show: RequestTracker 6 tahap (R19), callout alasan tolak, panel keputusan dept pengaju, Perbaiki+Ajukan Ulang, Batalkan, Batalkan-sebagai-Duplikat; nav "Approval Permintaan"; flag `work-order.approve-request` + allowlist honesty dibersihkan.
+- [x] **Stage 4 — Tugasan Saya + timer live:** halaman `work-orders/my.tsx` (kartu mobile-first: penugasi, dept, urgensi, deadline+rail, lokasi, lampiran; aksi Terima/Mulai; LiveTimer chip); kolom `work_orders.location` + form create/revisi; panel Tugasan Saya di detail (timer + jeda/lanjut + sisa deadline); nav "Tugasan Saya" (gated link karyawan); komponen `live-timer.tsx` (basis server, tick klien hanya display).
+- [x] **Stage 5 — Role review + polish:** halaman `work-orders/extend-approvals.tsx` (R21: antrean extend deadline TL/HOD + extend jadwal DGM/GM, nav "Persetujuan Extend"); polish: default dept dialog revisi, tipe `roles/employee_id` di auth.ts; detector impeccable 0 temuan; **temuan test:** eager-load parsial WO tanpa `target_department_id` → TypeError rantai approver (diperbaiki); route extend-approvals tertelan resource → dipindah sebelum resource.
+- [x] **Stage 6 — Verifikasi akhir:** checklist R1–R24 Done (lihat laporan sesi); matrix UAT PRD §11 (12/14 otomatis ✅, WA + pilot ⬜); full suite **648 test — 640 passed, 8 skipped, 0 failed**; tsc exit 0; `npm run build` hijau; pint bersih; detector 0 temuan.
+
+**Sisa manual (user):** `php artisan migrate` + `php artisan app:grant-default-permissions` di DB dev; isi `WAHA_URL` bila ingin WA event approval; pilot UAT manual U13–U14.
+
+---
+
 ## Fix: 500 detail WO terjadwal (2026-10-24) — DONE
 
 - [x] **Bug:** simpan jadwal WO sukses → redirect ke detail → 500 `Class "App\Http\Controllers\WorkOrderStatus" not found` (`WorkOrderController.php:533`). Akar: commit timeline-redesign kemarin menambah blok FR-2.4 di `show()` tanpa import enum; hanya terpicu saat `$planning !== null` (short-circuit) dan tidak ada test yang me-render `show()` dengan planning → suite tetap hijau. Fix: 1 baris `use App\WorkOrderStatus;`. Regresi: test baru di `WorkPlanningTest` (render show WO terjadwal + flag `can_update_planning`). Full suite 626 (618 passed, 8 skipped, 0 failed). Catatan: error `Pusher cURL 7 localhost:8081` di log hanyalah Reverb yang tidak berjalan — tidak berkaitan dengan bug ini.

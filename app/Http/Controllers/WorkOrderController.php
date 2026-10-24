@@ -4,14 +4,20 @@ namespace App\Http\Controllers;
 
 use App\ExtendRequestStatus;
 use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
+use App\Http\Requests\WorkOrder\CancelWorkOrderRequest;
+use App\Http\Requests\WorkOrder\RejectWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
+use App\Http\Requests\WorkOrder\UpdateWorkOrderRequest;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\ExtendRequest;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
+use App\Models\WorkTimeLog;
 use App\Services\ExtendRequestService;
+use App\Services\WorkOrderRequestService;
 use App\Services\WorkOrderService;
+use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +34,8 @@ class WorkOrderController extends Controller
     public function __construct(
         private WorkOrderService $workOrderService,
         private ExtendRequestService $extendRequestService,
+        private WorkOrderRequestService $requestService,
+        private WorkTimeLogService $workTimeLogService,
     ) {}
 
     public function index(Request $request): Response
@@ -292,6 +300,7 @@ class WorkOrderController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
+            'location' => ['nullable', 'string', 'max:255'],
             'category' => ['required', Rule::enum(WorkOrderCategory::class)],
             'target_department_id' => [
                 'required',
@@ -440,6 +449,251 @@ class WorkOrderController extends Controller
             ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' dikembalikan untuk revisi.');
     }
 
+    /**
+     * R2/R3: approver department pengaju menyetujui permintaan lintas-
+     * department — WO rilis ke department tujuan dan alur lama berjalan.
+     */
+    public function approveRequest(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->approve($request->user(), $workOrder);
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' disetujui — diteruskan ke department tujuan.');
+    }
+
+    /**
+     * R4: tolak permintaan (alasan wajib) — WO berhenti sebelum dept tujuan.
+     */
+    public function rejectRequest(RejectWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->reject($request->user(), $workOrder, $request->validated('reason'));
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' ditolak.');
+    }
+
+    /**
+     * R12: revisi WO yang ditolak — hanya requester, saat RejectedByDept.
+     */
+    public function updateRequest(UpdateWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->updateRejected($request->user(), $workOrder, $request->validated());
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Revisi WO '.$workOrder->nomor_wo.' tersimpan — silakan ajukan ulang.');
+    }
+
+    /**
+     * R12: ajukan ulang setelah revisi — kembali ke gerbang approval.
+     */
+    public function resubmitRequest(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->resubmit($request->user(), $workOrder);
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' diajukan ulang ke department pengaju.');
+    }
+
+    /**
+     * R12: cancel — (a) requester/approver dept pengaju saat belum rilis,
+     * (b) reviewer dept tujuan membatalkan duplikat saat review.
+     */
+    public function cancelRequest(CancelWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->cancel(
+            $request->user(),
+            $workOrder,
+            $request->validated('reason'),
+            $request->validated('duplicate_of'),
+        );
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.index', ['tenant' => tenant()?->code])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' dibatalkan.');
+    }
+
+    /**
+     * R20: Approval inbox — permintaan WO lintas-department yang MENUNGGU
+     * keputusan department PENGAJU, terpisah dari antrian WO masuk
+     * department tujuan. Anggota rantai approver (ADR-0011) melihat
+     * permintaan dari department-nya sendiri; keputusan tetap dipaksa di
+     * WorkOrderRequestService (bukan cuma UI).
+     */
+    public function approvals(Request $request): Response
+    {
+        $user = $request->user();
+
+        $approverDepartmentIds = Department::query()
+            ->where('hod_user_id', $user->getKey())
+            ->orWhere('manager_user_id', $user->getKey())
+            ->pluck('id');
+
+        if ($user->employee_id !== null
+            && $user->hasAnyRole(['hod', 'staf_admin_dept'])) {
+            $ownDepartmentId = $user->employee?->department_id;
+
+            if ($ownDepartmentId !== null) {
+                $approverDepartmentIds->push($ownDepartmentId);
+            }
+        }
+
+        $workOrders = WorkOrder::query()
+            ->with(['requester:id,name', 'targetDepartment:id,nama_department'])
+            ->where('status', WorkOrderStatus::PendingDeptApproval->value)
+            ->whereHas(
+                'requester.employee',
+                fn ($query) => $query->whereIn(
+                    'department_id',
+                    $approverDepartmentIds->unique()->values(),
+                ),
+            )
+            ->orderByDesc('created_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        $requests = $workOrders->through(fn (WorkOrder $workOrder): array => [
+            'id' => $workOrder->getKey(),
+            'nomor_wo' => $workOrder->nomor_wo,
+            'title' => $workOrder->title,
+            'description' => $workOrder->description,
+            'category' => $workOrder->category->value,
+            'requester_name' => $workOrder->requester?->name,
+            'target_department' => $workOrder->targetDepartment?->nama_department,
+            'created_at' => $workOrder->created_at->toIso8601String(),
+            // OQ-4b: penanda kandidat duplikat — keputusan tetap manusia.
+            'duplicate_numbers' => $this->requestService
+                ->duplicateCandidates($workOrder, 3)
+                ->pluck('nomor_wo')
+                ->all(),
+        ]);
+
+        return Inertia::render('work-orders/approvals', [
+            'requests' => $requests,
+        ]);
+    }
+
+    /**
+     * R15: "Tugasan Saya" — WO eksekusi aktif yang ditugaskan ke karyawan
+     * ini (assigned/in_progress/revision), lengkap dengan penugasi, lokasi,
+     * deadline proximity, dan timer durasi server-computed (R17). Akses
+     * terbuka untuk akun ter-authentikasi; daftar hanya memuat WO yang
+     * benar-benar menugaskannya (whereJsonContains assigned_employees).
+     */
+    public function my(Request $request): Response
+    {
+        $user = $request->user();
+        $employeeId = (string) ($user->employee_id ?? '');
+
+        $workOrders = WorkOrder::query()
+            ->with(['requester:id,name', 'targetDepartment:id,nama_department'])
+            ->whereIn('status', [
+                WorkOrderStatus::Assigned->value,
+                WorkOrderStatus::InProgress->value,
+                WorkOrderStatus::Revision->value,
+            ]);
+
+        if ($employeeId === '') {
+            $workOrders->whereRaw('1 = 0');
+        } else {
+            $workOrders->whereJsonContains('assigned_employees', $employeeId);
+        }
+
+        $workOrders = $workOrders
+            ->orderBy('deadline_date')
+            ->orderByDesc('created_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        $workOrderIds = $workOrders->getCollection()
+            ->map(fn (WorkOrder $workOrder) => $workOrder->getKey())
+            ->all();
+
+        // Penugasi = pengguna pada event `assigned` terakhir per WO
+        // (satu query untuk seluruh halaman, bukan N+1).
+        $assigners = WorkOrderEvent::query()
+            ->whereIn('work_order_id', $workOrderIds)
+            ->where('action', 'assigned')
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('work_order_id')
+            ->map(fn ($events) => $events->first()?->user?->name);
+
+        // Timer milik karyawan ini untuk tiap WO (satu query).
+        $timeLogs = $employeeId === ''
+            ? collect()
+            : WorkTimeLog::query()
+                ->whereIn('work_order_id', $workOrderIds)
+                ->where('employee_id', $employeeId)
+                ->get()
+                ->keyBy('work_order_id');
+
+        $assignments = $workOrders->through(function (WorkOrder $workOrder) use ($assigners, $timeLogs): array {
+            $timeLog = $timeLogs->get($workOrder->getKey());
+
+            return [
+                'id' => $workOrder->getKey(),
+                'nomor_wo' => $workOrder->nomor_wo,
+                'title' => $workOrder->title,
+                'description' => $workOrder->description,
+                'category' => $workOrder->category->value,
+                'status' => $workOrder->status->value,
+                'location' => $workOrder->location,
+                'assignment_notes' => $workOrder->assignment_notes,
+                'deadline_date' => $workOrder->deadline_date?->toDateString(),
+                'deadline_state' => $this->deadlineState($workOrder)[0],
+                'deadline_label' => $this->deadlineState($workOrder)[1],
+                'target_department' => $workOrder->targetDepartment?->nama_department,
+                'assigner_name' => $assigners->get($workOrder->getKey()),
+                'attachments_count' => count($workOrder->attachments ?? []),
+                // R17: dihitung server dari timestamp tersimpan — dasar
+                // yang benar setelah refresh atau di perangkat lain.
+                'time_log' => $timeLog === null ? null : [
+                    'state' => $timeLog->timerState(),
+                    'elapsed_seconds' => $timeLog->elapsedSeconds(),
+                ],
+            ];
+        });
+
+        return Inertia::render('work-orders/my', [
+            'assignments' => $assignments,
+        ]);
+    }
+
     public function show(Request $request): Response
     {
         $workOrderId = $request->route('workOrder');
@@ -525,6 +779,81 @@ class WorkOrderController extends Controller
             ? $this->extendRequestService->canDecideExtend($user, $pendingExtend)
             : false;
 
+        // ADR-0011: gerbang approval — mirror server-side untuk panel
+        // frontend (keputusan tetap dipaksa ulang di service).
+        $canDecideRequest = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::PendingDeptApproval
+            && $this->requestService->isApprover($user, $workOrderModel);
+
+        $canCancelRequest = $user !== null
+            && in_array($workOrderModel->status, [
+                WorkOrderStatus::PendingDeptApproval,
+                WorkOrderStatus::RejectedByDept,
+            ], true)
+            && ($workOrderModel->requester_user_id === $user->getKey()
+                || $this->requestService->isApprover($user, $workOrderModel));
+
+        $canEditRequest = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::RejectedByDept
+            && $workOrderModel->requester_user_id === $user->getKey();
+
+        $canCancelDuplicate = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::WaitingHod
+            && $this->requestService->isTargetReviewer($user, $workOrderModel);
+
+        $duplicateCandidates = ($canDecideRequest || $canCancelDuplicate)
+            ? $this->requestService
+                ->duplicateCandidates($workOrderModel)
+                ->map(fn (WorkOrder $candidate): array => [
+                    'id' => $candidate->getKey(),
+                    'nomor_wo' => $candidate->nomor_wo,
+                ])
+                ->all()
+            : [];
+
+        // R12: dialog revisi memilih ulang department tujuan (aktif saja).
+        $departments = $canEditRequest
+            ? Department::query()
+                ->where('is_active', true)
+                ->orderBy('nama_department')
+                ->get(['id', 'nama_department'])
+            : collect();
+
+        // ADR-0011 R15–R17: timer durasi untuk pelaksana — mirror
+        // server-side; aksi tetap dipaksa ulang di WorkTimeLogService.
+        $myEmployeeId = (string) ($user?->employee_id ?? '');
+        $isAssignee = $myEmployeeId !== ''
+            && in_array($myEmployeeId, $workOrderModel->assigned_employees ?? [], true);
+
+        $myTimeLog = $isAssignee
+            ? $this->workTimeLogService->logFor($workOrderModel, $myEmployeeId)
+            : null;
+
+        $executionStage = in_array($workOrderModel->status, [
+            WorkOrderStatus::Assigned,
+            WorkOrderStatus::InProgress,
+        ], true);
+
+        $canAcceptTime = $isAssignee && $executionStage
+            && ($myTimeLog === null || $myTimeLog->accepted_at === null);
+        $canStartTime = $isAssignee && $executionStage
+            && $myTimeLog?->accepted_at !== null
+            && $myTimeLog?->started_at === null;
+        $canPauseTime = $isAssignee && $executionStage
+            && $myTimeLog?->started_at !== null
+            && $myTimeLog?->finished_at === null
+            && $myTimeLog?->paused_at === null;
+        $canResumeTime = $isAssignee && $executionStage
+            && $myTimeLog?->paused_at !== null;
+
+        $myTimeLogPayload = $myTimeLog === null ? null : [
+            'state' => $myTimeLog->timerState(),
+            'elapsed_seconds' => $myTimeLog->elapsedSeconds(),
+            'accepted_at' => $myTimeLog->accepted_at?->toIso8601String(),
+            'started_at' => $myTimeLog->started_at?->toIso8601String(),
+            'finished_at' => $myTimeLog->finished_at?->toIso8601String(),
+        ];
+
         // FR-2.4: Work Planning untuk WO Terjadwal — detail jadwal + status
         // extend schedule; visibilitas panel dihitung server-side.
         $planning = $workOrderModel->planning()->with('extendRequester:id,name')->first();
@@ -573,6 +902,20 @@ class WorkOrderController extends Controller
             ],
             'can_update_planning' => $canUpdatePlanning,
             'can_decide_schedule' => $canDecideSchedule,
+            'can_decide_request' => $canDecideRequest,
+            'can_cancel_request' => $canCancelRequest,
+            'can_edit_request' => $canEditRequest,
+            'can_resubmit_request' => $canEditRequest,
+            'can_cancel_duplicate' => $canCancelDuplicate,
+            'is_requester' => $user?->getKey() === $workOrderModel->requester_user_id,
+            'duplicate_candidates' => $duplicateCandidates,
+            'departments' => $departments,
+            'is_assignee' => $isAssignee,
+            'my_time_log' => $myTimeLogPayload,
+            'can_accept_time' => $canAcceptTime,
+            'can_start_time' => $canStartTime,
+            'can_pause_time' => $canPauseTime,
+            'can_resume_time' => $canResumeTime,
         ]);
     }
 

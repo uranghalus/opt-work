@@ -5,7 +5,9 @@ import {
     CalendarClock,
     ClipboardList,
     Database,
+    FileClock,
     House,
+    Hourglass,
     KeyRound,
     LayoutGrid,
     LifeBuoy,
@@ -14,6 +16,7 @@ import {
     Settings,
     ShieldCheck,
     Users,
+    Wrench,
     type LucideIcon,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
@@ -32,6 +35,9 @@ import positions from '@/routes/positions';
 import { edit as profileEdit } from '@/routes/profile';
 import {
     index as workOrdersIndex,
+    approvals as workOrdersApprovals,
+    extendApprovals as workOrdersExtendApprovals,
+    my as workOrdersMy,
     timeline as workOrdersTimeline,
 } from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
@@ -114,6 +120,21 @@ type NavContext = {
      */
     canReadDailyWork?: boolean;
     canManageDailyWork?: boolean;
+    /**
+     * ADR-0011: Approval inbox — permintaan WO lintas-department dari
+     * department pengaju, gated `can('work-order.approve-request')`.
+     */
+    canApproveRequests?: boolean;
+    /**
+     * ADR-0011 R15: "Tugasan Saya" — hanya untuk akun ter-link karyawan
+     * (pelaksana potensial); cek employee_id, bukan permission.
+     */
+    hasEmployeeLink?: boolean;
+    /**
+     * R21: inbox "Persetujuan Extend" — TL/HOD (extend-approve), DGM/GM
+     * (extend jadwal), atau super admin.
+     */
+    canDecideExtends?: boolean;
 };
 
 /** Group hues: identity for a navigation area — never a status signal. */
@@ -170,6 +191,9 @@ export function navGroups({
     canReadWorkData = false,
     canReadDailyWork = false,
     canManageDailyWork = false,
+    canApproveRequests = false,
+    hasEmployeeLink = false,
+    canDecideExtends = false,
 }: NavContext): OptiNavGroup[] {
     const tenant = activeTenant ?? null;
 
@@ -232,6 +256,34 @@ export function navGroups({
                     tenant,
                     (t) => workOrdersIndex({ tenant: t }),
                 ),
+                ...(hasEmployeeLink
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Tugasan Saya',
+                                  shortTitle: 'Tugas',
+                                  icon: Wrench,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => workOrdersMy({ tenant: t }),
+                          ),
+                      ]
+                    : []),
+                ...(hasEmployeeLink
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Tugasan Saya',
+                                  shortTitle: 'Tugas',
+                                  icon: Wrench,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => workOrdersMy({ tenant: t }),
+                          ),
+                      ]
+                    : []),
                 tenantItem(
                     {
                         title: 'Terjadwal',
@@ -242,6 +294,34 @@ export function navGroups({
                     tenant,
                     (t) => workOrdersTimeline({ tenant: t }),
                 ),
+                ...(canApproveRequests
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Approval Permintaan',
+                                  shortTitle: 'Approval',
+                                  icon: FileClock,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => workOrdersApprovals({ tenant: t }),
+                          ),
+                      ]
+                    : []),
+                ...(canDecideExtends
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Persetujuan Extend',
+                                  shortTitle: 'Extend',
+                                  icon: Hourglass,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => workOrdersExtendApprovals({ tenant: t }),
+                          ),
+                      ]
+                    : []),
                 ...(canReadDailyWork
                     ? [
                           tenantItem(

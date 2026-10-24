@@ -41,6 +41,7 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
         category: string;
         target_department_id: string;
         description: string;
+        location: string;
         requested_schedule_date: string;
         attachments: File[];
     }>({
@@ -48,6 +49,7 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
         category: categories[0]?.value ?? 'normal',
         target_department_id: '',
         description: '',
+        location: '',
         requested_schedule_date: '',
         attachments: [],
     });
@@ -143,6 +145,21 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
                             />
                             {form.errors.description && (
                                 <p className="text-xs text-danger">{form.errors.description}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="location">Lokasi (opsional)</Label>
+                            <Input
+                                id="location"
+                                placeholder="mis. Lantai 2, Ruang 204"
+                                autoComplete="off"
+                                value={form.data.location}
+                                onChange={(e) => form.setData('location', e.target.value)}
+                                aria-invalid={Boolean(form.errors.location)}
+                            />
+                            {form.errors.location && (
+                                <p className="text-xs text-danger">{form.errors.location}</p>
                             )}
                         </div>
 

@@ -321,6 +321,31 @@ _Dari ERD terlampir (foto ERD per 06 Jan 2026, `IMG_20260106_130952_405.jpg` di 
 
 ---
 
+## 11. Matrix UAT — Gerbang Approval Lintas-Department + Timer Durasi (ADR-0011)
+
+> **Status (2026-10-25):** 12/14 skenario ✅ terkunci test otomatis (`WorkOrderRequestApprovalTest`, `WorkTimeLogTest` — 22 test, 648 suite hijau); 2 skenario ⬜ manual (WA gateway + pilot browser). Legenda: ✅ otomatis · ⬜ menunggu UAT manual.
+
+| # | Skenario UAT | Hasil yang diharapkan | Bukti | Status |
+|---|---|---|---|---|
+| U1 | Staf membuat WO lintas-department | Status `pending_dept_approval`; hanya approver dept pengaju dinotifikasi; dept tujuan tidak melihat di daftar maupun detail (403) | `WorkOrderRequestApprovalTest::routes_a_cross_department_wo…` | ✅ |
+| U2 | Approver dept pengaju **menyetujui** | WO rilis (`released_at` terisi), dept tujuan baru dinotifikasi, alur review→assign→eksekusi→verifikasi jalan seperti biasa | `…releases_the_wo_to_the_target_department_only_after_approval` | ✅ |
+| U3 | Approver **menolak** tanpa/k dengan alasan | Tanpa alasan = validasi gagal; dengan alasan → `rejected_by_dept`, dept tujuan tetap buta, requester dinotifikasi alasan | `…rejects_with_a_mandatory_reason…` | ✅ |
+| U4 | Approver dari **department lain** mencoba memutuskan | 403 (approve maupun reject), status WO tidak berubah | `…denies_an_approver_from_another_department` | ✅ |
+| U5 | Requester = HOD dept sendiri mencoba **self-approval** | 403; fallback deputy yang memutuskan | `…blocks_self_approval_even_when_the_requester_is_the_department_hod…` | ✅ |
+| U6 | WO satu department sendiri; WO dari akun tanpa department | Keduanya **skip** gerbang — langsung ke review HOD | `…lets_a_same_department_wo_skip_the_gate…` · `…lets_an_account_without_a_department_skip_the_gate` | ✅ |
+| U7 | Requester **merevisi** lalu **mengajukan ulang** WO yang ditolak | Revisi tersimpan (hanya pemohon), resubmit → kembali ke gerbang, alasan tolak dibersihkan, approver dinotifikasi ulang | `…lets_the_requester_revise_and_resubmit_a_rejected_wo` | ✅ |
+| U8 | Requester/approver **membatalkan** permintaan | Status `cancelled` (terminal); resubmit ditolak | `…lets_the_requester_cancel_a_pending_request…` | ✅ |
+| U9 | **Duplikat**: isi WO sama, pelapor/department berbeda | Banner kandidat duplikat di approval inbox + panel; reviewer dept tujuan dapat membatalkan sebagai duplikat (wajib menunjuk WO asal); cancel biasa di review ditolak | `…lets_the_target_department_cancel_a_duplicate_at_review…` · `…flags_duplicate_candidates…` | ✅ |
+| U10 | WO **Urgent** lintas-department | Tetap melewati gerbang; setelah rilis, Accident tetap tak bisa dijadwalkan | `…gates_urgent_categories_too…` | ✅ |
+| U11 | Deadline SLA | Tetap dihitung dari **tanggal assign** — waktu menunggu approval tidak memotong SLA | `WorkOrder/AssignWorkOrderTest` (deadline dari assign) | ✅ |
+| U12 | Pelaksana: terima → mulai → jeda/lanjut → selesai | Timestamp tersimpan; WO jadi `in_progress`; submit otomatis mengakhiri timer; hanya pelaksana tercantum boleh beraksi (403) | `WorkTimeLogTest` (6 test) | ✅ |
+| U13 | **Timer live** benar setelah refresh/perangkat lain | Elapsed dihitung server dari timestamp tersimpan; jeda tidak terhitung; tampil di kartu Tugasan Saya + detail | `…computes_elapsed_time_from_stored_timestamps…` | ✅ |
+| U14 | Notifikasi **WhatsApp** event approval + UAT manual end-to-end di browser (pilot 1 department) | WA terkirim via sesi tenant (ADR-0009); seluruh alur jalan mulai dari create s.d. close | Butuh WAHA aktif + pilot | ⬜ |
+
+> Keputusan desain alur: [ADR-0011](docs/adr/0011-cross-department-approval-gate.md) — gerbang hanya lintas-department (R5), berlaku juga untuk urgent (R6), approver = HOD/deputy/role `hod`/`staf_admin_dept` department pengaju, self-approval selalu terblokir (R9), cancel-duplikat khusus reviewer dept tujuan (OQ-4b), resubmit tanpa batas (OQ-5), WA wajib untuk 4 event baru (OQ-7), Direksi tetap ditunda (OQ-6).
+
+---
+
 ## Lampiran B — Referensi Migrasi opti-work2
 
 **File referensi lengkap:** `docs/opti-work2-feature-map.md` (atau vault `Patterns/opti-work2-migration-map.md`)

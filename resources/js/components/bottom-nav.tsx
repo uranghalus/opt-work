@@ -100,6 +100,13 @@ export function BottomNav() {
         canReadWorkData: auth?.can?.['work-data.read'],
         canReadDailyWork: auth?.can?.['daily-work.read'],
         canManageDailyWork: auth?.can?.['daily-work.create'],
+        canApproveRequests: auth?.can?.['work-order.approve-request'],
+        hasEmployeeLink: auth?.user?.employee_id != null,
+        canDecideExtends:
+            (auth?.can?.['work-order.extend-approve'] ?? false) ||
+            (auth?.isSuperAdmin ?? false) ||
+            (auth?.user?.roles?.includes('general_manager') ?? false) ||
+            (auth?.user?.roles?.includes('deputy_general_manager') ?? false),
     });
 
     return (

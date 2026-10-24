@@ -19,7 +19,7 @@ return new class extends Migration
         Schema::create('daily_work_templates', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('tenant_id');
-            $table->foreignUuid('employee_id')->constrained('employees')->nullOnDelete();
+            $table->foreignUuid('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->string('title');
             $table->text('description')->nullable();
             // Hari berulang: int 0 (Minggu) .. 6 (Sabtu), default Senin–Jumat.
@@ -35,7 +35,7 @@ return new class extends Migration
         Schema::create('daily_works', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('tenant_id');
-            $table->foreignUuid('employee_id')->constrained('employees')->nullOnDelete();
+            $table->foreignUuid('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->date('work_date');
             $table->string('title');
             $table->text('description')->nullable();

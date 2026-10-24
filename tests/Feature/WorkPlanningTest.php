@@ -368,3 +368,27 @@ it('refuses the extend flow without the work-planning.update permission', functi
 
     expect($planning->refresh()->status_jadwal)->toBe('planned');
 });
+
+/**
+ * Regresi (2026-10-24): halaman detail WO terjadwal meledak 500
+ * "Class App\Http\Controllers\WorkOrderStatus not found" karena import
+ * enum hilang — hanya terpicu saat $planning !== null (short-circuit),
+ * jadi lolos dari suite yang tidak me-render show() dengan planning.
+ * Gejala user: simpan jadwal sukses → redirect ke detail → 500.
+ */
+it('renders the detail page of a scheduled WO with its planning and flags', function () {
+    [$workOrder, $hod] = makeScheduledWorkOrder();
+
+    $this->actingAs($hod)
+        ->get(route('work-orders.show', [
+            'tenant' => 'hq',
+            'workOrder' => $workOrder->getKey(),
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('work-orders/show')
+            ->where('planning.status_jadwal', 'planned')
+            ->where('planning.pending', false)
+            ->where('can_update_planning', true)
+            ->where('can_decide_schedule', false));
+});

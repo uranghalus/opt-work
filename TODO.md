@@ -2,6 +2,18 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Fix: 500 detail WO terjadwal (2026-10-24) — DONE
+
+- [x] **Bug:** simpan jadwal WO sukses → redirect ke detail → 500 `Class "App\Http\Controllers\WorkOrderStatus" not found` (`WorkOrderController.php:533`). Akar: commit timeline-redesign kemarin menambah blok FR-2.4 di `show()` tanpa import enum; hanya terpicu saat `$planning !== null` (short-circuit) dan tidak ada test yang me-render `show()` dengan planning → suite tetap hijau. Fix: 1 baris `use App\WorkOrderStatus;`. Regresi: test baru di `WorkPlanningTest` (render show WO terjadwal + flag `can_update_planning`). Full suite 626 (618 passed, 8 skipped, 0 failed). Catatan: error `Pusher cURL 7 localhost:8081` di log hanyalah Reverb yang tidak berjalan — tidak berkaitan dengan bug ini.
+
+---
+
+## Demo Seeder (2026-10-24) — DONE
+
+- [x] **Seeder demo fresh-only + idempoten ringan** — `database/seeders/DemoSeeder.php` (baru) + wiring `DatabaseSeeder` (TenantSeeder → RoleAndPermissionSeeder → DemoSeeder; dummy user admin@example.com/test@example.com dihapus). Dataset tenant `hq`: 3 divisi, 4 department (HOD masing-masing; Maintenance manager = TL), 10 position ber-level, 15 karyawan + akun (password `password`), HOD Budi nomor WA `081347233907`; 12 WO mencakup semua status/kategori (telat + eskalasi H3–H6, extend approved/rejected/pending, 2 planning — planned & pending DGM/GM, 2 closed dengan Work Data terfinalisasi/belum), 31 event histori, 4 template Daily Work + instance hari ini + adhoc + riwayat, 15 notifikasi in-app. Test `tests/Feature/DemoSeederTest.php` 6/6 (65 assert, termasuk idempoten re-run). Verifikasi: pint bersih, full suite 625 (617 passed, 8 skipped, 0 failed). Catatan teknis: kolom DATE di sqlite tersimpan `Y-m-d H:i:s` → lookup Daily Work memakai pola `whereDate` (mirror fix materializeFor); type-hint runtime pakai `Carbon\CarbonInterface` (bukan `Illuminate\Support\CarbonInterface`); `notifications.id` dibuat eksplisit (`Str::uuid`).
+
+---
+
 ## Daily Work FR-5.x (2026-10-23 → 2026-10-24) — DONE (Task 1–5 selesai; sisa Task 6 vault sync)
 
 Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`.

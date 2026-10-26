@@ -54,7 +54,8 @@ it('seeds the demo organization with linked accounts and roles', function () {
         ->and(demoUser('admin.tenant@appdutamall.com')->hasRole('admin_tenant'))->toBeTrue()
         ->and(demoUser('gm@appdutamall.com')->hasRole('general_manager'))->toBeTrue()
         ->and(demoUser('dgm@appdutamall.com')->hasRole('deputy_general_manager'))->toBeTrue()
-        ->and(demoUser('viewer@appdutamall.com')->hasRole('viewer'))->toBeTrue();
+        ->and(demoUser('viewer@appdutamall.com')->hasRole('viewer'))->toBeTrue()
+        ->and(demoUser('fajar.staf@appdutamall.com')->hasRole('staf_admin_dept'))->toBeTrue();
 
     $budiEmployee = Employee::withoutGlobalScope('tenant')->findOrFail($budi->employee_id);
     expect($budiEmployee->number)->toBe('081347233907');
@@ -66,8 +67,8 @@ it('seeds the demo organization with linked accounts and roles', function () {
 
     expect(demoCount(Division::class))->toBe(3)
         ->and(demoCount(Department::class))->toBe(4)
-        ->and(demoCount(Position::class))->toBe(10)
-        ->and(demoCount(Employee::class))->toBe(15);
+        ->and(demoCount(Position::class))->toBe(11)
+        ->and(demoCount(Employee::class))->toBe(16);
 });
 
 it('seeds work orders across every status with dependents', function () {

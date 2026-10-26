@@ -38,7 +38,10 @@ function makeOwnedDailyWork(): array
 
     $dailyWork = DailyWork::factory()->create([
         'employee_id' => $employee->getKey(),
-        'work_date' => '2026-10-26',
+        // Selalu di masa depan — redirect menghilangkan ?date= bila tanggal
+        // item == hari ini (perilaku controller), jadi tanggal literal yang
+        // dekat "hari ini" membuat test pecah saat kalender mencapainya.
+        'work_date' => '2100-01-01',
     ]);
 
     return [$dailyWork, $user, $employee];
@@ -55,7 +58,7 @@ it('lets the owner update status and location of their own item', function () {
         ])
         // Redirect balik ke daftar tanggal item itu (bukan hari ini),
         // supaya konteks daftar tanggal D yang sedang dibuka tetap.
-        ->assertRedirect('/hq/daily-work?date=2026-10-26');
+        ->assertRedirect('/hq/daily-work?date=2100-01-01');
 
     $dailyWork->refresh();
     expect($dailyWork->status)->toBe('in_progress')

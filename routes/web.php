@@ -113,6 +113,7 @@ Route::prefix('saml')->group(function () {
 
         return inertia('saml/denied', [
             'message' => $messages[$reason] ?? 'Anda tidak dapat mengakses sistem saat ini. Hubungi administrator.',
+            'ssoEnabled' => (bool) config('auth.sso.enabled', true),
         ]);
     })->name('saml.denied');
 

@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 
 type PageProps = {
     message: string;
+    ssoEnabled: boolean;
 };
 
-export default function SamlDenied({ message }: PageProps) {
+export default function SamlDenied({ message, ssoEnabled }: PageProps) {
     return (
         <>
             <Head title="Akses ditolak" />
@@ -29,7 +30,9 @@ export default function SamlDenied({ message }: PageProps) {
                     </p>
 
                     <Button asChild className="mt-6 w-full">
-                        <a href="/saml/redirect">Coba masuk lagi</a>
+                        <a href={ssoEnabled ? '/saml/redirect' : '/login'}>
+                            {ssoEnabled ? 'Coba masuk lagi' : 'Kembali ke halaman login'}
+                        </a>
                     </Button>
                 </div>
             </div>

@@ -38,3 +38,21 @@ it('sends guests to the local login screen when sso is disabled', function () {
     // redirectGuestsTo (path middleware) mengikuti flag yang sama.
     $this->get('/tenants')->assertRedirect(route('login'));
 });
+
+it('points the denied screen back to the local login when sso is disabled', function () {
+    config(['auth.sso.enabled' => false]);
+
+    $this->withSession(['saml.denial_reason' => 'no_role'])
+        ->get('/saml/denied')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('saml/denied')
+            ->where('ssoEnabled', false));
+});
+
+it('keeps the denied screen pointing at the sso portal by default', function () {
+    $this->withSession(['saml.denial_reason' => 'no_role'])
+        ->get('/saml/denied')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('ssoEnabled', true));
+});

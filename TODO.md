@@ -13,7 +13,7 @@ Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0
 - [x] **Stage 5 — Role review + polish:** halaman `work-orders/extend-approvals.tsx` (R21: antrean extend deadline TL/HOD + extend jadwal DGM/GM, nav "Persetujuan Extend"); polish: default dept dialog revisi, tipe `roles/employee_id` di auth.ts; detector impeccable 0 temuan; **temuan test:** eager-load parsial WO tanpa `target_department_id` → TypeError rantai approver (diperbaiki); route extend-approvals tertelan resource → dipindah sebelum resource.
 - [x] **Stage 6 — Verifikasi akhir:** checklist R1–R24 Done (lihat laporan sesi); matrix UAT PRD §11 (12/14 otomatis ✅, WA + pilot ⬜); full suite **648 test — 640 passed, 8 skipped, 0 failed**; tsc exit 0; `npm run build` hijau; pint bersih; detector 0 temuan.
 
-**Sisa manual (user):** `php artisan migrate` + `php artisan app:grant-default-permissions` di DB dev; isi `WAHA_URL` bila ingin WA event approval; pilot UAT manual U13–U14.
+**Sisa manual (user):** ~~`php artisan migrate`~~ (selesai 2026-10-26 — fix FK `work_time_logs.employee_id` nullable + re-run hijau) + `php artisan app:grant-default-permissions` di DB dev; isi `WAHA_URL` bila ingin WA event approval; pilot UAT manual U13–U14.
 
 ---
 

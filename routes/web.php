@@ -7,6 +7,7 @@ use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
+use App\Http\Controllers\MasterData\PositionTreeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
 use App\Http\Controllers\TenantController;

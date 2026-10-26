@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Tenant;
 use Database\Seeders\RoleAndPermissionSeeder;
 
@@ -18,13 +20,24 @@ afterEach(function () {
 });
 
 it('resolves the position tree route end to end', function () {
+    $parent = Position::factory()->create([
+        'nama_position' => 'Head of Department',
+        'level' => 3,
+        'level_label' => 'Manager',
+    ]);
+    $child = Position::factory()->create([
+        'nama_position' => 'Teknisi Senior',
+        'parent_position_id' => $parent->getKey(),
+        'level' => 7,
+    ]);
+    Employee::factory()->count(2)->create(['position_id' => $child->getKey()]);
+
     $user = createUser(['tenant_id' => $this->hq->id]);
     $user->assignRole('karyawan');
 
     // X-Inertia request: assert JSON payload (route → container → controller →
-    // Inertia) tanpa render blade — page frontend `positions/tree` belum
-    // dibangun (temuan terpisah, lihat TODO); yang dulu selalu 500 di sini
-    // adalah resolusi class controller (bug import routes/web.php).
+    // Inertia) tanpa render blade — sebelum fix import, route ini selalu 500
+    // karena class controller tidak ter-resolve.
     //
     // X-Inertia-Version wajib persis versi server — ambil dari middleware
     // (Inertia::getVersion() masih kosong sebelum request pertama; mismatch
@@ -35,5 +48,9 @@ it('resolves the position tree route end to end', function () {
         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => $version])
         ->get('/hq/positions/tree')
         ->assertOk()
-        ->assertJsonPath('component', 'positions/tree');
+        ->assertJsonPath('component', 'positions/tree')
+        ->assertJsonCount(1, 'props.rootPositions')
+        ->assertJsonPath('props.rootPositions.0.id', $parent->getKey())
+        ->assertJsonPath('props.rootPositions.0.children.0.id', $child->getKey())
+        ->assertJsonPath('props.rootPositions.0.children.0.employees_count', 2);
 });

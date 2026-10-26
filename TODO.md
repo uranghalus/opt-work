@@ -2,6 +2,25 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Rencana pagi 2026-10-28 (susun 2026-10-27 malam, pranonton shutdown)
+
+Konteks: login lokal via Fortify + Struktur Jabatan **SELESAI** (2026-10-26/27, lihat DONE di bawah; suite 655 — 647✓, 8 skip). Sisa pekerjaan hasil audit TODO+PRD (27/10): marker ⬜/🟡 PRD banyak yang stale — sisa gap nyata hanya daftar ini.
+
+- [ ] **1. Housekeeping pagi (±15 mnt):** `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete`, `staf_admin_dept`, `work-order.approve-request`, `whatsapp.*`) · set `AUTH_SSO_ENABLED=false` di `.env` + `config:clear` · verifikasi login via `/login` (akun demo, password `password`) + buka Struktur Jabatan.
+  Verifikasi: command exit 0; halaman masing-masing role terbuka tanpa 403 tak terduga.
+- [ ] **2. Vault sync (±15 mnt):** log sesi `Sessions/2026-10/26..27/` (login lokal via Fortify, Struktur Jabatan, fix FK `work_time_logs` nullable, fix `RedirectIfAuthenticated`, fix date-boundary test) + `Decisions/` (login lokal via env flag ADR-lite; posisi-tree disclosure pattern) + update `Index.md` + changelog `Sessions/2026-10/changelog.md`.
+  Verifikasi: file vault ada, ter-link dari Index.
+- [ ] **3. Keputusan user (grilling ringan, ±30 mnt) — jangan diambil sendiri:** §8 PRD **#2** re-assign karyawan resign/nonaktif · **#4** SLA revisi berulang · **#5** urutan antrean (FIFO?) · **#8** delegasi approver extend · **Guest OPEN** opsi (a) terima+gating master data / (b) guest tanpa tenant · persetujuan run `app:grant-super-admin-role`.
+- [ ] **4. Fitur MVP sisa — pilih urutan hasil #3:**
+  - **FR-1.1** field WO kurang (S-M): prioritas + jumlah personel + jenis kerusakan → form create/revisi + kolom + test.
+  - **FR-6.2 gating master data + work-order verbs** (M): keluarkan dari allowlist honesty test `PermissionConsistencyTest`; sekaligus menutup OPEN guest (opsi a).
+  - **UI reader audit** (M): halaman riwayat `audit_logs`/`audit_events` ter-gate (verb baru `audit.read`?) — FR-6.3 sisa.
+  - **Akun CRUD** (S-M): `akun.create`/`akun.delete` — verifikasi dulu: link/unlink sudah ada UI di `employees/show.tsx`; yang kurang mungkin hanya verbs.
+- [ ] **5. UAT & pilot (user-driven):** WAHA_URL aktif → UAT 13 skenario §11 + U13 (WA approval) + U14 (pilot browser 1 department) — prasyarat #1.
+- [ ] **(Opsional)** jalankan `app:sync-departments` → `app:sync-employees` di dev · visual check Unit Bisnis light/dark · re-audit marker status PRD.md (header Peta Status masih 2026-10-21, banyak ⬜ yang kini DONE).
+
+---
+
 ## Login lokal via Fortify + SAML parkir (2026-10-26) — DONE
 
 Sumber: spec+plan `.scratch/local-login/` (rev 4, disetujui user) · desain halaman via ui-ux-pro-max.

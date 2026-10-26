@@ -36,6 +36,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Single Sign-On (SAML) Switch
+    |--------------------------------------------------------------------------
+    |
+    | Set false to park the SSO flow temporarily: guests are sent to the
+    | local Fortify login screen instead of the portal. Default true keeps
+    | today's behavior. Re-enable by flipping the env value only.
+    |
+    */
+
+    'sso' => [
+        'enabled' => env('AUTH_SSO_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Authentication Guards
     |--------------------------------------------------------------------------
     |

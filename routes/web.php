@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (! auth()->check()) {
-        return redirect()->route('saml.redirect');
+        // SSO on: portal. Flag off (AUTH_SSO_ENABLED=false): local login screen.
+        return redirect()->route(config('auth.sso.enabled') ? 'saml.redirect' : 'login');
     }
 
     $user = auth()->user();

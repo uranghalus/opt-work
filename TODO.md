@@ -2,6 +2,24 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Login lokal via Fortify + SAML parkir (2026-10-26) — DONE
+
+Sumber: spec+plan `.scratch/local-login/` (rev 4, disetujui user) · desain halaman via ui-ux-pro-max.
+
+- [x] **`GET /login` aktif** (`fortify.views => true` → `Fortify::loginView` yang sudah ada) + halaman `resources/js/pages/auth/login.tsx` (email+password+remember, `role="alert"` per field, autocomplete WCAG 2.2, loading state) — controller login tetap vendor Fortify (keputusan user), `login.store`/`logout` nama route tidak berubah.
+- [x] **Flag `AUTH_SSO_ENABLED`** (`config/auth.php` → `auth.sso.enabled`, default `true`): root `/` + `redirectGuestsTo` kondisional — flag off → halaman login, on → SSO portal (perilaku lama utuh; test SAML tetap hijau). `.env.example` didokumentasikan.
+- [x] **Fix bug latent `RedirectIfAuthenticated`**: default redirect user ter-authentikasi memanggil `route('dashboard')` tanpa `{tenant}` → 500 di route guest. Fix: `$middleware->redirectUsersTo(route('home'))` (root sudah role-aware).
+- [x] **Fix bug `positions/tree` 500**: `routes/web.php` memakai `PositionTreeController` tanpa import (class ada di `MasterData\`) → route:list crash + route 500. Fix 1 baris import + smoke test `PositionTreeTest`. **Temuan terpisah:** page frontend `positions/tree.tsx` memang belum pernah dibangun (route+controller ada, halamannya tidak) — masuk backlog, bukan regresi.
+- [x] **Halaman `saml/denied`**: prop `ssoEnabled` (dari flag) — button "Kembali ke halaman login" saat flag off, "Coba masuk lagi" ke portal saat on.
+- [x] **Seeder akun demo `staf_admin_dept`**: person `fajar.staf@appdutamall.com` (MTC) di `DemoSeeder` (firstOrCreate, idempoten; Position 10→11 karena unik per nama+dept) — kini **semua role punya akun demo** (password `password`): superadmin@appdutamall.com · admin.tenant@ · gm@ · dgm@ · budi.hod@ (+3 HOD) · fajar.staf@ · wawan.tl@ · sari.wulandari@ (+4 karyawan) · andi.wijaya@ (field_staff) · viewer@appdutamall.com.
+- [x] **Flow login lokal = flow SAML tanpa SSO** (konfirmasi user): login → home-tenant akun (`users.tenant_id`, terisi saat link employee) → `/{kode}/dashboard` via `LoginLanding` — sudah berjalan, dipin `RoleAwareLoginTest`.
+- [x] **Fix test date-boundary `DailyWorkUpdateTest`**: literal `2026-10-26` == hari ini → redirect `?date=` dihilangkan controller (perilaku: omit bila == today) → test pecah sendiri saat kalender mencapainya. Ganti `2100-01-01` (selalu masa depan).
+- [x] **Verifikasi**: full suite **655 test — 647 passed, 8 skipped (2FA), 0 failed** · pint bersih · `npm run build` hijau · `route:list` tidak crash lagi. Commits `1fc6bd8`→`a07bfd4`.
+
+**Sisa manual (user):** set `AUTH_SSO_ENABLED=false` di `.env` dev → `php artisan config:clear` → buka `/login` → masuk dengan akun demo (password `password`). Re-enable SAML: hapus/kembalikan `true` di `.env`. Backlog baru: bangun page `positions/tree.tsx` (Struktur Jabatan).
+
+---
+
 ## Gerbang Approval Lintas-Department + Timer Durasi (Stages 0–6, 2026-10-24/25) — DONE
 
 Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0011-cross-department-approval-gate.md) · UAT matrix: [PRD §11](PRD.md).

@@ -48,6 +48,8 @@ function rbacAllowedVerbs(string $resource): array
 {
     return match ($resource) {
         'work-order' => ['read', 'create', 'update', 'delete', 'view', 'review', 'assign', 'submit', 'verify', 'extend', 'extend-approve', 'approve-request'],
+        // daily-work.verify/view land with the Daily Work proof verification.
+        'daily-work' => ['read', 'create', 'update', 'delete', 'view', 'verify'],
         default => ['read', 'create', 'update', 'delete'],
     };
 }

@@ -6,6 +6,7 @@ use App\DailyWorkStatus;
 use App\Models\DailyWork;
 use App\Models\DailyWorkTemplate;
 use App\Models\Employee;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -87,6 +88,49 @@ class DailyWorkService
                 'rejected_by' => null,
                 'rejected_at' => null,
                 'rejection_note' => null,
+            ]);
+
+            return $work;
+        });
+    }
+
+    /**
+     * Task 3 — HOD/TL "Tandai telah selesai": scope (canVerify → 403)
+     * + state pending_verify saja (→ 409). done_at TIDAK disentuh —
+     * tetap momen submit bukti (design S1).
+     */
+    public function verify(User $actor, DailyWork $work): DailyWork
+    {
+        return DB::transaction(function () use ($actor, $work): DailyWork {
+            abort_unless(app(DailyWorkVerifierScope::class)->canVerify($actor, $work), 403);
+            abort_unless($work->status === DailyWorkStatus::PendingVerify->value, 409);
+
+            $work->update([
+                'status' => DailyWorkStatus::Done->value,
+                'verified_by' => $actor->getKey(),
+                'verified_at' => now(),
+            ]);
+
+            return $work;
+        });
+    }
+
+    /**
+     * Task 3 — kembalikan bukti ke karyawan (rejection_note wajib dari
+     * controller): status turun ke in_progress, kolom reject terisi,
+     * bukti TIDAK dihapus (jejak untuk karyawan melihat ulang).
+     */
+    public function reject(User $actor, DailyWork $work, string $note): DailyWork
+    {
+        return DB::transaction(function () use ($actor, $work, $note): DailyWork {
+            abort_unless(app(DailyWorkVerifierScope::class)->canVerify($actor, $work), 403);
+            abort_unless($work->status === DailyWorkStatus::PendingVerify->value, 409);
+
+            $work->update([
+                'status' => DailyWorkStatus::InProgress->value,
+                'rejected_by' => $actor->getKey(),
+                'rejected_at' => now(),
+                'rejection_note' => $note,
             ]);
 
             return $work;

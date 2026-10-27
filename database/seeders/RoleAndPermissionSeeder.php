@@ -170,6 +170,10 @@ class RoleAndPermissionSeeder extends Seeder
 
         $dailyWorkPermissions = [
             'daily-work.create', 'daily-work.read', 'daily-work.update', 'daily-work.delete',
+            // Verifikasi bukti (Task 3 plan .scratch/daily-work-verification/
+            // plan.md): view = gate objek proxy attachment; verify = aksi
+            // HOD/TL performa "Tandai telah selesai" / kembalikan.
+            'daily-work.view', 'daily-work.verify',
         ];
 
         $hakAksesPermissions = [
@@ -279,6 +283,8 @@ class RoleAndPermissionSeeder extends Seeder
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
+                // Verifikasi bukti Daily Work (admin tenant ikut memverifikasi).
+                'daily-work.view', 'daily-work.verify',
                 'dashboard.read', 'reports.read',
             ],
 
@@ -310,6 +316,8 @@ class RoleAndPermissionSeeder extends Seeder
                 ...$workPlanningPermissions,
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
+                // Verifikasi bukti Daily Work — HOD department karyawan.
+                'daily-work.view', 'daily-work.verify',
                 'dashboard.read', 'reports.read',
             ],
 
@@ -327,6 +335,9 @@ class RoleAndPermissionSeeder extends Seeder
                 'work-order.extend', 'work-order.extend-approve',
                 ...$workDataPermissions,
                 ...$dailyWorkPermissions,
+                // Verifikasi bukti Daily Work — TL department yang sama
+                // dengan karyawan (OQ-5).
+                'daily-work.view', 'daily-work.verify',
                 'dashboard.read',
             ],
 

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Console\Commands\SyncTenantData;
 use App\Http\Responses\LoginResponse;
+use App\Services\DailyWorkVerifierScope;
 use App\Services\LoginLanding;
 use App\Services\WorkOrderRequestService;
 use Carbon\CarbonImmutable;
@@ -134,6 +135,20 @@ class AppServiceProvider extends ServiceProvider
 
             // fall back to broad read permission
             return $user->can('work-order.read');
+        });
+
+        /**
+         * Verifikasi Daily Work (Task 3 plan .scratch/daily-work-
+         * verification/plan.md) — detail + proxy attachment hanya untuk
+         * owner ATAU scope verifikasi (admin tenant / hod+manager dept
+         * karyawan / TL department sama, via DailyWorkVerifierScope).
+         */
+        Gate::define('daily-work.view', function ($user, $dailyWork): bool {
+            if ($dailyWork->employee_id === $user->employee_id) {
+                return true;
+            }
+
+            return app(DailyWorkVerifierScope::class)->canVerify($user, $dailyWork);
         });
     }
 }

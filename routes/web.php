@@ -220,6 +220,12 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('daily-work.update');
     Route::post('daily-work/{dailyWork}/submit', [DailyWorkController::class, 'submit'])
         ->name('daily-work.submit');
+    Route::post('daily-work/{dailyWork}/verify', [DailyWorkController::class, 'verify'])
+        ->name('daily-work.verify');
+    Route::post('daily-work/{dailyWork}/reject', [DailyWorkController::class, 'reject'])
+        ->name('daily-work.reject');
+    Route::get('daily-work/{dailyWork}/attachments/{index}', [DailyWorkController::class, 'attachment'])
+        ->name('daily-work.attachment');
 
     // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
     // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).

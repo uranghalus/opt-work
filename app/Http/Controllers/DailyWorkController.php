@@ -160,6 +160,77 @@ class DailyWorkController extends Controller
     }
 
     /**
+     * Task 3 — HOD/TL memverifikasi bukti ("Tandai telah selesai").
+     * Scope + state guard di Service::verify (403 / 409).
+     */
+    public function verify(Request $request): RedirectResponse
+    {
+        Gate::authorize('daily-work.verify');
+
+        $dailyWork = DailyWork::query()
+            ->where('id', (string) $request->route('dailyWork'))
+            ->firstOrFail();
+
+        $this->dailyWorkService->verify($request->user(), $dailyWork);
+
+        return redirect()
+            ->route('daily-work.team', [
+                'tenant' => tenant()?->code,
+                'employee' => $dailyWork->employee_id,
+                'date' => $dailyWork->work_date->toDateString(),
+            ])
+            ->with('flash.toast', ['type' => 'success', 'message' => 'Daily Work ditandai telah selesai.']);
+    }
+
+    /**
+     * Task 3 — HOD/TL mengembalikan bukti (rejection_note wajib).
+     */
+    public function reject(Request $request): RedirectResponse
+    {
+        Gate::authorize('daily-work.verify');
+
+        $dailyWork = DailyWork::query()
+            ->where('id', (string) $request->route('dailyWork'))
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'rejection_note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $this->dailyWorkService->reject($request->user(), $dailyWork, $validated['rejection_note']);
+
+        return redirect()
+            ->route('daily-work.team', [
+                'tenant' => tenant()?->code,
+                'employee' => $dailyWork->employee_id,
+                'date' => $dailyWork->work_date->toDateString(),
+            ])
+            ->with('flash.toast', ['type' => 'warning', 'message' => 'Bukti dikembalikan ke karyawan untuk diperbaiki.']);
+    }
+
+    /**
+     * Task 3 — proxy attachment Daily Work — pola
+     * WorkOrderController::attachment: browser diarahkan ke URL S3
+     * publik hanya setelah middleware tenant + gate objek lolos.
+     */
+    public function attachment(Request $request, string $index)
+    {
+        $dailyWork = DailyWork::query()
+            ->where('id', (string) $request->route('dailyWork'))
+            ->firstOrFail();
+
+        Gate::authorize('daily-work.view', $dailyWork);
+
+        $path = $dailyWork->proof_attachments[(int) $index] ?? null;
+
+        abort_if($path === null, 404);
+
+        abort_if(! Storage::disk('s3')->exists($path), 404);
+
+        return redirect(Storage::disk('s3')->url($path));
+    }
+
+    /**
      * Task 3 (FR-5.1) — daftar template rutin per karyawan untuk HOD.
      * Filter: employee_id (bawahan), is_active, search judul.
      */

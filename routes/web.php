@@ -218,6 +218,8 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
     Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
         ->name('daily-work.update');
+    Route::post('daily-work/{dailyWork}/submit', [DailyWorkController::class, 'submit'])
+        ->name('daily-work.submit');
 
     // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
     // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).

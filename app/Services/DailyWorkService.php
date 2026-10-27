@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DailyWorkStatus;
 use App\Models\DailyWork;
 use App\Models\DailyWorkTemplate;
 use App\Models\Employee;
@@ -58,6 +59,37 @@ class DailyWorkService
                     ],
                 );
             }
+        });
+    }
+
+    /**
+     * Terima bukti kerja karyawan (plan .scratch/daily-work-verification/
+     * plan.md Task 2, design opsi S1): status naik ke pending_verify —
+     * HOD/TL selanjutnya memverifikasi. Item yang baru saja dikembalikan
+     * (rejected_*) dibersihkan di sini agar submit ulang bersih. 409 bila
+     * item tidak dalam state yang boleh submit (already pending_verify /
+     * done).
+     */
+    public function submit(DailyWork $work, string $notes, array $attachments): DailyWork
+    {
+        return DB::transaction(function () use ($work, $notes, $attachments): DailyWork {
+            abort_unless(
+                in_array($work->status, [DailyWorkStatus::Pending->value, DailyWorkStatus::InProgress->value], true),
+                409,
+            );
+
+            $work->update([
+                'status' => DailyWorkStatus::PendingVerify->value,
+                'proof_notes' => $notes,
+                'proof_attachments' => $attachments === [] ? null : $attachments,
+                'submitted_at' => now(),
+                'done_at' => now(),
+                'rejected_by' => null,
+                'rejected_at' => null,
+                'rejection_note' => null,
+            ]);
+
+            return $work;
         });
     }
 }

@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -90,15 +91,17 @@ class DailyWorkController extends Controller
         // FR-5.4: karyawan hanya mengubah item miliknya sendiri.
         abort_unless($dailyWork->employee_id === $request->user()->employee_id, 403);
 
+        // `done` BUKAN status PATCH-editable: selesai hanya lewat submit
+        // bukti + verifikasi HOD/TL (design .scratch/daily-work-verification/
+        // design.md) — payload `done` jatuh ke validasi error.
         $validated = $request->validate([
-            'status' => ['required', 'in:pending,in_progress,done'],
+            'status' => ['required', 'in:pending,in_progress'],
             'location' => ['nullable', 'string', 'max:255'],
         ]);
 
         $dailyWork->update([
             'status' => $validated['status'],
             'location' => $validated['location'] ?? null,
-            'done_at' => $validated['status'] === 'done' ? now() : null,
         ]);
 
         // Kembali ke daftar tanggal item itu; tanpa query `date` bila item
@@ -110,6 +113,50 @@ class DailyWorkController extends Controller
         }
 
         return redirect()->route('daily-work.index', $parameters);
+    }
+
+    /**
+     * Task 2 (plan .scratch/daily-work-verification/plan.md) — karyawan
+     * pemilik menyerahkan bukti kerja: catatan wajib + 1–3 foto. State
+     * guard (pending/in_progress saja) ada di Service::submit → 409.
+     */
+    public function submit(Request $request): RedirectResponse
+    {
+        Gate::authorize('daily-work.update');
+
+        // Resolusi manual (pola update()/resolveWorkOrderFromRoute):
+        // implicit binding berjalan sebelum IdentifyTenant.
+        $dailyWork = DailyWork::query()
+            ->where('id', (string) $request->route('dailyWork'))
+            ->firstOrFail();
+
+        abort_unless($dailyWork->employee_id === $request->user()->employee_id, 403);
+
+        $validated = $request->validate([
+            'proof_notes' => ['required', 'string', 'max:2000'],
+            'proof_attachments' => ['required', 'array', 'min:1', 'max:3'],
+            'proof_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        // putFile (bukan putFileAs) → nama acak di dir tenant —
+        // pola WorkOrderController::submit (line ~392).
+        $attachments = collect($request->file('proof_attachments', []))
+            ->map(fn ($file) => Storage::disk('s3')->putFile('daily-work/'.tenant()?->getTenantKey(), $file))
+            ->all();
+
+        $this->dailyWorkService->submit($dailyWork, $validated['proof_notes'], $attachments);
+
+        // Kembali ke daftar tanggal item itu; tanpa query `date` bila item
+        // adalah hari ini (pola update()).
+        $parameters = ['tenant' => tenant()?->code];
+
+        if (! $dailyWork->work_date->isSameDay(CarbonImmutable::today())) {
+            $parameters['date'] = $dailyWork->work_date->toDateString();
+        }
+
+        return redirect()
+            ->route('daily-work.index', $parameters)
+            ->with('flash.toast', ['type' => 'success', 'message' => 'Bukti dikirim — menunggu verifikasi HOD.']);
     }
 
     /**

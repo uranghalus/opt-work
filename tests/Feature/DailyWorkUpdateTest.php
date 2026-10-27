@@ -65,16 +65,18 @@ it('lets the owner update status and location of their own item', function () {
         ->and($dailyWork->location)->toBe('Ruang Server Lt. 3');
 });
 
-it('fills done_at when the item moves to done', function () {
+it('forbids moving to done directly — submit bukti is the only path', function () {
     [$dailyWork, $user] = makeOwnedDailyWork();
 
-    $this->actingAs($user)->patch("/hq/daily-work/{$dailyWork->getKey()}", [
-        'status' => 'done',
-    ])->assertRedirect();
+    $this->actingAs($user)
+        ->from('/hq/daily-work')
+        ->patch("/hq/daily-work/{$dailyWork->getKey()}", [
+            'status' => 'done',
+        ])
+        ->assertSessionHasErrors(['status']);
 
     $dailyWork->refresh();
-    expect($dailyWork->status)->toBe('done')
-        ->and($dailyWork->done_at)->not->toBeNull();
+    expect($dailyWork->status)->toBe('pending');
 });
 
 it('rejects updating an item owned by another employee with 403', function () {

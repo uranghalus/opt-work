@@ -25,6 +25,14 @@ use Illuminate\Support\Carbon;
  * @property string|null $location
  * @property string $status
  * @property Carbon|null $done_at
+ * @property string|null $proof_notes
+ * @property array<int, string>|null $proof_attachments
+ * @property Carbon|null $submitted_at
+ * @property int|null $verified_by
+ * @property Carbon|null $verified_at
+ * @property int|null $rejected_by
+ * @property Carbon|null $rejected_at
+ * @property string|null $rejection_note
  * @property string $source
  * @property string|null $template_id
  * @property int|null $created_by
@@ -39,6 +47,14 @@ use Illuminate\Support\Carbon;
     'location',
     'status',
     'done_at',
+    'proof_notes',
+    'proof_attachments',
+    'submitted_at',
+    'verified_by',
+    'verified_at',
+    'rejected_by',
+    'rejected_at',
+    'rejection_note',
     'source',
     'template_id',
     'created_by',
@@ -50,6 +66,10 @@ class DailyWork extends Model
     protected $casts = [
         'work_date' => 'date',
         'done_at' => 'datetime',
+        'proof_attachments' => 'array',
+        'submitted_at' => 'datetime',
+        'verified_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function employee(): BelongsTo
@@ -65,5 +85,17 @@ class DailyWork extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** HOD/TL yang memverifikasi ("Tandai telah selesai"). */
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    /** HOD/TL yang mengembalikan (rejection_note wajib). */
+    public function rejector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 }

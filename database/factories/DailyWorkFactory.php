@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
+use App\DailyWorkStatus;
 use App\Models\DailyWork;
 use App\Models\DailyWorkTemplate;
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -54,5 +56,44 @@ class DailyWorkFactory extends Factory
     private function todayString(): string
     {
         return now()->toDateString();
+    }
+
+    /**
+     * Bukti sudah diserahkan karyawan — menunggu verifikasi HOD/TL
+     * (plan .scratch/daily-work-verification/plan.md Task 2).
+     */
+    public function submitted(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => DailyWorkStatus::PendingVerify->value,
+            'proof_notes' => fake()->paragraph(),
+            'proof_attachments' => [
+                'daily-work/fake-1.jpg',
+                'daily-work/fake-2.jpg',
+            ],
+            'submitted_at' => now(),
+            'done_at' => now(),
+        ]);
+    }
+
+    /** Terverifikasi HOD/TL — "Tandai telah selesai". */
+    public function verified(): static
+    {
+        return $this->submitted()->state(fn (array $attributes) => [
+            'status' => DailyWorkStatus::Done->value,
+            'verified_by' => User::factory(),
+            'verified_at' => now(),
+        ]);
+    }
+
+    /** Dikembalikan HOD/TL (rejection_note wajib) — karyawan mengisi ulang. */
+    public function returnedByHod(): static
+    {
+        return $this->submitted()->state(fn (array $attributes) => [
+            'status' => DailyWorkStatus::InProgress->value,
+            'rejected_by' => User::factory(),
+            'rejected_at' => now(),
+            'rejection_note' => fake()->sentence(),
+        ]);
     }
 }

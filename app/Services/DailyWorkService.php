@@ -7,8 +7,12 @@ use App\Models\DailyWork;
 use App\Models\DailyWorkTemplate;
 use App\Models\Employee;
 use App\Models\User;
+use App\Notifications\DailyWorkRejected;
+use App\Notifications\DailyWorkSubmitted;
+use App\Notifications\DailyWorkVerified;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * FR-5.x Daily Work — materialize-on-view: item template aktif yang cocok
@@ -90,6 +94,12 @@ class DailyWorkService
                 'rejection_note' => null,
             ]);
 
+            // Task 4 — seluruh scope verifikasi (HOD + manager department,
+            // TL department sama) diberi tahu (pola WO submit line ~329).
+            app(DailyWorkVerifierScope::class)
+                ->verifiersFor($work)
+                ->each(fn (User $recipient) => $recipient->notify(new DailyWorkSubmitted($work)));
+
             return $work;
         });
     }
@@ -110,6 +120,10 @@ class DailyWorkService
                 'verified_by' => $actor->getKey(),
                 'verified_at' => now(),
             ]);
+
+            // Task 4 — akun karyawan (skip + log bila tidak ter-link,
+            // pola adhocStore line ~264).
+            $this->notifyEmployee($work, new DailyWorkVerified($work));
 
             return $work;
         });
@@ -133,7 +147,30 @@ class DailyWorkService
                 'rejection_note' => $note,
             ]);
 
+            $this->notifyEmployee($work, new DailyWorkRejected($work));
+
             return $work;
         });
+    }
+
+    /**
+     * Notifikasi ke akun karyawan pemilik item — tanpa akun ter-link,
+     * hanya log warning (item tetap sah; karyawan melihat status di
+     * halaman harian saat login berikutnya).
+     */
+    private function notifyEmployee(DailyWork $work, object $notification): void
+    {
+        $recipient = $work->employee?->user;
+
+        if ($recipient === null) {
+            Log::warning('Daily Work verification outcome reached an employee without a linked akun; no in-app notification possible.', [
+                'daily_work_id' => $work->getKey(),
+                'employee_id' => $work->employee_id,
+            ]);
+
+            return;
+        }
+
+        $recipient->notify($notification);
     }
 }

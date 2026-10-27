@@ -550,44 +550,83 @@ export default function Dashboard() {
         <>
             <Head title="Beranda" />
 
-            {showNotice && (
-                <InfoBanner
-                    iconClassName="text-danger"
-                    message="6 WO telat dan 2 eskalasi aktif — tinjau sekarang agar SLA tidak memburuk."
-                    href={workOrdersIndex({ tenant })}
-                    onDismiss={() => setShowNotice(false)}
-                />
-            )}
+            <div className="flex flex-col gap-4">
 
-            <div className="flex flex-col gap-6">
-                <div className="-mt-2 flex flex-wrap items-center gap-2 self-end">
-                    <div
-                        role="group"
-                        aria-label="Rentang laporan"
-                        className="flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
-                    >
-                        {rangeOptions.map((option) => (
-                            <button
-                                key={option}
-                                type="button"
-                                aria-pressed={range === option}
-                                onClick={() => setRange(option)}
-                                className={cn(
-                                    'h-9 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none',
-                                    range === option
-                                        ? 'bg-surface text-ink shadow-card'
-                                        : 'text-ink-muted hover:text-ink',
-                                )}
-                            >
-                                {option}
-                            </button>
-                        ))}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="rounded-2xl border border-border bg-surface/60 p-2 shadow-card backdrop-blur">
+                        <div
+                            role="group"
+                            aria-label="Rentang laporan"
+                            className="flex items-center gap-0.5 rounded-xl bg-surface-sunken p-1 shadow-card"
+                        >
+                            {rangeOptions.map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    aria-pressed={range === option}
+                                    onClick={() => setRange(option)}
+                                    className={cn(
+                                        'h-11 min-w-[72px] cursor-pointer rounded-lg px-3 text-sm font-medium transition-[background,box-shadow,color] duration-200 motion-reduce:transition-none',
+                                        range === option
+                                            ? 'bg-surface text-ink shadow-card ring-1 ring-inset ring-border-strong'
+                                            : 'text-ink-muted hover:bg-surface/60 hover:text-ink',
+                                    )}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                        <Upload aria-hidden="true" className="size-3.5" />
+                    <Button variant="outline" size="sm" className="h-11 gap-2 rounded-xl">
+                        <Upload aria-hidden="true" className="size-4" />
                         Ekspor
                     </Button>
                 </div>
+
+                <section aria-label="Progres harian bento" className="grid gap-4 lg:grid-cols-3">
+                    <article className="rounded-2xl border border-border bg-card p-5 shadow-card lg:col-span-2 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-raised motion-reduce:transition-none focus-within:shadow-raised">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-sm font-semibold tracking-wide text-ink-subtle uppercase">Progres Hari Ini</h2>
+                                <p className="mt-0.5 text-2xl font-semibold tabular-nums text-ink">12 / 18 <span className="text-sm font-normal text-ink-muted">tugas selesai</span></p>
+                            </div>
+                            <div className="text-right text-xs text-ink-muted">67% • estimasi selesai 15:30</div>
+                        </div>
+                        <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
+                            <div className="h-full w-[67%] rounded-full bg-gradient-to-r from-brand to-brand-strong" />
+                        </div>
+                        <div className="mt-3 flex items-center gap-4 text-xs text-ink-muted">
+                            <span className="inline-flex items-center gap-1"><span className="size-2 rounded-full bg-success" /> Daily Work</span>
+                            <span className="inline-flex items-center gap-1"><span className="size-2 rounded-full bg-warning" /> Tambahan HOD</span>
+                        </div>
+                    </article>
+
+                    <article className="rounded-2xl border border-danger/20 bg-danger/5 p-5 shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-raised motion-reduce:transition-none focus-within:shadow-raised">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-ink-subtle uppercase">Tugas Tertunda</p>
+                                <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">6</p>
+                            </div>
+                            <span className="flex size-10 items-center justify-center rounded-xl bg-danger/10 text-danger ring-1 ring-inset ring-danger/20">
+                                <Clock className="size-5" />
+                            </span>
+                        </div>
+                        <p className="mt-3 text-xs text-ink-muted">Butuh perhatian sebelum 17:00 hari ini</p>
+                    </article>
+
+                    <article className="rounded-2xl border border-warning/20 bg-warning/5 p-5 shadow-card lg:col-span-3 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-raised motion-reduce:transition-none focus-within:shadow-raised">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-ink-subtle uppercase">SLA Risk</p>
+                                <p className="mt-1 text-sm text-ink">2 eskalasi aktif, 4 WO mendekati deadline</p>
+                            </div>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning ring-1 ring-inset ring-warning/20">Tinjau sekarang</span>
+                        </div>
+                        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                            <div className="h-full w-[42%] rounded-full bg-warning" />
+                        </div>
+                    </article>
+                </section>
 
                 <section
                     aria-label="Ringkasan eksekutif"

@@ -33,28 +33,17 @@ interface BranchSwitcherProps {
     className?: string;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Palet "light-teal" — DESIGN.md exact tokens                       */
-/*  canvas: #EEF1F4 | surface: #FFFFFF | surface-raised: #F7F9FB      */
-/*  surface-sunken: #E8ECF1 | border: #D5DCE5 | border-strong: #A8B4C4 */
-/*  brand: #0C6B58 | brand-hover: #095445 | brand-strong: #12A383    */
-/*  brand-subtle: #DFEFE6 | ink: #15202B | ink-muted: #5B6B7C        */
-/*  ink-subtle: #8494A7 | focus-ring: #0C6B58                        */
-/* ------------------------------------------------------------------ */
-const light = {
-    // The branch switcher is deliberately a light card on the dark panel, in
-    // both themes. The Select base carries `dark:bg-input/30`, which would
-    // otherwise turn the trigger dark and leave the slate-900 label unreadable.
-    surface: 'bg-white!',
-    surfaceHover: 'hover:bg-slate-50!',
-    surfaceOpen: 'data-[state=open]:bg-slate-50',
-    border: 'border-slate-200',
-    borderHover: 'hover:border-slate-300',
-    borderOpen: 'data-[state=open]:border-emerald-500/40',
-    eyebrow: 'text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500',
-    title: 'text-sm font-bold text-slate-900',
-    subtitle: 'text-[11px] font-medium text-slate-500',
-    muted: 'text-slate-400',
+const tokens = {
+    surface: 'bg-surface',
+    surfaceHover: 'hover:bg-surface-raised',
+    surfaceOpen: 'data-[state=open]:bg-surface-raised',
+    border: 'border-border',
+    borderHover: 'hover:border-border-strong',
+    borderOpen: 'data-[state=open]:border-brand/40',
+    eyebrow: 'text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted',
+    title: 'text-sm font-bold text-ink',
+    subtitle: 'text-[11px] font-medium text-ink-muted',
+    muted: 'text-ink-subtle',
 };
 
 export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcherProps) => {
@@ -67,8 +56,6 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
 
     const currentId = tenant?.id;
     const currentTenant = tenants.find((t) => t.id === currentId);
-    // Only tenants with a code can be switched to: the {tenant} URL segment
-    // is the code slug, never the raw id.
     const activeTenants = tenants.filter(
         (t): t is BranchSwitcherTenant => !!t.is_active && !!t.code,
     );
@@ -83,30 +70,30 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
 
     const handleSwitch = (code: string) => {
         if (!code || code === currentTenant?.code) return;
-
         switchTenant(code, route);
     };
 
     const base = prefersReducedMotion ? 0 : 200;
-    const easing = 'cubic-bezier(0.2, 0.0, 0, 1)';
 
     return (
         <div className="w-full space-y-2">
-            {/* ---------------- Banner Impersonasi (amber per DESIGN.md) ---------------- */}
             {isImpersonating && homeTenant && (
-                <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5" style={{ transition: `all ${base}ms cubic-bezier(0.2,0,0,1)` }}>
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">
+                <div className={cn(
+                    'flex items-center gap-2.5 rounded-lg border border-warning bg-warning-subtle px-3 py-2.5',
+                    'transition-all'
+                )} style={{ transitionDuration: `${base}ms` }}>
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-warning-subtle text-warning-ink ring-1 ring-inset ring-warning">
                         <UserCog className="size-3.5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold text-amber-800">Mode Impersonasi Aktif</p>
-                        <p className="truncate text-[10px] text-amber-700/70">
-                            Cabang asal: <span className="font-medium text-amber-800">{homeTenant.name}</span>
+                        <p className="text-[11px] font-semibold text-warning-ink">Mode Impersonasi Aktif</p>
+                        <p className="truncate text-[10px] text-warning-ink/70">
+                            Cabang asal: <span className="font-medium text-warning-ink">{homeTenant.name}</span>
                         </p>
                     </div>
                     <button
                         onClick={() => router.post('/tenant/stop-impersonating', {}, { preserveScroll: true })}
-                        className="flex shrink-0 items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 transition-colors hover:bg-amber-100 hover:text-amber-900"
+                        className="flex shrink-0 items-center gap-1 rounded-lg bg-warning-subtle px-2 py-1 text-[10px] font-semibold text-warning-ink ring-1 ring-inset ring-warning transition-colors hover:bg-warning/10"
                     >
                         <ArrowLeftRight className="size-3" aria-hidden="true" />
                         Kembali
@@ -115,19 +102,17 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
             )}
 
             <Select value={currentTenant?.code ?? ''} onValueChange={handleSwitch}>
-                {/* ---------------- Trigger: light card 2 lines ---------------- */}
                 <SelectTrigger
                     className={cn(
                         'group h-auto w-full text-left',
-                        light.surface,
-                        light.border,
-                        light.surfaceHover,
-                        light.borderHover,
-                        light.surfaceOpen,
-                        light.borderOpen,
-                        'rounded-lg px-4 shadow-sm',
-                        'transition-all duration-200',
-                        'focus-visible:border-emerald-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25',
+                        tokens.surface,
+                        tokens.border,
+                        tokens.surfaceHover,
+                        tokens.borderHover,
+                        tokens.surfaceOpen,
+                        tokens.borderOpen,
+                        'rounded-lg px-4 shadow-sm transition-all duration-200',
+                        'focus-visible:border-brand/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25',
                         variant === 'sidebar' ? 'py-6' : 'py-2.5',
                         '[&>span]:line-clamp-none',
                         '[&>svg:last-of-type]:hidden',
@@ -138,10 +123,10 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                     <SelectValue
                         placeholder={
                             <span className="flex w-full items-center gap-3">
-                                <Building2 className="size-5 shrink-0 text-slate-400" aria-hidden="true" />
+                                <Building2 className="size-5 shrink-0 text-ink-subtle" aria-hidden="true" />
                                 <span className="flex min-w-0 flex-col items-start">
-                                    <span className={light.eyebrow}>Cabang Aktif</span>
-                                    <span className="truncate text-sm font-bold text-slate-400">
+                                    <span className={tokens.eyebrow}>Cabang Aktif</span>
+                                    <span className="truncate text-sm font-bold text-ink-subtle">
                                         Pilih cabang…
                                     </span>
                                 </span>
@@ -151,14 +136,14 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                         {currentTenant && (
                             <span className="flex w-full items-center gap-3">
                                 <Building2
-                                    className="size-5 shrink-0 text-emerald-600 transition-colors duration-200 group-hover:text-emerald-700 group-data-[state=open]:text-emerald-700"
+                                    className="size-5 shrink-0 text-brand transition-colors duration-200 group-hover:text-brand"
                                     aria-hidden="true"
                                 />
                                 <span className="flex min-w-0 flex-col items-start">
-                                    <span className={cn(light.eyebrow, 'truncate')}>
+                                    <span className={cn(tokens.eyebrow, 'truncate')}>
                                         {eyebrowOf(currentTenant)}
                                     </span>
-                                    <span className={cn(light.title, 'max-w-full truncate')}>
+                                    <span className={cn(tokens.title, 'max-w-full truncate')}>
                                         {currentTenant.name}
                                     </span>
                                 </span>
@@ -167,30 +152,27 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                     </SelectValue>
 
                     <ChevronsUpDown
-                        className="ml-auto size-4 shrink-0 text-slate-400 transition-colors duration-200 group-hover:text-slate-500 group-data-[state=open]:text-emerald-600"
+                        className="ml-auto size-4 shrink-0 text-ink-subtle transition-colors duration-200 group-hover:text-ink-muted group-data-[state=open]:text-brand"
                         aria-hidden="true"
                     />
                 </SelectTrigger>
 
-                {/* ---------------- Dropdown: light panel ---------------- */}
                 <SelectContent
                     className={cn(
                         'w-content overflow-hidden rounded-lg p-1.5',
-                        light.surface,
-                        light.border,
-                        'text-slate-700 shadow-[0_16px_40px_-12px_rgba(21,32,43,0.15)]',
-                        'animate-in fade-in-0 zoom-in-95 duration-150',
-                        'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
+                        tokens.surface,
+                        tokens.border,
+                        'text-ink shadow-[0_16px_40px_-12px_rgba(0,0,0,0.15)] animate-in fade-in-0 zoom-in-95 duration-150 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
                     )}
                     position="popper"
                     sideOffset={5}
                 >
-                    <SelectScrollUpButton className="flex cursor-default items-center justify-center py-1 text-slate-400">
+                    <SelectScrollUpButton className="flex cursor-default items-center justify-center py-1 text-ink-subtle">
                         <ChevronDown className="size-3.5 rotate-180" aria-hidden="true" />
                     </SelectScrollUpButton>
 
                     <SelectGroup>
-                        <SelectLabel className={cn(light.eyebrow, 'px-2.5 pb-1.5 pt-2')}>
+                        <SelectLabel className={cn(tokens.eyebrow, 'px-2.5 pb-1.5 pt-2')}>
                             Cabang Aktif
                         </SelectLabel>
 
@@ -202,8 +184,8 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                     value={t.code}
                                     className={cn(
                                         'flex cursor-pointer items-center rounded-lg px-2.5 py-2 outline-none transition-colors duration-150',
-                                        'focus:bg-slate-100 data-[highlighted]:bg-slate-100',
-                                        isSelected ? 'bg-emerald-50' : 'hover:bg-slate-50',
+                                        'focus:bg-surface-raised data-[highlighted]:bg-surface-raised',
+                                        isSelected ? 'bg-brand-soft' : 'hover:bg-surface-raised',
                                         'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                                         '[&>span.absolute]:hidden',
                                         '[&>span:not(.absolute)]:min-w-0 [&>span:not(.absolute)]:flex-1',
@@ -214,8 +196,8 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                             className={cn(
                                                 'flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150',
                                                 isSelected
-                                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                                    : 'border-slate-200 bg-white text-slate-400',
+                                                    ? 'border-brand/30 bg-brand-soft text-brand'
+                                                    : 'border-border bg-surface text-ink-subtle',
                                             )}
                                         >
                                             <Building2 className="size-4" aria-hidden="true" />
@@ -225,18 +207,18 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                             <span
                                                 className={cn(
                                                     'w-full truncate text-sm font-semibold',
-                                                    isSelected ? 'text-emerald-700' : 'text-slate-900',
+                                                    isSelected ? 'text-brand' : 'text-ink',
                                                 )}
                                             >
                                                 {t.name}
                                             </span>
-                                            <span className="truncate text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
+                                            <span className="truncate text-[10px] font-medium uppercase tracking-[0.16em] text-ink-muted">
                                                 {eyebrowOf(t)}
                                             </span>
                                         </span>
 
                                         {isSelected && (
-                                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.45)]">
+                                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand shadow-[0_0_12px_rgba(0,229,255,0.35)]">
                                                 <Check className="size-3" strokeWidth={3} aria-hidden="true" />
                                             </span>
                                         )}
@@ -247,16 +229,16 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
 
                         {inactiveTenants.length > 0 && (
                             <>
-                                <SelectSeparator className="my-1.5 border-slate-200" />
+                                <SelectSeparator className="my-1.5 border-border" />
 
-                                <SelectLabel className={cn(light.eyebrow, 'px-2.5 pb-1.5 pt-1')}>
+                                <SelectLabel className={cn(tokens.eyebrow, 'px-2.5 pb-1.5 pt-1')}>
                                     Tidak Aktif
                                 </SelectLabel>
 
-                                            {inactiveTenants.map((t) => (
-                                                <SelectItem
-                                                    key={t.id}
-                                                    value={t.code ?? t.id}
+                                {inactiveTenants.map((t) => (
+                                    <SelectItem
+                                        key={t.id}
+                                        value={t.code ?? t.id}
                                         disabled
                                         className={cn(
                                             'flex cursor-not-allowed items-center rounded-lg px-2.5 py-2 outline-none',
@@ -266,20 +248,20 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                         )}
                                     >
                                         <span className="flex w-full items-center gap-3">
-                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
+                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-ink-subtle">
                                                 <Lock className="size-3.5" aria-hidden="true" />
                                             </span>
 
                                             <span className="flex min-w-0 flex-1 flex-col items-start">
-                                                <span className="w-full truncate text-sm font-semibold text-slate-400 line-through decoration-slate-300">
+                                                <span className="w-full truncate text-sm font-semibold text-ink-subtle line-through decoration-ink-subtle/50">
                                                     {t.name}
                                                 </span>
-                                                <span className="truncate text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
+                                                <span className="truncate text-[10px] font-medium uppercase tracking-[0.16em] text-ink-muted">
                                                     {eyebrowOf(t)}
                                                 </span>
                                             </span>
 
-                                            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 ring-1 ring-inset ring-slate-200">
+                                            <span className="shrink-0 rounded-md bg-surface-raised px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-ink-muted ring-1 ring-inset ring-border">
                                                 Nonaktif
                                             </span>
                                         </span>
@@ -289,7 +271,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                         )}
                     </SelectGroup>
 
-                    <SelectScrollDownButton className="flex cursor-default items-center justify-center py-1 text-slate-400">
+                    <SelectScrollDownButton className="flex cursor-default items-center justify-center py-1 text-ink-subtle">
                         <ChevronDown className="size-3.5" aria-hidden="true" />
                     </SelectScrollDownButton>
                 </SelectContent>

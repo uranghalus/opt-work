@@ -147,56 +147,56 @@
 :root {
     color-scheme: light;
 
-    --background: #eef1f4; /* Stitch: canvas — one step below the card */
-    --foreground: #111d27; /* Stitch: on-background */
-    --card: #ffffff; /* Stitch: surface */
-    --card-foreground: #111d27;
-    --popover: #ffffff;
-    --popover-foreground: #111d27;
-    --primary: #005142; /* Stitch: primary */
-    --primary-foreground: #ffffff;
-    --secondary: #f7f9fb; /* Stitch: surface-raised */
-    --secondary-foreground: #111d27;
-    --muted: #f7f9fb;
-    --muted-foreground: #5b6b7c; /* Stitch: ink-muted */
-    --accent: #e6ebef; /* Stitch: canvas, one step darker for hover fills */
-    --accent-foreground: #111d27;
-    --destructive: #c0392b; /* Stitch: danger */
-    --destructive-foreground: #ffffff;
-    --border: #d5dce5; /* Stitch: border */
-    --input: #d5dce5;
-    --ring: #0c6b58; /* Stitch: focus-ring */
+    --background: #F2F4F7; /* DESIGN.md light canvas */
+    --foreground: #101418; /* DESIGN.md light ink */
+    --card: #FFFFFF; /* DESIGN.md light surface */
+    --card-foreground: #101418;
+    --popover: #FFFFFF;
+    --popover-foreground: #101418;
+    --primary: #007C91; /* DESIGN.md light brand */
+    --primary-foreground: #FFFFFF;
+    --secondary: #F6F8FA; /* DESIGN.md light surface-raised */
+    --secondary-foreground: #101418;
+    --muted: #F6F8FA;
+    --muted-foreground: #5B6470; /* DESIGN.md light ink-muted */
+    --accent: #F6F8FA;
+    --accent-foreground: #101418;
+    --destructive: #D70015; /* DESIGN.md light danger */
+    --destructive-foreground: #FFFFFF;
+    --border: #D8DEE6; /* DESIGN.md light border */
+    --input: #D8DEE6;
+    --ring: #007C91; /* DESIGN.md light focus-ring */
     --chart-1: #2a5f8f;
     --chart-2: #0c6b58;
     --chart-3: #b86e00;
     --chart-4: #c0392b;
     --chart-5: #1f7a4c;
 
-    --canvas: #eef1f4; /* Stitch: canvas */
-    --surface: #ffffff; /* Stitch: surface */
-    --surface-raised: #f7f9fb; /* Stitch: surface-raised */
-    --surface-sunken: #e8ecf1; /* Stitch: surface-sunken */
-    --ink: #15202b; /* Stitch: ink */
-    --ink-muted: #5b6b7c; /* Stitch: ink-muted */
-    --ink-subtle: #8494a7; /* Stitch: ink-subtle */
-    --border-strong: #8894a2; /* Boundary that passes 3:1 on white (WCAG 1.4.11) */
+    --canvas: #F2F4F7; /* DESIGN.md light */
+    --surface: #FFFFFF; /* DESIGN.md light */
+    --surface-raised: #F6F8FA; /* DESIGN.md light */
+    --surface-sunken: #E9EDF2; /* DESIGN.md light */
+    --ink: #101418; /* DESIGN.md light */
+    --ink-muted: #5B6470; /* DESIGN.md light */
+    --ink-subtle: #7A8694; /* derived */
+    --border-strong: #D8DEE6; /* DESIGN.md light */
 
-    --brand: #0c6b58; /* Stitch: brand (primary-container) */
-    --brand-hover: #095445; /* Stitch: brand-hover */
-    --brand-strong: #12a383; /* Stitch: mod-ops / brand-strong */
-    --brand-deep: #084c3e;
-    --brand-soft: #dcefe9;
-    --on-brand: #ffffff; /* Stitch: on-brand */
-    --info: #2a5f8f; /* Stitch: info */
-    --warning: #b86e00; /* Stitch: warning */
-    --warning-ink: #7a4a00; /* Warning text on warning-subtle — 6.4:1 */
-    --warning-bright: #f0be6a; /* Warning numeral on the dark Registry plate */
-    --danger: #c0392b; /* Stitch: danger */
-    --escalation: #7a1f3d; /* Stitch: escalation */
-    --success: #1f7a4c; /* Stitch: success */
-    --owner-urgent: #8a4b12; /* Stitch: owner-urgent */
-    --focus-ring: #0c6b58; /* Stitch: focus-ring */
-    --overlay: rgba(21, 32, 43, 0.45); /* Stitch: overlay */
+    --brand: #007C91; /* DESIGN.md light brand */
+    --brand-hover: #006478; /* DESIGN.md light brand-hover */
+    --brand-strong: #0099B0; /* derived from brand */
+    --brand-deep: #005A6A; /* derived */
+    --brand-soft: rgba(0,124,145,0.12); /* DESIGN.md alpha tint */
+    --on-brand: #FFFFFF; /* DESIGN.md light */
+    --info: #0060DF; /* DESIGN.md light */
+    --warning: #9A6700; /* DESIGN.md light */
+    --warning-ink: #7A4A00; /* kept */
+    --warning-bright: #FFD60A; /* DESIGN.md derived */
+    --danger: #D70015; /* DESIGN.md light */
+    --escalation: #8E2DC2; /* DESIGN.md light */
+    --success: #1E8E3E; /* DESIGN.md light */
+    --owner-urgent: #B35900; /* DESIGN.md light */
+    --focus-ring: #007C91; /* DESIGN.md light */
+    --overlay: rgba(16,20,24,0.45); /* DESIGN.md light */
 
     --info-subtle: #e4edf6; /* Stitch: info-subtle */
     --warning-subtle: #f7ecda; /* Stitch: warning-subtle */
@@ -237,10 +237,10 @@
     --console-ink-subtle: #7aa89a;
     --console-accent: #3ecfa6;
 
-    /* Group identity hues (nav icon tints) */
-    --mod-ops: #12a383; /* Stitch: mod-ops */
-    --mod-master: #2f6fb5; /* Stitch: mod-master */
-    --mod-system: #8ba6b8; /* Stitch: mod-system */
+    /* Group identity hues (nav icon tints) — DESIGN.md */
+    --mod-ops: #007C91; /* ops = brand light */
+    --mod-master: #0060DF; /* master = info light */
+    --mod-system: #5B6470; /* system = ink-muted light */
 
     --sidebar: var(--panel);
     --sidebar-foreground: var(--panel-ink);
@@ -259,56 +259,56 @@
 .dark {
     color-scheme: dark;
 
-    --background: #0a1015;
-    --foreground: #e9f1f6;
-    --card: #101922;
-    --card-foreground: #e9f1f6;
-    --popover: #131f29;
-    --popover-foreground: #e9f1f6;
-    --primary: #12836b;
-    --primary-foreground: #ffffff;
-    --secondary: #17232d;
-    --secondary-foreground: #e9f1f6;
-    --muted: #16212b;
-    --muted-foreground: #9aaab8;
-    --accent: #17232d;
-    --accent-foreground: #e9f1f6;
-    --destructive: #e05a4a;
-    --destructive-foreground: #14060a;
-    --border: #22303b;
-    --input: #2b3a46;
-    --ring: #3ecfa6;
+    --background: #121212; /* DESIGN.md dark canvas */
+    --foreground: #FFFFFF; /* DESIGN.md dark ink */
+    --card: #1E1E1E; /* DESIGN.md dark surface */
+    --card-foreground: #FFFFFF;
+    --popover: #1E1E1E;
+    --popover-foreground: #FFFFFF;
+    --primary: #00E5FF; /* DESIGN.md dark brand */
+    --primary-foreground: #121212;
+    --secondary: #252525; /* DESIGN.md dark surface-raised */
+    --secondary-foreground: #FFFFFF;
+    --muted: #252525;
+    --muted-foreground: #98989D; /* DESIGN.md dark ink-muted */
+    --accent: #252525;
+    --accent-foreground: #FFFFFF;
+    --destructive: #FF453A; /* DESIGN.md dark danger */
+    --destructive-foreground: #FFFFFF;
+    --border: #2C2C2E; /* DESIGN.md dark border */
+    --input: #2C2C2E;
+    --ring: #00E5FF; /* DESIGN.md dark focus-ring */
     --chart-1: #74acd8;
     --chart-2: #3ecfa6;
     --chart-3: #e5ab4e;
     --chart-4: #ec8474;
     --chart-5: #52c08c;
 
-    --canvas: #0a1015;
-    --surface: #101922;
-    --surface-raised: #17232d;
-    --surface-sunken: #0d151c;
-    --ink: #e9f1f6;
-    --ink-muted: #9aaab8;
-    --ink-subtle: #74899a;
-    --border-strong: #3a4c5a;
+    --canvas: #121212; /* DESIGN.md dark */
+    --surface: #1E1E1E; /* DESIGN.md dark */
+    --surface-raised: #252525; /* DESIGN.md dark */
+    --surface-sunken: #181818; /* DESIGN.md dark */
+    --ink: #FFFFFF; /* DESIGN.md dark */
+    --ink-muted: #98989D; /* DESIGN.md dark */
+    --ink-subtle: #7A7A80; /* derived */
+    --border-strong: #2C2C2E; /* DESIGN.md dark */
 
-    --brand: #12836b;
-    --brand-hover: #0f6f5b;
-    --brand-strong: #3ecfa6;
-    --brand-deep: #0b5a4a;
-    --brand-soft: rgba(62, 207, 166, 0.14);
-    --on-brand: #ffffff;
-    --info: #74acd8;
-    --warning: #e5ab4e;
-    --warning-ink: #f0c172;
-    --warning-bright: #f0be6a;
-    --danger: #ec8474;
-    --escalation: #dc8fae;
-    --success: #52c08c;
-    --owner-urgent: #dfa35f;
-    --focus-ring: #3ecfa6;
-    --overlay: rgba(3, 7, 10, 0.62);
+    --brand: #00E5FF; /* DESIGN.md dark */
+    --brand-hover: #33EBFF; /* DESIGN.md dark */
+    --brand-strong: #4DEFFF; /* derived */
+    --brand-deep: #00B8CC; /* derived */
+    --brand-soft: rgba(0,229,255,0.14); /* DESIGN.md alpha */
+    --on-brand: #121212; /* DESIGN.md dark */
+    --info: #0A84FF; /* DESIGN.md dark */
+    --warning: #FFD60A; /* DESIGN.md dark */
+    --warning-ink: #FFE8A3; /* derived */
+    --warning-bright: #FFD60A; /* DESIGN.md */
+    --danger: #FF453A; /* DESIGN.md dark */
+    --escalation: #BF5AF2; /* DESIGN.md dark */
+    --success: #32D74B; /* DESIGN.md dark */
+    --owner-urgent: #FF9F0A; /* DESIGN.md dark */
+    --focus-ring: #00E5FF; /* DESIGN.md dark */
+    --overlay: rgba(0,0,0,0.60); /* DESIGN.md dark */
 
     --info-subtle: rgba(116, 172, 216, 0.16);
     --warning-subtle: rgba(229, 171, 78, 0.16);
@@ -345,9 +345,9 @@
     --console-active: rgba(62, 207, 166, 0.18);
     --console-border: rgba(214, 245, 232, 0.09);
 
-    --mod-ops: #3ecfa6;
-    --mod-master: #74acd8;
-    --mod-system: #93a9b8;
+    --mod-ops: #00E5FF; /* ops = brand dark */
+    --mod-master: #0A84FF; /* master = info dark */
+    --mod-system: #98989D; /* system = ink-muted dark */
 }
 
 @layer base {

@@ -26,7 +26,7 @@ export function InfoBanner({
     return (
         <div
             className={cn(
-                'flex items-center gap-2.5 rounded-full border border-border bg-surface-raised py-2 pr-3 pl-3.5',
+                'flex items-center gap-2.5 rounded-2xl border border-border bg-surface-raised py-2.5 pr-3 pl-3.5',
                 className,
             )}
         >

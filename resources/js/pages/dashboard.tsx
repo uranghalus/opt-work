@@ -823,6 +823,7 @@ export default function Dashboard() {
                         <table className="w-full text-sm">
                             <thead className="border-y border-border bg-surface-raised">
                                 <tr>
+                                    <th className="w-10 p-3"><input type="checkbox" aria-label="Pilih semua" className="size-4 accent-brand" /></th>
                                     <Th>Departemen</Th>
                                     <Th>HOD</Th>
                                     <Th align="center">WO aktif</Th>

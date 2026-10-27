@@ -806,6 +806,17 @@ export default function Dashboard() {
                                 </Button>
                             }
                         />
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <div className="relative">
+                                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-subtle" />
+                                <input placeholder="Cari departemen…" className="h-11 w-56 rounded-xl border border-border bg-surface pl-9 pr-3 text-sm focus:ring-2 focus:ring-brand/40 focus:outline-none" />
+                            </div>
+                            <div className="flex items-center gap-1 rounded-xl bg-surface-sunken p-1">
+                                {['Semua','Risiko','Aman'].map((f)=>(
+                                    <button key={f} className="h-9 rounded-lg px-3 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink"> {f} </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">

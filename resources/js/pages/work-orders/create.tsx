@@ -25,6 +25,18 @@ type CategoryOption = {
 type PageProps = {
     departments: DepartmentOption[];
     categories: CategoryOption[];
+    priorityOptions: PriorityOption[];
+    damageTypeOptions: DamageTypeOption[];
+};
+
+type PriorityOption = {
+    value: string;
+    label: string;
+};
+
+type DamageTypeOption = {
+    value: string;
+    label: string;
 };
 
 CreateWorkOrder.layout = {
@@ -44,14 +56,20 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
         location: string;
         requested_schedule_date: string;
         attachments: File[];
+        priority: string;
+        personnel_count: number;
+        damage_type: string;
     }>({
         title: '',
         category: categories[0]?.value ?? 'normal',
         target_department_id: '',
         description: '',
         location: '',
+        priority: '',
+        personnel_count: 1,
         requested_schedule_date: '',
         attachments: [],
+        damage_type: '',
     });
 
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -160,6 +178,61 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
                             />
                             {form.errors.location && (
                                 <p className="text-xs text-danger">{form.errors.location}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="priority">Prioritas</Label>
+                            <select
+                                id="priority"
+                                value={form.data.priority}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => form.setData('priority', e.target.value)}
+                                className="flex h-12 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                                aria-invalid={Boolean(form.errors.priority)}
+                            >
+                                <option value="">Pilih prioritas</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                            {form.errors.priority && (
+                                <p className="text-xs text-danger">{form.errors.priority}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="personnel_count">Jumlah Personel</Label>
+                            <Input
+                                id="personnel_count"
+                                type="number"
+                                min={1}
+                                value={form.data.personnel_count}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => form.setData('personnel_count', Number(e.target.value))}
+                                className="flex h-12 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                                aria-invalid={Boolean(form.errors.personnel_count)}
+                            />
+                            {form.errors.personnel_count && (
+                                <p className="text-xs text-danger">{form.errors.personnel_count}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="damage_type">Jenis Kerusakan</Label>
+                            <select
+                                id="damage_type"
+                                value={form.data.damage_type}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => form.setData('damage_type', e.target.value)}
+                                className="flex h-12 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                                aria-invalid={Boolean(form.errors.damage_type)}
+                            >
+                                <option value="">Pilih jenis kerusakan</option>
+                                <option value="perabotan">Perabotan</option>
+                                <option value="elektris">Elektris</option>
+                                <option value="bangunan">Bangunan</option>
+                                <option value="transportasi">Transportasi</option>
+                            </select>
+                            {form.errors.damage_type && (
+                                <p className="text-xs text-danger">{form.errors.damage_type}</p>
                             )}
                         </div>
 

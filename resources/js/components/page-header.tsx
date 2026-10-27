@@ -72,7 +72,7 @@ export function PageHeader({
                     <span
                         aria-hidden="true"
                         className={cn(
-                            'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1',
+                            'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg ring-1',
                             tone.chip,
                             tone.chipRing,
                             tone.icon,
@@ -83,12 +83,12 @@ export function PageHeader({
                 )}
                 <div className="min-w-0">
                     {heading && (
-                        <h1 className="text-[1.375rem] leading-tight font-semibold tracking-[-0.02em] text-balance sm:text-2xl">
+                        <h1 className="text-[1.5rem] leading-tight font-semibold tracking-[-0.02em] text-balance sm:text-[1.5rem]">
                             {heading}
                         </h1>
                     )}
                     {description && (
-                        <p className="mt-1.5 max-w-[65ch] text-[0.8125rem] leading-relaxed text-ink-muted">
+                        <p className="mt-1.5 max-w-[65ch] text-sm leading-relaxed text-ink-muted">
                             {description}
                         </p>
                     )}

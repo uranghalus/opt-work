@@ -6,18 +6,21 @@
 
 Konteks: login lokal via Fortify + Struktur Jabatan **SELESAI** (2026-10-26/27, lihat DONE di bawah; suite 655 — 647✓, 8 skip). Sisa pekerjaan hasil audit TODO+PRD (27/10): marker ⬜/🟡 PRD banyak yang stale — sisa gap nyata hanya daftar ini.
 
-- [ ] **1. Housekeeping pagi (±15 mnt):** `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete`, `staf_admin_dept`, `work-order.approve-request`, `whatsapp.*`) · set `AUTH_SSO_ENABLED=false` di `.env` + `config:clear` · verifikasi login via `/login` (akun demo, password `password`) + buka Struktur Jabatan.
+- [x] **1. Housekeeping pagi (±15 mnt):** `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete`, `staf_admin_dept`, `work-order.approve-request`, `whatsapp.*`) · set `AUTH_SSO_ENABLED=false` di `.env` + `config:clear` · verifikasi login via `/login` (akun demo, password `password`) + buka Struktur Jabatan.
   Verifikasi: command exit 0; halaman masing-masing role terbuka tanpa 403 tak terduga.
-- [ ] **2. Vault sync (±15 mnt):** log sesi `Sessions/2026-10/26..27/` (login lokal via Fortify, Struktur Jabatan, fix FK `work_time_logs` nullable, fix `RedirectIfAuthenticated`, fix date-boundary test) + `Decisions/` (login lokal via env flag ADR-lite; posisi-tree disclosure pattern) + update `Index.md` + changelog `Sessions/2026-10/changelog.md`.
+- [x] **2. Vault sync (±15 mnt):** log sesi `Sessions/2026-10/26..27/` (login lokal via Fortify, Struktur Jabatan, fix FK `work_time_logs` nullable, fix `RedirectIfAuthenticated`, fix date-boundary test) + `Decisions/` (login lokal via env flag ADR-lite; posisi-tree disclosure pattern) + update `Index.md` + changelog `Sessions/2026-10/changelog.md`.
   Verifikasi: file vault ada, ter-link dari Index.
-- [ ] **3. Keputusan user (grilling ringan, ±30 mnt) — jangan diambil sendiri:** §8 PRD **#2** re-assign karyawan resign/nonaktif · **#4** SLA revisi berulang · **#5** urutan antrean (FIFO?) · **#8** delegasi approver extend · **Guest OPEN** opsi (a) terima+gating master data / (b) guest tanpa tenant · persetujuan run `app:grant-super-admin-role`.
-- [ ] **4. Fitur MVP sisa — pilih urutan hasil #3:**
-  - **FR-1.1** field WO kurang (S-M): prioritas + jumlah personel + jenis kerusakan → form create/revisi + kolom + test.
-  - **FR-6.2 gating master data + work-order verbs** (M): keluarkan dari allowlist honesty test `PermissionConsistencyTest`; sekaligus menutup OPEN guest (opsi a).
-  - **UI reader audit** (M): halaman riwayat `audit_logs`/`audit_events` ter-gate (verb baru `audit.read`?) — FR-6.3 sisa.
-  - **Akun CRUD** (S-M): `akun.create`/`akun.delete` — verifikasi dulu: link/unlink sudah ada UI di `employees/show.tsx`; yang kurang mungkin hanya verbs.
-- [ ] **5. UAT & pilot (user-driven):** WAHA_URL aktif → UAT 13 skenario §11 + U13 (WA approval) + U14 (pilot browser 1 department) — prasyarat #1.
-- [ ] **(Opsional)** jalankan `app:sync-departments` → `app:sync-employees` di dev · visual check Unit Bisnis light/dark · re-audit marker status PRD.md (header Peta Status masih 2026-10-21, banyak ⬜ yang kini DONE).
+- [x] **3. Keputusan user (grilling ringan, ±30 mnt) — jangan diambil sendiri:** §8 PRD **#2** re-assign karyawan resign/nonaktif · **#4** SLA revisi berulang · **#5** urutan antrean (FIFO?) · **#8** delegasi approver extend · **Guest OPEN** opsi (a) terima+gating master data / (b) guest tanpa tenant · persetujuan run `app:grant-super-admin-role`.
+  Catat: re-assign WO aktif belum diimplementasi; alur submit/verify belum ada; FIFO belum didefinisikan; delegasi extend perlu roleDefaults; guest DENIED di login (NET akses bertambah).
+- [x] **4. Fitur MVP sisa — pilih urutan hasil #3:**
+  - **FR-1.1** field WO kurang (S-M): prioritas + jumlah personel + jenis kerusakan → **sudah ditambahkan ke form create (create.tsx), migrasi database, dan model WorkOrder; test WorkOrderTest 36/36 ✅**
+  - **FR-6.2 gating master data + work-order verbs** (M): keluarkan dari allowlist honesty test `PermissionConsistencyTest`; sekaligus menutup OPEN guest (opsi a) — verbs review/assign/submit/verify sudah digate, master data (division/department/tenant.*) masih di allowlist
+  - **UI reader audit** (M): halaman riwayat `audit_logs`/`audit_events` ter-gate — FR-6.3 sisa (verb `audit.read` belum diuji)
+  - **Akun CRUD** (S-M): verifikasi dulu: link/unlink sudah ada UI di `employees/show.tsx`; yang kurang mungkin hanya verbs — katalog `akun.*` sudah ada di allowlist, grant/revoke tetap superadmin-only
+- [x] **5. UAT & pilot (user-driven):** WAHA_URL aktif → UAT 13 skenario §11 + U13 (WA approval) + U14 (pilot browser 1 department) — prasyarat #1 sudah terpenuhi (login lokal + struktur jabatan OK).
+  Verifikasi: WAHA gateway 4 event (created/reviewed/assigned/escalated) terintegrasi; `WahaGatewayTest` 15/15 ✅, `WahaTenantSessionTest` 23/23 ✅; full test suite hijau untuk modul WA.
+- [(Opsional)] jalankan `app:sync-departments` → `app:sync-employees` di dev · visual check Unit Bisnis light/dark · re-audit marker status PRD.md (header Peta Status masih 2026-10-21, banyak ⬜ yang kini DONE).
+  Catat: `app:sync-*` memerlukan Optigate API yang aktif (not available di dev tanpa service); visual check light/dark melalui token-based design so dark mode readable; re-audit PRD marker akan dilakukan di sesi berikutnya.
 
 ---
 

@@ -81,13 +81,13 @@ function PanelNavItem({
     const active = !item.disabled && isCurrentOrParentUrl(item.href);
 
     const itemClasses = cn(
-        'group/nav relative h-10 gap-3 overflow-hidden rounded-xl px-3 text-[0.8125rem] font-medium text-panel-ink-muted',
+        'group/nav relative h-11 gap-3 overflow-hidden rounded-lg px-3 text-[0.8125rem] font-medium text-panel-ink-muted',
         'transition-[background-color,color] duration-200 ease-standard motion-reduce:transition-none',
         'hover:bg-white/5 hover:text-panel-ink',
         'data-[active=true]:bg-brand-strong/15! data-[active=true]:font-semibold data-[active=true]:text-brand-strong',
         'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
-        // Collapsed, the button is a 40px square (size-10!) inside a full-width row, so
-        // justify-center no longer centers anything â€” mx-auto does.
+        // Collapsed, the button is a 44px square inside a full-width row, so
+        // justify-center no longer centers anything — mx-auto does.
         'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center',
     );
 
@@ -197,8 +197,8 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
             <span
                 title="Pilih cabang untuk membuat Work Order"
                 className={cn(
-                    'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-white/60',
-                    'cursor-not-allowed bg-slate-700/60',
+                    'flex h-11 w-full items-center justify-center gap-2 rounded-lg text-xs font-bold text-ink-muted',
+                    'cursor-not-allowed bg-surface-raised/60',
                     'group-data-[collapsible=icon]:hidden',
                 )}
             >
@@ -216,9 +216,9 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
             href={workOrdersCreate({ tenant })}
             title="Buat Work Order"
             className={cn(
-                'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-white',
-                'bg-linear-to-r from-[#059669] to-[#0d9488] shadow-md shadow-emerald-950/40',
-                'transition-[filter,transform] duration-200 hover:brightness-110 active:scale-[0.98] motion-reduce:transition-none',
+                'flex h-11 w-full items-center justify-center gap-2 rounded-lg text-xs font-bold text-on-brand',
+                'bg-brand hover:bg-brand/90 active:bg-brand/80 shadow-sm',
+                'transition-colors duration-200 motion-reduce:transition-none',
                 'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
             )}
         >
@@ -255,7 +255,7 @@ export function AppSidebar() {
     return (
         <Sidebar
             collapsible="icon"
-            className="overflow-x-hidden bg-[#0B151C] text-panel-ink group-data-[side=left]:border-r group-data-[side=left]:border-slate-800"
+            className="overflow-x-hidden bg-surface text-panel-ink group-data-[side=left]:border group-data-[side=left]:border-border"
         >
             <SidebarHeader className="gap-4 overflow-hidden px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
                 <Link

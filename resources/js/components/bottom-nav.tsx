@@ -112,9 +112,9 @@ export function BottomNav() {
     return (
         <nav
             aria-label="Navigasi utama"
-            className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden"
+            className="fixed inset-x-0 bottom-0 z-30 md:hidden"
         >
-            <div className="mx-auto flex h-16 max-w-md items-stretch gap-1 rounded-2xl border border-border bg-surface/95 p-1.5 shadow-[var(--shadow-popover)] backdrop-blur-md">
+            <div className="mx-auto flex h-16 w-full max-w-md items-stretch border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] px-1 shadow-sm">
                 {items.map((item) => {
                     const Icon = navIcon(item);
                     const tone = navToneStyles[item.tone ?? 'ops'];
@@ -131,7 +131,7 @@ export function BottomNav() {
                                 'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
                                 active
                                     ? 'bg-brand text-on-brand shadow-[var(--shadow-card)]'
-                                    : 'text-ink-muted hover:bg-accent hover:text-foreground',
+                                    : 'text-ink-muted hover:bg-brand-hover hover:text-foreground',
                             )}
                         >
                             <Icon

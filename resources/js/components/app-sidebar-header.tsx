@@ -36,7 +36,7 @@ function NotificationButton() {
             variant="ghost"
             size="icon"
             asChild
-            className="relative size-9 cursor-pointer rounded-lg text-ink-muted after:absolute after:-inset-1 after:content-[''] hover:bg-accent hover:text-foreground"
+            className="relative size-11 cursor-pointer rounded-lg text-ink-muted after:absolute after:-inset-1 after:content-[''] hover:bg-accent hover:text-foreground"
         >
             <Link
                 href={notificationsIndex()}
@@ -60,7 +60,7 @@ function HelpButton() {
             variant="ghost"
             size="icon"
             aria-label="Pusat Bantuan"
-            className="size-9 cursor-pointer rounded-lg text-ink-muted hover:bg-accent hover:text-foreground"
+            className="size-11 cursor-pointer rounded-lg text-ink-muted hover:bg-accent hover:text-foreground"
         >
             <HelpCircle aria-hidden="true" className="size-[18px]" />
         </Button>
@@ -109,7 +109,7 @@ function WorkOrderSearch() {
                 disabled={!tenant}
                 placeholder="Cari WO, aset, PIC..."
                 className={cn(
-                    'h-9 w-56 rounded-xl border border-border bg-surface-raised/70 pr-12 pl-9 text-xs text-ink',
+                    'h-11 w-56 rounded-lg border border-border bg-surface-raised/70 pr-12 pl-9 text-sm text-ink',
                     'transition-colors duration-200 ease-standard placeholder:text-ink-subtle motion-reduce:transition-none',
                     'hover:bg-surface focus:bg-surface focus:ring-2 focus:ring-brand/20 focus:ring-offset-0 focus:outline-none',
                     'disabled:cursor-not-allowed disabled:opacity-60 lg:w-72',
@@ -130,7 +130,7 @@ function UserButton() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" aria-label={`Menu pengguna: ${auth.user.name}`} className="h-9 cursor-pointer gap-1.5 rounded-full pr-2 pl-1 hover:bg-accent">
+                <Button variant="ghost" aria-label={`Menu pengguna: ${auth.user.name}`} className="h-11 cursor-pointer gap-1.5 rounded-full pr-2 pl-1 hover:bg-accent">
                     <Avatar className="size-7 rounded-full ring-1 ring-border">
                         <AvatarImage src={auth.user.avatar} alt={auth.user.name} />
                         <AvatarFallback className="rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand">
@@ -152,14 +152,14 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
     return (
         <header className={cn(
-            'sticky top-0 z-30 flex h-16 shrink-0 w-full items-center justify-between gap-3 border-b bg-surface/95 px-6 lg:px-8 shadow-sm backdrop-blur-md',
+            'sticky top-0 z-30 flex h-16 shrink-0 w-full items-center justify-between gap-3 border-b bg-canvas/95 px-6 lg:px-8 backdrop-blur-md',
             'border-border transition-[box-shadow] duration-200 ease-standard motion-reduce:transition-none',
-            scrolled && 'shadow-md',
+            scrolled && 'shadow-sm',
         )}>
             <div className="flex items-center gap-3">
                 <SidebarTrigger
                     aria-label="Buka atau tutup panel navigasi"
-                    className="relative -ml-1 size-9 cursor-pointer rounded-xl border border-border bg-surface-raised/90 text-ink-muted shadow-xs hover:bg-accent hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
+                    className="relative -ml-1 size-11 cursor-pointer rounded-lg border border-border bg-surface-raised/90 text-ink-muted shadow-xs hover:bg-accent hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
                 />
                 <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border sm:block" />
                 <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">

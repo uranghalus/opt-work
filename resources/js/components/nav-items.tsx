@@ -73,6 +73,10 @@ export function navContext(props: InertiaConfig['sharedPageProps']): NavContext 
         canReadWorkData: auth?.can?.['work-data.read'],
         canReadDailyWork: auth?.can?.['daily-work.read'],
         canManageDailyWork: auth?.can?.['daily-work.create'],
+        canReadWorkOrder: auth?.can?.['work-order.read'],
+        canReadDivision: auth?.can?.['division.read'],
+        canReadDepartment: auth?.can?.['department.read'],
+        canReadTenant: auth?.can?.['tenant.read'],
         canApproveRequests: auth?.can?.['work-order.approve-request'],
         hasEmployeeLink: auth?.user?.employee_id != null,
         canDecideExtends:
@@ -151,6 +155,17 @@ type NavContext = {
     canReadDailyWork?: boolean;
     canManageDailyWork?: boolean;
     /**
+     * FR-6.2: work-order CRUD read gate — `work-order.read`.
+     */
+    canReadWorkOrder?: boolean;
+    /**
+     * FR-6.2: master data read gates — `division.read` / `department.read` /
+     * `tenant.read`.
+     */
+    canReadDivision?: boolean;
+    canReadDepartment?: boolean;
+    canReadTenant?: boolean;
+    /**
      * ADR-0011: Approval inbox — permintaan WO lintas-department dari
      * department pengaju, gated `can('work-order.approve-request')`.
      */
@@ -221,6 +236,10 @@ export function navGroups({
     canReadWorkData = false,
     canReadDailyWork = false,
     canManageDailyWork = false,
+    canReadWorkOrder = false,
+    canReadDivision = false,
+    canReadDepartment = false,
+    canReadTenant = false,
     canApproveRequests = false,
     hasEmployeeLink = false,
     canDecideExtends = false,
@@ -233,16 +252,24 @@ export function navGroups({
             tenant,
             (t) => employees.index({ tenant: t }),
         ),
-        tenantItem(
-            { title: 'Departemen', icon: Building2, tone: 'master' },
-            tenant,
-            (t) => departments.index({ tenant: t }),
-        ),
-        tenantItem(
-            { title: 'Divisi', icon: Network, tone: 'master' },
-            tenant,
-            (t) => divisions.index({ tenant: t }),
-        ),
+        ...(canReadDepartment
+            ? [
+                  tenantItem(
+                      { title: 'Departemen', icon: Building2, tone: 'master' },
+                      tenant,
+                      (t) => departments.index({ tenant: t }),
+                  ),
+              ]
+            : []),
+        ...(canReadDivision
+            ? [
+                  tenantItem(
+                      { title: 'Divisi', icon: Network, tone: 'master' },
+                      tenant,
+                      (t) => divisions.index({ tenant: t }),
+                  ),
+              ]
+            : []),
         tenantItem(
             { title: 'Posisi', icon: BriefcaseBusiness, tone: 'master' },
             tenant,
@@ -281,16 +308,20 @@ export function navGroups({
                     tenant,
                     (t) => dashboard({ tenant: t }),
                 ),
-                tenantItem(
-                    {
-                        title: 'Work Order',
-                        shortTitle: 'WO',
-                        icon: ClipboardList,
-                        tone: 'ops',
-                    },
-                    tenant,
-                    (t) => workOrdersIndex({ tenant: t }),
-                ),
+                ...(canReadWorkOrder
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Work Order',
+                                  shortTitle: 'WO',
+                                  icon: ClipboardList,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => workOrdersIndex({ tenant: t }),
+                          ),
+                      ]
+                    : []),
                 ...(hasEmployeeLink
                     ? [
                           tenantItem(

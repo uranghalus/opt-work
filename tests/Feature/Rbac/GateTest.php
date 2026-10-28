@@ -100,6 +100,12 @@ it('shares the full hak-akses flag set with a user holding them', function () {
         'work-order.extend' => false,
         'work-order.extend-approve' => false,
         'work-order.approve-request' => false,
+        'work-order.create' => false,
+        'work-order.read' => false,
+        'work-order.update' => false,
+        'division.read' => false,
+        'department.read' => false,
+        'tenant.read' => false,
     ]);
 });
 
@@ -138,6 +144,12 @@ it('shares only role.read with a read-only viewer', function () {
         'work-order.extend' => false,
         'work-order.extend-approve' => false,
         'work-order.approve-request' => false,
+        'work-order.create' => false,
+        'work-order.read' => false,
+        'work-order.update' => false,
+        'division.read' => false,
+        'department.read' => false,
+        'tenant.read' => false,
     ]);
 });
 
@@ -174,6 +186,12 @@ it('shares the full hak-akses flag set with a super admin holding zero permissio
         'work-order.extend' => true,
         'work-order.extend-approve' => true,
         'work-order.approve-request' => true,
+        'work-order.create' => true,
+        'work-order.read' => true,
+        'work-order.update' => true,
+        'division.read' => true,
+        'department.read' => true,
+        'tenant.read' => true,
     ]);
 });
 

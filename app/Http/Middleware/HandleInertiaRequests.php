@@ -119,6 +119,14 @@ class HandleInertiaRequests extends Middleware
                     // ADR-0011: gerbang approval lintas-department — inbox
                     // approver department pengaju.
                     'work-order.approve-request' => (bool) ($user?->can('work-order.approve-request')),
+                    // FR-6.2: work-order CRUD gating — create/read/update.
+                    'work-order.create' => (bool) ($user?->can('work-order.create')),
+                    'work-order.read' => (bool) ($user?->can('work-order.read')),
+                    'work-order.update' => (bool) ($user?->can('work-order.update')),
+                    // FR-6.2: master data read gating.
+                    'division.read' => (bool) ($user?->can('division.read')),
+                    'department.read' => (bool) ($user?->can('department.read')),
+                    'tenant.read' => (bool) ($user?->can('tenant.read')),
                 ],
             ],
             'tenant' => $currentTenant,

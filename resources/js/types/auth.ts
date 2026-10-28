@@ -42,6 +42,14 @@ export type Auth = {
         'work-order.extend': boolean;
         'work-order.extend-approve': boolean;
         'work-order.approve-request': boolean;
+        // FR-6.2: work-order CRUD gating — create/read/update.
+        'work-order.create': boolean;
+        'work-order.read': boolean;
+        'work-order.update': boolean;
+        // FR-6.2: master data read gating.
+        'division.read': boolean;
+        'department.read': boolean;
+        'tenant.read': boolean;
         'work-data.read': boolean;
         'work-data.update': boolean;
         'daily-work.read': boolean;

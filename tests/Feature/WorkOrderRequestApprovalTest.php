@@ -62,7 +62,7 @@ function makeApprovalScenario(): array
     $employeePengaju = Employee::factory()->create(['department_id' => $deptPengaju->getKey()]);
     $requester = createUser(['tenant_id' => $tenant->id, 'employee_id' => $employeePengaju->getKey()]);
     $requester->assignRole('karyawan');
-    $requester->givePermissionTo(['work-order.create', 'work-order.read']);
+    $requester->givePermissionTo(['work-order.create', 'work-order.read', 'work-order.update']);
 
     $hodTujuan = createUser(['tenant_id' => $tenant->id]);
     $hodTujuan->assignRole('hod');

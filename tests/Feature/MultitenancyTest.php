@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Tenant;
 use App\Services\TenantAccess;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,6 +22,7 @@ beforeEach(function () {
         'code' => 'plant-1',
         'name' => 'Plant 1',
     ]);
+    (new RoleAndPermissionSeeder)->run();
 });
 
 afterEach(function () {
@@ -84,6 +86,7 @@ describe('Tenant Isolation', function () {
 
         initTenant('plant-1');
         $user = createUser(['tenant_id' => Tenant::where('code', 'plant-1')->first()->id]);
+        $user->givePermissionTo('division.read');
 
         $response = $this
             ->actingAs($user)

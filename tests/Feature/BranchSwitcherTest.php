@@ -2,6 +2,7 @@
 
 use App\Models\Tenant;
 use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -25,6 +26,7 @@ beforeEach(function () {
         'code' => 'plant-1',
         'name' => 'Plant 1',
     ]);
+    (new RoleAndPermissionSeeder)->run();
 });
 
 /** Reads the shared `tenants` prop from an Inertia response. */
@@ -35,7 +37,9 @@ function switcherPayload(TestResponse $response): array
 
 test('a branch user is offered only their own branch', function () {
     $hq = Tenant::where('code', 'hq')->first();
-    $response = $this->actingAs(User::factory()->create(['tenant_id' => $hq->id]))
+    $user = User::factory()->create(['tenant_id' => $hq->id]);
+    $user->givePermissionTo('department.read');
+    $response = $this->actingAs($user)
         ->get('/hq/departments')
         ->assertOk();
 

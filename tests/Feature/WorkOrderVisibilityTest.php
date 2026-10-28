@@ -54,6 +54,7 @@ it('lists assigned work orders for the cross-department assignee in the index', 
         'tenant_id' => Tenant::where('code', 'hq')->first()->id,
         'employee_id' => $assigneeEmployee->getKey(),
     ]);
+    $assigneeUser->givePermissionTo('work-order.read');
 
     $workOrder = WorkOrder::create([
         'nomor_wo' => 'WO-TEST-'.fake()->unique()->numerify('####'),
@@ -126,6 +127,7 @@ it('keeps an unrelated karyawan out of the index', function () {
     ]);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
     $bystander = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $bystander->givePermissionTo('work-order.read');
 
     WorkOrder::create([
         'nomor_wo' => 'WO-TEST-'.fake()->unique()->numerify('####'),
@@ -153,7 +155,9 @@ it('respects requester and department head visibility unchanged', function () {
         'hod_user_id' => null,
     ]);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.read');
     $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $hod->givePermissionTo('work-order.read');
     $targetDepartment->forceFill(['hod_user_id' => $hod->getKey()])->save();
 
     WorkOrder::create([

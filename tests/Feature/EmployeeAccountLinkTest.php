@@ -263,7 +263,7 @@ it('leaves the roles of an account that already has one untouched when linking',
         ->and($audit->after)->not->toHaveKey('auto_role');
 });
 
-it('keeps a provisioned guest through unlink and lands it on the dashboard at login', function () {
+it('keeps a provisioned guest through unlink and denies it tenant access at login', function () {
     $employee = Employee::factory()->create(['tenant_id' => $this->hq->id]);
     $akun = User::factory()->create(['tenant_id' => $this->hq->id]);
     $editor = accountEditor();
@@ -282,14 +282,15 @@ it('keeps a provisioned guest through unlink and lands it on the dashboard at lo
     // genuine guest (otherwise RedirectIfAuthenticated bounces it).
     $this->app['auth']->forgetGuards();
 
-    // E2E: the provisioned guest clears the no_role gate and lands on the
-    // dashboard (permitted routes stay closed — izin nol).
+    // A guest holds no tenant-scoped rights: login lands on the
+    // provisioning-waiting page, not the dashboard.
     $this->post(route('login.store'), [
         'email' => $akun->email,
         'password' => 'password',
-    ])->assertRedirect(route('dashboard', ['tenant' => 'hq']));
+    ])->assertRedirect(route('saml.denied'))
+        ->assertSessionHas('saml.denial_reason', 'guest_provisioning');
 
-    $this->get(route('dashboard', ['tenant' => 'hq']))->assertOk();
+    $this->assertGuest();
 
     expect($akun->refresh()->getAllPermissions()->count())->toBe(0);
 });

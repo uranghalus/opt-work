@@ -42,6 +42,7 @@ it('creates a work order, generates its number, and notifies the department hod'
         'hod_user_id' => $hod->getKey(),
     ]);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $response = $this
@@ -67,6 +68,7 @@ it('stores image attachments for the work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Storage::fake('s3');
 
     $this
@@ -88,6 +90,7 @@ it('rejects a requested schedule date for urgent by accident', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $response = $this
@@ -108,6 +111,7 @@ it('accepts a requested schedule date for a normal work order', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $this
@@ -133,6 +137,7 @@ it('falls back to the department manager when no hod is set', function () {
         'manager_user_id' => $manager->getKey(),
     ]);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $this
@@ -157,6 +162,7 @@ it('falls back to hod-role users assigned to the department when no direct hod o
     $employee->update(['department_id' => $department->getKey()]);
     $hodUser->update(['employee_id' => $employee->getKey()]);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $this
@@ -177,6 +183,7 @@ it('falls back to admin tenant users and logs critical when no hod recipient exi
     makeSuperAdmin($adminTenant);
     $department = Department::create(['kode_department' => 'DEP-X', 'nama_department' => 'Tanpa HOD']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
     Log::spy();
 
@@ -200,6 +207,7 @@ it('rejects a work order targeting a foreign cabang department', function () {
 
     $plant1 = Tenant::where('code', 'plant-1')->first();
     $requester = createUser(['tenant_id' => $plant1->id]);
+    $requester->givePermissionTo('work-order.create');
     Notification::fake();
 
     $response = $this
@@ -233,12 +241,14 @@ it('lists work orders for the requester and for reviewable departments', functio
     initTenant('hq');
     $hq = Tenant::where('code', 'hq')->first();
     $hod = createUser(['tenant_id' => $hq->id]);
+    $hod->givePermissionTo('work-order.read');
     $department = Department::create([
         'kode_department' => 'DEP-IT',
         'nama_department' => 'IT',
         'hod_user_id' => $hod->getKey(),
     ]);
     $requester = createUser(['tenant_id' => $hq->id]);
+    $requester->givePermissionTo('work-order.read');
     $other = createUser(['tenant_id' => $hq->id]);
 
     $reviewable = WorkOrder::factory()->create([
@@ -380,6 +390,7 @@ it('serves an attachment only to users of the owning branch', function () {
     initTenant('hq');
     $department = Department::create(['kode_department' => 'DEP-IT', 'nama_department' => 'IT']);
     $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $requester->givePermissionTo('work-order.create');
     Storage::fake('s3');
 
     $this
@@ -478,6 +489,7 @@ it('passes the WO event history on the detail page', function () {
 it('lists only active departments on the WO create page', function () {
     initTenant('hq');
     $user = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $user->givePermissionTo('work-order.create');
     Department::create([
         'kode_department' => 'DEP-AKTIF',
         'nama_department' => 'Aktif',

@@ -18,6 +18,7 @@ beforeEach(function () {
         'code' => 'plant-1',
         'name' => 'Plant 1',
     ]);
+    (new RoleAndPermissionSeeder)->run();
 });
 
 afterEach(function () {
@@ -97,6 +98,7 @@ it('denies cabang pages for users from another cabang', function () {
 it('allows reading cabang pages with tenant linkage alone', function () {
     $hq = Tenant::where('code', 'hq')->first();
     $user = createUser(['tenant_id' => $hq->id]);
+    $user->givePermissionTo('division.read');
 
     $this
         ->actingAs($user)

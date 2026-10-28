@@ -37,7 +37,10 @@ class DailyWorkController extends Controller
         $validated = $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d'],
             'search' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'in:pending,in_progress,done'],
+            'status' => [
+                'nullable',
+                'in:pending,in_progress,pending_verify,done',
+            ],
         ]);
 
         // "Hari ini" mengikuti timezone app (Asia/Makassar — D2).
@@ -76,6 +79,25 @@ class DailyWorkController extends Controller
             'dailyWork' => $dailyWork,
             'date' => $date->toDateString(),
             'can_update' => $employee !== null && $user->can('daily-work.update'),
+            'summary' => [
+                'all' => $dailyWork->total(),
+                'pending' => DailyWork::query()
+                    ->where('employee_id', $employee?->getKey())
+                    ->where('status', 'pending')
+                    ->count(),
+                'in_progress' => DailyWork::query()
+                    ->where('employee_id', $employee?->getKey())
+                    ->where('status', 'in_progress')
+                    ->count(),
+                'pending_verify' => DailyWork::query()
+                    ->where('employee_id', $employee?->getKey())
+                    ->where('status', 'pending_verify')
+                    ->count(),
+                'done' => DailyWork::query()
+                    ->where('employee_id', $employee?->getKey())
+                    ->where('status', 'done')
+                    ->count(),
+            ],
         ]);
     }
 

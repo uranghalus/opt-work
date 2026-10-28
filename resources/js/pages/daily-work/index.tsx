@@ -2,54 +2,72 @@ import {
     Head,
     router,
     useForm,
+    usePage,
 } from '@inertiajs/react';
+import type { InertiaConfig } from '@inertiajs/core';
 import {
     CalendarDays,
-    CheckCircle2,
     ChevronLeft,
     ChevronRight,
-    Circle,
-    CircleDot,
     MapPin,
     RefreshCw,
     Search,
     Sparkles,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { InertiaConfig } from '@inertiajs/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+    RejectionCallout,
+    StatusChip,
+    StatusFilterChip,
+    STATUS_LABELS,
+    STATUS_ORDER,
+} from './-components/status';
+import { ProofDialog } from './-components/proof-dialog';
 import { useRequiredTenant } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
-import { index, update } from '@/routes/daily-work';
+import { index, submit, update } from '@/routes/daily-work';
 
 /**
- * FR-5.3–5.4 — daftar harian Daily Work milik karyawan (materialize-on-view
- * di server), plus update status/lokasi item miliknya sendiri. Desain
- * .scratch/daily-work/design.md: card list (bukan tabel), navigasi tanggal,
- * search + filter status, paginasi server-side.
+ * FR-5.3–5.4 + FR-6 verifikasi — daftar harian Daily Work milik karyawan
+ * (materialize-on-view di server), plus update status/lokasi item miliknya
+ * sendiri dan submit bukti kerja melalui dialog verifikasi.
+ *
+ * Desain .scratch/daily-work-verification/design.md §UI:
+ * hero progres harian, chip status sebagai filter, rail kiri 3px per status,
+ * CTA "Selesaikan" → ProofDialog, done → verifikator + thumbnail.
  */
+type DailyWorkStatus = 'pending' | 'in_progress' | 'pending_verify' | 'done';
+
 type DailyWorkItem = {
     id: string;
     work_date: string;
     title: string;
     description: string | null;
     location: string | null;
-    status: 'pending' | 'in_progress' | 'done';
+    status: DailyWorkStatus;
     done_at: string | null;
+    submitted_at: string | null;
     source: 'template' | 'adhoc';
     template_id: string | null;
+    proof_notes: string | null;
+    proof_attachments: string[];
+    verified_by_name: string | null;
+    rejection_note: string | null;
+};
+
+type Summary = {
+    all: number;
+    pending: number;
+    in_progress: number;
+    pending_verify: number;
+    done: number;
 };
 
 type Pagination = {
@@ -64,37 +82,7 @@ type PageProps = InertiaConfig['sharedPageProps'] & {
     dailyWork: Pagination & { data: DailyWorkItem[] };
     date: string;
     can_update: boolean;
-};
-
-const STATUS_LABELS: Record<DailyWorkItem['status'], string> = {
-    pending: 'Belum',
-    in_progress: 'Proses',
-    done: 'Selesai',
-};
-
-const STATUS_ORDER: DailyWorkItem['status'][] = [
-    'pending',
-    'in_progress',
-    'done',
-];
-
-/** Tiga sinyal: teks label + ikon + warna (WCAG 1.4.1 — bukan warna saja). */
-const STATUS_STYLES: Record<
-    DailyWorkItem['status'],
-    { icon: typeof Circle; badge: string }
-> = {
-    pending: {
-        icon: Circle,
-        badge: 'bg-surface-raised text-ink-muted border-border',
-    },
-    in_progress: {
-        icon: CircleDot,
-        badge: 'bg-info-subtle text-info border-transparent',
-    },
-    done: {
-        icon: CheckCircle2,
-        badge: 'bg-success-subtle text-success border-transparent',
-    },
+    summary: Summary;
 };
 
 function formatDateId(value: string): string {
@@ -117,50 +105,75 @@ function todayLocal(): string {
     return new Date().toLocaleDateString('sv-SE');
 }
 
-function StatusChip({ status }: { status: DailyWorkItem['status'] }) {
-    const style = STATUS_STYLES[status];
-    const Icon = style.icon;
+function HeroProgressBar({ summary }: { summary: Summary }) {
+    if (summary.all === 0) return null;
+    const done = summary.done ?? 0;
+    const all = summary.all;
+    const percent = Math.round((done / all) * 100);
 
     return (
-        <span
-            className={cn(
-                'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold',
-                style.badge,
-            )}
-        >
-            <Icon aria-hidden="true" className="size-3" />
-            {STATUS_LABELS[status]}
-        </span>
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">
+                    {done} / {all} selesai
+                </span>
+                <span className="text-xs text-ink-muted">{percent}%</span>
+            </div>
+            <div
+                className="flex-1 h-2 rounded-full bg-surface-raised overflow-hidden"
+                role="progressbar"
+                aria-label="Progres harian"
+                aria-valuenow={done}
+                aria-valuemin={0}
+                aria-valuemax={all}
+            >
+                <div
+                    className="h-full bg-success transition-colors duration-300"
+                    style={{ width: `${percent}%` }}
+                />
+            </div>
+        </div>
     );
 }
 
 function DailyWorkCard({
     item,
     canUpdate,
+    onComplete,
 }: {
     item: DailyWorkItem;
     canUpdate: boolean;
+    onComplete?: (item: DailyWorkItem) => void;
 }) {
     const tenant = useRequiredTenant('daily-work.index');
     const [location, setLocation] = useState(item.location ?? '');
     const form = useForm<{
-        status: DailyWorkItem['status'];
+        status: DailyWorkStatus;
         location: string;
     }>({
         status: item.status,
         location: item.location ?? '',
     });
 
-    const patch = (status: DailyWorkItem['status'], nextLocation?: string) => {
+    const patch = (status: DailyWorkStatus, nextLocation?: string) => {
         form.setData({ status, location: nextLocation ?? location });
         form.patch(update.url({ tenant, dailyWork: item.id }), {
             preserveScroll: true,
         });
     };
 
+    const isDone = item.status === 'done';
+    const isPendingVerify = item.status === 'pending_verify';
+    const isEditable = item.status === 'pending' || item.status === 'in_progress';
+    const showThumb =
+        isDone && item.proof_attachments?.[0]
+            ? item.proof_attachments[0]
+            : null;
+
     return (
-        <Card className="gap-0 border-border py-4 shadow-card">
-            <CardContent className="flex flex-col gap-3 px-4">
+        <Card className="border border-l-[3px] gap-0 py-4 shadow-card">
+            <CardContent className="flex flex-col gap-3 px-4 pl-3">
+                {/* Header: title + status chip (right) */}
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <p className="text-base leading-snug font-semibold text-ink">
@@ -172,9 +185,15 @@ function DailyWorkCard({
                             </p>
                         )}
                     </div>
-                    <StatusChip status={form.data.status} />
+                    <StatusChip
+                        item={{
+                            status: item.status,
+                            verified_by_name: item.verified_by_name,
+                        }}
+                    />
                 </div>
 
+                {/* Meta row: source + location + done timestamp */}
                 <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                     {item.source === 'adhoc' ? (
                         <Badge className="gap-1 border-transparent bg-owner-urgent-subtle text-owner-urgent">
@@ -204,43 +223,85 @@ function DailyWorkCard({
                     )}
                 </div>
 
+                {/* Rejection callout (shown when returned by HOD/TL) */}
+                {item.rejection_note && (
+                    <RejectionCallout item={item} />
+                )}
+
+                {/* Action bar */}
                 {canUpdate && (
-                    <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center">
-                        <Input
-                            aria-label={`Lokasi untuk ${item.title}`}
-                            placeholder="Lokasi pekerjaan (opsional)"
-                            value={location}
-                            onChange={(event) => setLocation(event.target.value)}
-                            onBlur={() => {
-                                if (location !== (item.location ?? '')) {
-                                    patch(form.data.status, location);
-                                }
-                            }}
-                            className="h-11 flex-1"
-                        />
-                        <div
-                            role="group"
-                            aria-label={`Status ${item.title}`}
-                            className="flex gap-1.5"
-                        >
-                            {STATUS_ORDER.map((status) => {
-                                const active = form.data.status === status;
-                                return (
-                                    <Button
-                                        key={status}
-                                        type="button"
-                                        size="sm"
-                                        variant={active ? 'default' : 'outline'}
-                                        aria-pressed={active}
-                                        disabled={form.processing}
-                                        onClick={() => patch(status)}
-                                        className="min-h-11 flex-1 sm:flex-none"
-                                    >
-                                        {STATUS_LABELS[status]}
-                                    </Button>
-                                );
-                            })}
-                        </div>
+                    <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        {/* Editable location + Selesaikan CTA */}
+                        {isEditable && (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <Input
+                                    aria-label={`Lokasi untuk ${item.title}`}
+                                    placeholder="Lokasi pekerjaan (opsional)"
+                                    value={location}
+                                    onChange={(event) =>
+                                        setLocation(event.target.value)
+                                    }
+                                    onBlur={() => {
+                                        if (
+                                            location !==
+                                            (item.location ?? '')
+                                        ) {
+                                            patch(
+                                                form.data.status,
+                                                location,
+                                            );
+                                        }
+                                    }}
+                                    className="h-11 flex-1 sm:w-64"
+                                />
+                                <Button
+                                    type="button"
+                                    onClick={() => onComplete?.(item)}
+                                    disabled={form.processing}
+                                    className="min-h-11"
+                                >
+                                    Selesaikan
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Pending verify: read-only + Selesaikan ulang */}
+                        {isPendingVerify && (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2 text-xs">
+                                    <span className="font-semibold text-warning-ink">
+                                        Menunggu verifikasi HOD/TL
+                                    </span>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => onComplete?.(item)}
+                                    disabled={form.processing}
+                                    className="min-h-11"
+                                >
+                                    Selesaikan ulang
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Done: verifier name + thumbnail */}
+                        {isDone && (
+                            <div className="flex items-center gap-2 text-xs">
+                                {item.verified_by_name && (
+                                    <span className="font-semibold text-success">
+                                        Disetujui{' '}
+                                        {item.verified_by_name}
+                                    </span>
+                                )}
+                                {showThumb && (
+                                    <img
+                                        src={showThumb}
+                                        alt="Thumbnail bukti"
+                                        className="h-8 w-8 rounded-md object-cover"
+                                    />
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </CardContent>
@@ -252,12 +313,19 @@ export default function DailyWorkIndex({
     dailyWork,
     date,
     can_update,
+    summary,
 }: PageProps) {
     const tenant = useRequiredTenant('daily-work.index');
     const [searchTerm, setSearchTerm] = useState('');
     const [appliedSearch, setAppliedSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | DailyWorkStatus>(
+        'all',
+    );
     const [navigating, setNavigating] = useState(false);
+    const [proofDialogOpen, setProofDialogOpen] = useState(false);
+    const [selectedItem, setSelectedItem] = useState<DailyWorkItem | null>(
+        null,
+    );
     const skipFirstQuery = useRef(true);
 
     // Debounce 300ms — pola employees/index.tsx (server-side search).
@@ -270,7 +338,8 @@ export default function DailyWorkIndex({
         overrides: Record<string, string | undefined> = {},
     ): Record<string, string | undefined> => ({
         search: appliedSearch || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
+        status:
+            statusFilter !== 'all' ? statusFilter : undefined,
         // Pertahankan tanggal yang sedang dilihat — filter jangan me-reset
         // konteks hari ke hari ini.
         date: date !== todayLocal() ? date : undefined,
@@ -305,12 +374,22 @@ export default function DailyWorkIndex({
     }, [appliedSearch, statusFilter]);
 
     const hasItems = dailyWork.data.length > 0;
+    const handleComplete = useCallback(
+        (item: DailyWorkItem) => {
+            setSelectedItem(item);
+            setProofDialogOpen(true);
+        },
+        [],
+    );
 
     return (
         <>
             <Head title="Daily Work" />
 
             <div className="flex flex-col gap-4">
+                {/* Hero progres harian */}
+                <HeroProgressBar summary={summary} />
+
                 {/* Navigasi tanggal */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -354,8 +433,8 @@ export default function DailyWorkIndex({
                     </p>
                 </div>
 
-                {/* Filter bar: search + status */}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {/* Filter bar: search + status chips */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative sm:max-w-xs sm:flex-1">
                         <Search
                             aria-hidden="true"
@@ -372,30 +451,23 @@ export default function DailyWorkIndex({
                             className="h-11 pl-9"
                         />
                     </div>
-                    <Select
-                        value={statusFilter}
-                        onValueChange={(value) => {
-                            // Navigasi dipicu efek sinkronisasi URL di atas
-                            // (single driver) — goTo di sini akan mendobel
-                            // request yang identik.
-                            setStatusFilter(value);
-                        }}
-                    >
-                        <SelectTrigger
-                            aria-label="Filter status"
-                            className="h-11 sm:w-44"
-                        >
-                            <SelectValue placeholder="Semua status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Semua status</SelectItem>
-                            {STATUS_ORDER.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                    {STATUS_LABELS[status]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex flex-wrap gap-1">
+                        <StatusFilterChip
+                            value="all"
+                            label="Semua status"
+                            active={statusFilter === 'all'}
+                            onPress={setStatusFilter}
+                        />
+                        {STATUS_ORDER.map((status) => (
+                            <StatusFilterChip
+                                key={status}
+                                value={status}
+                                label={STATUS_LABELS[status]}
+                                active={statusFilter === status}
+                                onPress={setStatusFilter}
+                            />
+                        ))}
+                    </div>
                 </div>
 
                 {navigating ? (
@@ -411,6 +483,7 @@ export default function DailyWorkIndex({
                                 key={item.id}
                                 item={item}
                                 canUpdate={can_update}
+                                onComplete={handleComplete}
                             />
                         ))}
                     </div>
@@ -434,7 +507,9 @@ export default function DailyWorkIndex({
                             disabled={dailyWork.current_page <= 1}
                             onClick={() =>
                                 goTo({
-                                    page: String(dailyWork.current_page - 1),
+                                    page: String(
+                                        dailyWork.current_page - 1,
+                                    ),
                                 })
                             }
                         >
@@ -452,11 +527,14 @@ export default function DailyWorkIndex({
                             variant="outline"
                             size="sm"
                             disabled={
-                                dailyWork.current_page >= dailyWork.last_page
+                                dailyWork.current_page >=
+                                dailyWork.last_page
                             }
                             onClick={() =>
                                 goTo({
-                                    page: String(dailyWork.current_page + 1),
+                                    page: String(
+                                        dailyWork.current_page + 1,
+                                    ),
                                 })
                             }
                         >
@@ -468,6 +546,13 @@ export default function DailyWorkIndex({
                         </Button>
                     </nav>
                 )}
+
+                {/* Dialog submit bukti kerja */}
+                <ProofDialog
+                    selected={selectedItem}
+                    open={proofDialogOpen}
+                    onOpenChange={setProofDialogOpen}
+                />
             </div>
         </>
     );

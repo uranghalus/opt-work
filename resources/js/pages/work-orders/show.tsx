@@ -1,21 +1,34 @@
-import { Head, usePage, useForm } from '@inertiajs/react';
+import { Head, usePage, useForm, router } from '@inertiajs/react';
 import type { InertiaConfig } from '@inertiajs/core';
-import React from 'react';
+import React, { useState } from 'react';
 import {
+    Ban,
     CalendarClock,
     CalendarRange,
+    CircleCheck,
     ClipboardCheck,
+    Eye,
     History,
     Hourglass,
+    RotateCcw,
     Send,
     ShieldCheck,
+    TriangleAlert,
     UserCheck,
 } from 'lucide-react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
 import { assign, reject, review, submit, verify } from '@/routes/work-orders';
 import {
+    approve as approveRequestAction,
+    cancel as cancelRequestAction,
+    reject as rejectRequestAction,
+    resubmit as resubmitRequestAction,
+    update as updateRequestAction,
+} from '@/routes/work-orders/request';
+import workTime from '@/routes/work-orders/work-time';
+import { LiveTimer } from '@/components/live-timer';
+import {
     approve as approveScheduleExtend,
-    extend as requestScheduleExtend,
     reject as rejectScheduleExtend,
     update as updatePlanningDetails,
 } from '@/routes/work-planning';
@@ -37,6 +50,14 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { useRequiredTenant } from '@/lib/tenant';
 
 type DeadlineState = 'on_track' | 'due_soon' | 'overdue' | 'escalated';
@@ -49,6 +70,8 @@ type WorkOrder = {
     category: 'normal' | 'accident' | 'owner';
     status: WoStatus;
     requested_schedule_date: string | null;
+    location: string | null;
+    target_department_id: string;
     hod_action: 'execute_immediately' | 'schedule' | null;
     scheduled_date: string | null;
     assigned_at: string | null;
@@ -61,6 +84,7 @@ type WorkOrder = {
     extend_count: number;
     extend_reason: string | null;
     extended_at: string | null;
+    request_rejection_reason: string | null;
     attachments: string[] | null;
     result_notes: string | null;
     result_attachments: string[] | null;
@@ -108,6 +132,36 @@ type PageProps = InertiaConfig['sharedPageProps'] & {
     can_update_planning: boolean;
     /** Server-side mirror: user adalah DGM/GM untuk memutuskan extend jadwal. */
     can_decide_schedule: boolean;
+    /** ADR-0011: gerbang approval — mirror server-side (service yang memaksa). */
+    can_decide_request: boolean;
+    /** R12: requester/approver dept pengaju boleh membatalkan sebelum rilis. */
+    can_cancel_request: boolean;
+    /** R12: requester boleh merevisi WO yang ditolak dept pengaju. */
+    can_edit_request: boolean;
+    /** R12: requester boleh mengajukan ulang WO yang ditolak dept pengaju. */
+    can_resubmit_request: boolean;
+    /** OQ-4b: reviewer dept tujuan boleh membatalkan DUPLIKAT saat review. */
+    can_cancel_duplicate: boolean;
+    /** R19: user saat ini adalah pemohon WO ini. */
+    is_requester: boolean;
+    /** OQ-4b: kandidat duplikat (id + nomor) untuk banner/dialog. */
+    duplicate_candidates: { id: string; nomor_wo: string }[];
+    /** R12: pilihan department aktif untuk dialog revisi. */
+    departments: { id: string; nama_department: string | null }[];
+    /** ADR-0011 R15–R17: user saat ini adalah pelaksana WO ini. */
+    is_assignee: boolean;
+    /** Timer milik pelaksana (server-computed), null bila belum ada. */
+    my_time_log: {
+        state: 'not_started' | 'accepted' | 'running' | 'paused' | 'finished';
+        elapsed_seconds: number;
+        accepted_at: string | null;
+        started_at: string | null;
+        finished_at: string | null;
+    } | null;
+    can_accept_time: boolean;
+    can_start_time: boolean;
+    can_pause_time: boolean;
+    can_resume_time: boolean;
 };
 
 /** FR-2.4: Work Planning — jadwal detail + status extend schedule. */
@@ -135,8 +189,9 @@ const REVIEWABLE: WoStatus[] = ['waiting_hod', 'hod_approved', 'scheduled'];
 /** Statuses where personnel can be (re-)assigned. */
 const ASSIGNABLE: WoStatus[] = ['hod_approved', 'scheduled', 'assigned'];
 
-/** Statuses where the pelaksana may submit execution results (FR-1.7). */
-const SUBMITTABLE: WoStatus[] = ['assigned', 'revision'];
+/** Statuses where the pelaksana may submit execution results (FR-1.7).
+ *  in_progress masuk lewat timer durasi kerja (ADR-0011, R17). */
+const SUBMITTABLE: WoStatus[] = ['assigned', 'in_progress', 'revision'];
 
 /** Statuses where the HOD may verify the submitted result (FR-1.8). */
 const VERIFYABLE: WoStatus[] = ['pending_verify'];
@@ -144,6 +199,15 @@ const VERIFYABLE: WoStatus[] = ['pending_verify'];
 /** Human wording per recorded WorkOrderEvent action (FR-1.9). */
 const actionLabel: Record<string, string> = {
     created: 'Work Order dibuat',
+    request_approved: 'Persetujuan department pengaju — WO dirilis',
+    request_rejected: 'Ditolak department pengaju',
+    request_updated: 'Revisi permintaan oleh pemohon',
+    resubmitted: 'Diajukan ulang oleh pemohon',
+    cancelled: 'Work Order dibatalkan',
+    accepted: 'Pelaksana menerima penugasan',
+    time_started: 'Pelaksana mulai bekerja',
+    time_paused: 'Timer dijeda',
+    time_resumed: 'Timer dilanjutkan',
     reviewed: 'Keputusan review HOD',
     assigned: 'Penugasan pelaksana',
     submitted: 'Hasil diserahkan',
@@ -214,6 +278,11 @@ export default function ShowWorkOrder(props: PageProps) {
     const assignable = ASSIGNABLE.includes(workOrder.status);
     const submittable = SUBMITTABLE.includes(workOrder.status);
     const verifyable = VERIFYABLE.includes(workOrder.status);
+    const isRequester = props.is_requester;
+
+    /** Status groups for format-per-status emphasis panels. */
+    const hodDecisionStatus = ['waiting_hod', 'hod_approved', 'scheduled'].includes(workOrder.status);
+    const executionStatus = ['assigned', 'in_progress'].includes(workOrder.status);
 
     // FR-2.3: visibilitas panel extend dihitung server-side (jendela telat
     // ATAU mendekati telat ≤2 hari kerja, ceiling 3×, blokir pending
@@ -229,11 +298,228 @@ export default function ShowWorkOrder(props: PageProps) {
             <Head title={workOrder.nomor_wo} />
 
             <div className="mx-auto w-full max-w-3xl space-y-6">
-                <div className="flex flex-wrap items-center gap-2">
-                    <CategoryBadge category={workOrder.category} />
-                    <StatusBadge status={workOrder.status} />
-                    <DeadlineChip state={workOrder.deadline_state} label={workOrder.deadline_label} />
-                </div>
+                {/* Hero header — WO number, status, urgent tag, deadline chip */}
+                <section className="rounded-lg border bg-card p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
+                        <div className="space-y-1">
+                            <h1 className="text-2xl font-bold tracking-tight font-mono">
+                                {workOrder.nomor_wo}
+                            </h1>
+                            <p className="text-sm text-ink-muted">
+                                {workOrder.title}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <CategoryBadge category={workOrder.category} />
+                            <StatusBadge status={workOrder.status} />
+                            {isAccident && (
+                                <span className="inline-flex items-center rounded-full border border-danger bg-danger/10 px-2.5 py-0.5 text-xs font-medium text-danger">
+                                    Urgent by Accident
+                                </span>
+                            )}
+                            <DeadlineChip
+                                state={workOrder.deadline_state}
+                                label={workOrder.deadline_label}
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                {isRequester && (
+                    <RequestTracker status={workOrder.status} />
+                )}
+
+                {isRequester &&
+                    workOrder.request_rejection_reason !== null && (
+                        <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3">
+                            <TriangleAlert
+                                aria-hidden
+                                className="mt-0.5 size-4 shrink-0 text-danger"
+                            />
+                            <div className="text-sm">
+                                <p className="font-semibold text-danger">
+                                    Ditolak department pengaju
+                                </p>
+                                <p className="text-ink-muted">
+                                    {workOrder.request_rejection_reason}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                {/* Status-based format emphasis — highlights differ per status */}
+                {hodDecisionStatus && (
+                    <section className="space-y-2 rounded-lg border bg-info/5 border-info/20 p-4">
+                        <div className="flex items-center gap-2">
+                            <ClipboardCheck
+                                aria-hidden
+                                className="size-4 text-info"
+                            />
+                            <h3 className="text-base font-semibold tracking-tight text-info">
+                                Keputusan HOD dan Jadwal
+                            </h3>
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-ink-muted">Status</dt>
+                            <dd className="text-ink font-medium">
+                                <StatusBadge status={workOrder.status} />
+                            </dd>
+                            {workOrder.hod_action !== null && (
+                                <>
+                                    <dt className="text-ink-muted">
+                                        Keputusan Eksekusi
+                                    </dt>
+                                    <dd className="text-ink font-medium">
+                                        {workOrder.hod_action === 'schedule'
+                                            ? 'Dijadwalkan'
+                                            : 'Eksekusi Langsung'}
+                                    </dd>
+                                </>
+                            )}
+                            {workOrder.scheduled_date && (
+                                <>
+                                    <dt className="text-ink-muted">
+                                        Tanggal Jadwal
+                                    </dt>
+                                    <dd className="text-ink tabular-nums">
+                                        {formatDate(workOrder.scheduled_date)}
+                                    </dd>
+                                </>
+                            )}
+                            {workOrder.deadline_date && (
+                                <>
+                                    <dt className="text-ink-muted">Deadline</dt>
+                                    <dd className="text-ink font-semibold tabular-nums">
+                                        {formatDate(workOrder.deadline_date)}
+                                    </dd>
+                                </>
+                            )}
+                            {workOrder.extend_count > 0 && (
+                                <>
+                                    <dt className="text-ink-muted">
+                                        Extend Deadline
+                                    </dt>
+                                    <dd className="text-ink text-sm">
+                                        {workOrder.extend_count}×
+                                    </dd>
+                                </>
+                            )}
+                            {assignees.length > 0 && (
+                                <>
+                                    <dt className="text-ink-muted">
+                                        Karyawan Pelaksana
+                                    </dt>
+                                    <dd className="text-ink text-sm">
+                                        {assignees
+                                            .map((a) => a.nama_employee)
+                                            .join(', ')}
+                                    </dd>
+                                </>
+                            )}
+                        </dl>
+                    </section>
+                )}
+
+                {executionStatus && (
+                    <section className="space-y-2 rounded-lg border bg-info/5 border-info/20 p-4">
+                        <div className="flex items-center gap-2">
+                            <Hourglass
+                                aria-hidden
+                                className="size-4 text-info"
+                            />
+                            <h3 className="text-base font-semibold tracking-tight text-info">
+                                Eksekusi dan Deadline
+                            </h3>
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-ink-muted">Status</dt>
+                            <dd className="text-ink font-medium">
+                                <StatusBadge status={workOrder.status} />
+                            </dd>
+                            {workOrder.deadline_date && (
+                                <>
+                                    <dt className="text-ink-muted">Deadline</dt>
+                                    <dd className="text-ink font-semibold tabular-nums">
+                                        {formatDate(workOrder.deadline_date)}
+                                    </dd>
+                                </>
+                            )}
+                            <dt className="text-ink-muted">
+                                Deadline State
+                            </dt>
+                            <dd className="text-ink font-medium">
+                                {workOrder.deadline_label}
+                            </dd>
+                            {workOrder.assignment_notes && (
+                                <>
+                                    <dt className="text-ink-muted">
+                                        Catatan Penugasan
+                                    </dt>
+                                    <dd className="text-ink text-sm">
+                                        {workOrder.assignment_notes}
+                                    </dd>
+                                </>
+                            )}
+                        </dl>
+                        <p className="text-xs text-ink-muted">
+                            Gunakan timer di panel{' '}
+                            <b>Tugasan Saya</b> dan serahkan hasil melalui{' '}
+                            <b>Serahkan Hasil Pekerjaan</b> di bawah halaman ini.
+                        </p>
+                    </section>
+                )}
+
+                {workOrder.status === 'pending_verify' && (
+                    <section className="space-y-2 rounded-lg border bg-warning/5 border-warning/20 p-4">
+                        <div className="flex items-center gap-2">
+                            <Eye aria-hidden className="size-4 text-warning" />
+                            <h3 className="text-base font-semibold tracking-tight text-warning">
+                                Verifikasi Hasil
+                            </h3>
+                        </div>
+                        <p className="text-sm text-ink-muted">
+                            Hasil pekerjaan telah diserahkan. Verifikasi untuk
+                            menyetujui (menutup WO) atau menolak untuk revisi.
+                        </p>
+                    </section>
+                )}
+
+                {workOrder.status === 'closed' && (
+                    <section className="space-y-2 rounded-lg border bg-success/5 border-success/20 p-4">
+                        <div className="flex items-center gap-2">
+                            <CircleCheck
+                                aria-hidden
+                                className="size-4 text-success"
+                            />
+                            <h3 className="text-base font-semibold tracking-tight text-success">
+                                Selesai
+                            </h3>
+                        </div>
+                        <p className="text-sm text-ink-muted">
+                            Work Order telah diverifikasi dan ditutup. Lihat hasil
+                            pekerjaan di panel di bawah ini.
+                        </p>
+                    </section>
+                )}
+
+                {workOrder.status === 'revision' && (
+                    <section className="space-y-2 rounded-lg border bg-warning/5 border-warning/20 p-4">
+                        <div className="flex items-center gap-2">
+                            <RotateCcw
+                                aria-hidden
+                                className="size-4 text-warning"
+                            />
+                            <h3 className="text-base font-semibold tracking-tight text-warning">
+                                Perlu Revisi
+                            </h3>
+                        </div>
+                        <p className="text-sm text-ink-muted">
+                            Hasil pekerjaan dikembalikan untuk dikerjakan ulang.
+                            Perbaiki dan serahkan hasil kembali melalui panel di
+                            bawah ini.
+                        </p>
+                    </section>
+                )}
 
                 <dl className="overflow-hidden rounded-lg border bg-card">
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
@@ -253,6 +539,16 @@ export default function ShowWorkOrder(props: PageProps) {
                                 '—'}
                         </dd>
                     </div>
+                    {workOrder.location !== null && (
+                        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                            <dt className="text-sm text-muted-foreground">
+                                Lokasi
+                            </dt>
+                            <dd className="text-sm font-semibold">
+                                {workOrder.location}
+                            </dd>
+                        </div>
+                    )}
                     <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                         <dt className="text-sm text-muted-foreground">
                             Jadwal Diminta
@@ -456,6 +752,44 @@ export default function ShowWorkOrder(props: PageProps) {
                             </ul>
                         )}
                     </section>
+                )}
+
+                {props.is_assignee && (
+                    <MyAssignmentPanel
+                        workOrderId={workOrder.id}
+                        myTimeLog={props.my_time_log}
+                        canAccept={props.can_accept_time}
+                        canStart={props.can_start_time}
+                        canPause={props.can_pause_time}
+                        canResume={props.can_resume_time}
+                        deadlineDate={workOrder.deadline_date}
+                    />
+                )}
+
+                {props.can_decide_request && (
+                    <RequestApprovalPanel
+                        workOrderId={workOrder.id}
+                        duplicateCandidates={props.duplicate_candidates}
+                    />
+                )}
+
+                {props.can_cancel_duplicate && (
+                    <CancelDuplicatePanel
+                        workOrderId={workOrder.id}
+                        duplicateCandidates={props.duplicate_candidates}
+                    />
+                )}
+
+                {props.can_edit_request && (
+                    <ReviseRequestPanel
+                        workOrder={workOrder}
+                        departments={props.departments}
+                        canResubmit={props.can_resubmit_request}
+                    />
+                )}
+
+                {props.can_cancel_request && (
+                    <CancelRequestPanel workOrder={workOrder} />
                 )}
 
                 {canReview && reviewable && (
@@ -1310,6 +1644,7 @@ function PlanningPanel({
     const rejectForm = useForm<{ catatan: string }>({
         catatan: '',
     });
+    const [approveOpen, setApproveOpen] = React.useState(false);
 
     return (
         <section className="space-y-3 rounded-lg border bg-card p-4">
@@ -1334,7 +1669,9 @@ function PlanningPanel({
                 onSubmit={(event) => {
                     event.preventDefault();
                     if (canUpdate) {
-                        updateForm.post(
+                        // PATCH route — form.post tanpa _method spoof akan
+                        // 405 (Laravel mendaftarkan hanya PATCH).
+                        updateForm.patch(
                             updatePlanningDetails({
                                 tenant,
                                 workPlanning: planning.id,
@@ -1454,18 +1791,15 @@ function PlanningPanel({
                         description="Jadwal WO akan bergeser ke tanggal yang diajukan."
                         confirmLabel="Ya, setujui"
                         cancelLabel="Batal"
+                        open={approveOpen}
+                        onOpenChange={setApproveOpen}
                         onConfirm={() => approveForm.post(approveScheduleExtend({
                             tenant,
                             workPlanning: planning.id,
                         }).url, { preserveScroll: true })}
                         processing={approveForm.processing}
                     >
-                        <Button type="button" onClick={() => approveForm.post(approveScheduleExtend({
-                            tenant,
-                            workPlanning: planning.id,
-                        }).url, { preserveScroll: true })} disabled={approveForm.processing}>
-                            Setujui Extend Jadwal
-                        </Button>
+                        Setujui Extend Jadwal
                     </ConfirmDialog>
 
                     <Separator />
@@ -1515,6 +1849,784 @@ function PlanningPanel({
                     </form>
                 </>
             )}
+        </section>
+    );
+}
+/**
+ * R19: tracker status untuk pemohon — enam tahap alur, termasuk gerbang
+ * approval department pengaju (ADR-0011). Diposisikan server-side
+ * (is_requester) supaya viewer lain tetap melihat StatusBadge saja.
+ */
+function RequestTracker({ status }: { status: WoStatus }) {
+    const steps = [
+        { key: 'submitted', label: 'Diajukan', reached: true },
+        {
+            key: 'approval',
+            label: 'Persetujuan Dept',
+            reached:
+                status !== 'pending_dept_approval' && status !== 'cancelled',
+            current: status === 'pending_dept_approval',
+        },
+        {
+            key: 'review',
+            label: 'Review HOD',
+            reached: ['assigned', 'in_progress', 'pending_verify', 'closed', 'revision'].includes(status),
+            current: ['waiting_hod', 'hod_approved', 'scheduled'].includes(status),
+        },
+        {
+            key: 'work',
+            label: 'Dikerjakan',
+            reached: ['pending_verify', 'closed'].includes(status),
+            current: ['assigned', 'in_progress', 'revision'].includes(status),
+        },
+        {
+            key: 'verify',
+            label: 'Verifikasi',
+            reached: status === 'closed',
+            current: status === 'pending_verify',
+        },
+        {
+            key: 'done',
+            label: 'Selesai',
+            reached: status === 'closed',
+            current: false,
+        },
+    ];
+
+    return (
+        <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border bg-card px-4 py-3">
+            {steps.map((step, index) => (
+                <li key={step.key} className="flex items-center gap-2">
+                    {index > 0 && (
+                        <span
+                            aria-hidden
+                            className={`h-px w-4 ${step.reached ? 'bg-success' : 'bg-border'}`}
+                        />
+                    )}
+                    <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                            step.current
+                                ? 'rounded-full bg-info/10 px-2 py-0.5 text-info'
+                                : step.reached
+                                  ? 'text-success'
+                                  : 'text-ink-subtle'
+                        }`}
+                        aria-current={step.current ? 'step' : undefined}
+                    >
+                        <span
+                            aria-hidden
+                            className={`inline-block size-2 rounded-full ${
+                                step.current
+                                    ? 'bg-info'
+                                    : step.reached
+                                      ? 'bg-success'
+                                      : 'bg-border'
+                            }`}
+                        />
+                        {step.label}
+                    </span>
+                </li>
+            ))}
+        </ol>
+    );
+}
+
+/**
+ * R2/R3: keputusan approver department pengaju — Setujui (rilis ke
+ * department tujuan) atau Tolak (alasan wajib). Banner duplikat tampil
+ * bila kandidat ada (OQ-4b); keputusan tetap dipaksa di service.
+ */
+function RequestApprovalPanel({
+    workOrderId,
+    duplicateCandidates,
+}: {
+    workOrderId: string;
+    duplicateCandidates: { id: string; nomor_wo: string }[];
+}) {
+    const tenant = useRequiredTenant('work-orders.request.approve');
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const rejectForm = useForm<{ reason: string }>({ reason: '' });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <ShieldCheck aria-hidden className="size-4 text-info" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Keputusan Department Pengaju
+                </h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+                Permintaan ini ditujukan ke department lain. Menyetujui akan
+                merilisnya ke department tujuan; menolak akan menghentikannya
+                sebelum sampai ke sana.
+            </p>
+
+            {duplicateCandidates.length > 0 && (
+                <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs text-warning-ink">
+                    <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                        Kemungkinan duplikat:{' '}
+                        <span className="font-mono">
+                            {duplicateCandidates
+                                .map((candidate) => candidate.nomor_wo)
+                                .join(', ')}
+                        </span>{' '}
+                        — pastikan sebelum memutuskan.
+                    </span>
+                </p>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    onClick={() =>
+                        router.post(
+                            approveRequestAction({ tenant, workOrder: workOrderId })
+                                .url,
+                            {},
+                            { preserveScroll: true },
+                        )
+                    }
+                >
+                    Setujui & Rilis
+                </Button>
+                <Button
+                    variant="destructive"
+                    onClick={() => setRejectOpen(true)}
+                >
+                    Tolak
+                </Button>
+            </div>
+
+            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Tolak permintaan</DialogTitle>
+                        <DialogDescription>
+                            Alasan wajib diisi — pemohon menerima penjelasan
+                            ini dan dapat merevisi lalu mengajukan ulang.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            rejectForm.post(
+                                rejectRequestAction({ tenant, workOrder: workOrderId })
+                                    .url,
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        rejectForm.reset();
+                                        setRejectOpen(false);
+                                    },
+                                },
+                            );
+                        }}
+                    >
+                        <div className="space-y-1.5">
+                            <Label htmlFor="request-reject-reason">
+                                Alasan penolakan
+                            </Label>
+                            <Textarea
+                                id="request-reject-reason"
+                                rows={3}
+                                required
+                                value={rejectForm.data.reason}
+                                onChange={(event) =>
+                                    rejectForm.setData(
+                                        'reason',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-invalid={Boolean(rejectForm.errors.reason)}
+                            />
+                            {rejectForm.errors.reason && (
+                                <p className="text-xs text-danger">
+                                    {rejectForm.errors.reason}
+                                </p>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setRejectOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="destructive"
+                                disabled={rejectForm.processing}
+                            >
+                                Tolak Permintaan
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </section>
+    );
+}
+
+/**
+ * R12: revisi permintaan yang ditolak — hanya pemohon; setelah tersimpan,
+ * tombol ajukan ulang mengembalikan WO ke gerbang approval.
+ */
+function ReviseRequestPanel({
+    workOrder,
+    departments,
+    canResubmit,
+}: {
+    workOrder: PageProps['workOrder'];
+    departments: PageProps['departments'];
+    canResubmit: boolean;
+}) {
+    const tenant = useRequiredTenant('work-orders.request.update');
+    const form = useForm<{
+        title: string;
+        description: string;
+        location: string;
+        category: 'normal' | 'accident' | 'owner';
+        target_department_id: string;
+    }>({
+        title: workOrder.title,
+        description: workOrder.description,
+        location: workOrder.location ?? '',
+        category: workOrder.category,
+        target_department_id: workOrder.target_department_id,
+    });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <History aria-hidden className="size-4 text-warning" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Perbaiki Permintaan
+                </h3>
+            </div>
+
+            <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    form.patch(
+                        updateRequestAction({ tenant, workOrder: workOrder.id })
+                            .url,
+                        { preserveScroll: true },
+                    );
+                }}
+            >
+                <div className="space-y-1.5">
+                    <Label htmlFor="request-title">Judul</Label>
+                    <Input
+                        id="request-title"
+                        required
+                        value={form.data.title}
+                        onChange={(event) =>
+                            form.setData('title', event.target.value)
+                        }
+                        aria-invalid={Boolean(form.errors.title)}
+                    />
+                    {form.errors.title && (
+                        <p className="text-xs text-danger">
+                            {form.errors.title}
+                        </p>
+                    )}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="request-description">Deskripsi</Label>
+                    <Textarea
+                        id="request-description"
+                        rows={3}
+                        required
+                        value={form.data.description}
+                        onChange={(event) =>
+                            form.setData('description', event.target.value)
+                        }
+                        aria-invalid={Boolean(form.errors.description)}
+                    />
+                    {form.errors.description && (
+                        <p className="text-xs text-danger">
+                            {form.errors.description}
+                        </p>
+                    )}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="request-location">
+                        Lokasi (opsional)
+                    </Label>
+                    <Input
+                        id="request-location"
+                        value={form.data.location}
+                        onChange={(event) =>
+                            form.setData('location', event.target.value)
+                        }
+                        aria-invalid={Boolean(form.errors.location)}
+                    />
+                    {form.errors.location && (
+                        <p className="text-xs text-danger">
+                            {form.errors.location}
+                        </p>
+                    )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="request-category">Kategori</Label>
+                        <select
+                            id="request-category"
+                            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+                            value={form.data.category}
+                            onChange={(event) =>
+                                form.setData(
+                                    'category',
+                                    event.target
+                                        .value as PageProps['workOrder']['category'],
+                                )
+                            }
+                        >
+                            <option value="normal">Normal</option>
+                            <option value="accident">Urgent · Kecelakaan</option>
+                            <option value="owner">Urgent · Owner</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label htmlFor="request-department">
+                            Department Tujuan
+                        </Label>
+                        <select
+                            id="request-department"
+                            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+                            value={form.data.target_department_id}
+                            onChange={(event) =>
+                                form.setData(
+                                    'target_department_id',
+                                    event.target.value,
+                                )
+                            }
+                            aria-invalid={Boolean(
+                                form.errors.target_department_id,
+                            )}
+                        >
+                            <option value="" disabled>
+                                Pilih department
+                            </option>
+                            {departments.map((department) => (
+                                <option key={department.id} value={department.id}>
+                                    {department.nama_department ?? '—'}
+                                </option>
+                            ))}
+                        </select>
+                        {form.errors.target_department_id && (
+                            <p className="text-xs text-danger">
+                                {form.errors.target_department_id}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="secondary" disabled={form.processing}>
+                        Simpan Revisi
+                    </Button>
+                    {canResubmit && (
+                        <Button
+                            type="button"
+                            onClick={() =>
+                                router.post(
+                                    resubmitRequestAction({
+                                        tenant,
+                                        workOrder: workOrder.id,
+                                    }).url,
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Ajukan Ulang
+                        </Button>
+                    )}
+                </div>
+            </form>
+        </section>
+    );
+}
+
+/**
+ * R12: pembatalan oleh pemohon/approver department pengaju sebelum WO
+ * dirilis — terminal, alasan opsional tetapi tercatat di histori.
+ */
+function CancelRequestPanel({ workOrder }: { workOrder: PageProps['workOrder'] }) {
+    const tenant = useRequiredTenant('work-orders.request.cancel');
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ reason: string }>({ reason: '' });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <Ban aria-hidden className="size-4 text-ink-muted" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Batalkan Permintaan
+                </h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+                Work Order belum dirilis ke department tujuan. Membatalkan
+                bersifat permanen.
+            </p>
+
+            <Button variant="destructive" onClick={() => setOpen(true)}>
+                Batalkan
+            </Button>
+
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Batalkan permintaan?</DialogTitle>
+                        <DialogDescription>
+                            {workOrder.nomor_wo} akan berstatus Dibatalkan dan
+                            tidak dapat diajukan ulang.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            form.post(
+                                cancelRequestAction({
+                                    tenant,
+                                    workOrder: workOrder.id,
+                                }).url,
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        form.reset();
+                                        setOpen(false);
+                                    },
+                                },
+                            );
+                        }}
+                    >
+                        <div className="space-y-1.5">
+                            <Label htmlFor="cancel-reason">
+                                Alasan (opsional, tercatat di histori)
+                            </Label>
+                            <Textarea
+                                id="cancel-reason"
+                                rows={2}
+                                value={form.data.reason}
+                                onChange={(event) =>
+                                    form.setData('reason', event.target.value)
+                                }
+                            />
+                            {form.errors.reason && (
+                                <p className="text-xs text-danger">
+                                    {form.errors.reason}
+                                </p>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setOpen(false)}
+                            >
+                                Kembali
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="destructive"
+                                disabled={form.processing}
+                            >
+                                Batalkan Permintaan
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </section>
+    );
+}
+
+/**
+ * OQ-4b: reviewer department tujuan membatalkan WO pada tahap review
+ * sebagai DUPLIKAT — wajib menunjuk WO duplikatnya dari daftar kandidat.
+ */
+function CancelDuplicatePanel({
+    workOrderId,
+    duplicateCandidates,
+}: {
+    workOrderId: string;
+    duplicateCandidates: { id: string; nomor_wo: string }[];
+}) {
+    const tenant = useRequiredTenant('work-orders.request.cancel');
+    const [open, setOpen] = useState(false);
+    const form = useForm<{
+        duplicate_of: string;
+        reason: string;
+        is_review_duplicate: boolean;
+    }>({
+        duplicate_of: '',
+        reason: '',
+        is_review_duplicate: true,
+    });
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <TriangleAlert aria-hidden className="size-4 text-warning" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Batalkan sebagai Duplikat
+                </h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+                Bila Work Order ini duplikat dari permintaan yang sama,
+                batalkan dengan menunjuk WO asalnya. Pemohon akan diberi tahu.
+            </p>
+
+            <Button
+                variant="secondary"
+                disabled={duplicateCandidates.length === 0}
+                onClick={() => setOpen(true)}
+            >
+                Batalkan sebagai Duplikat
+            </Button>
+
+            {duplicateCandidates.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                    Tidak ditemukan WO lain dengan judul serupa dalam 30 hari
+                    terakhir.
+                </p>
+            )}
+
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Batalkan sebagai duplikat</DialogTitle>
+                        <DialogDescription>
+                            Pilih Work Order asal yang diduplikasi oleh WO ini.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            form.post(
+                                cancelRequestAction({
+                                    tenant,
+                                    workOrder: workOrderId,
+                                }).url,
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        form.reset();
+                                        setOpen(false);
+                                    },
+                                },
+                            );
+                        }}
+                    >
+                        <fieldset className="space-y-2">
+                            <legend className="text-sm font-medium">
+                                WO asal (wajib)
+                            </legend>
+                            {duplicateCandidates.map((candidate) => (
+                                <div
+                                    key={candidate.id}
+                                    className="flex items-center gap-2"
+                                >
+                                    <input
+                                        type="radio"
+                                        id={`duplicate-${candidate.id}`}
+                                        name="duplicate_of"
+                                        checked={
+                                            form.data.duplicate_of ===
+                                            candidate.id
+                                        }
+                                        onChange={() =>
+                                            form.setData(
+                                                'duplicate_of',
+                                                candidate.id,
+                                            )
+                                        }
+                                        className="accent-primary"
+                                    />
+                                    <Label
+                                        htmlFor={`duplicate-${candidate.id}`}
+                                        className="font-mono text-sm"
+                                    >
+                                        {candidate.nomor_wo}
+                                    </Label>
+                                </div>
+                            ))}
+                            {form.errors.duplicate_of && (
+                                <p className="text-xs text-danger">
+                                    {form.errors.duplicate_of}
+                                </p>
+                            )}
+                        </fieldset>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="duplicate-reason">
+                                Alasan (opsional)
+                            </Label>
+                            <Textarea
+                                id="duplicate-reason"
+                                rows={2}
+                                value={form.data.reason}
+                                onChange={(event) =>
+                                    form.setData('reason', event.target.value)
+                                }
+                            />
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setOpen(false)}
+                            >
+                                Kembali
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="destructive"
+                                disabled={
+                                    form.processing ||
+                                    form.data.duplicate_of === ''
+                                }
+                            >
+                                Batalkan sebagai Duplikat
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </section>
+    );
+}
+
+/**
+ * R15–R17: panel tugas untuk pelaksana — terima penugasan, mulai bekerja,
+ * jeda/lanjut, dengan timer live berbasis timestamp server. Aksi
+ * "Selesai" tetap lewat Submit Hasil (panel terpisah) yang otomatis
+ * mengakhiri timer. Semua keputusan dipaksa ulang di server.
+ */
+function MyAssignmentPanel({
+    workOrderId,
+    myTimeLog,
+    canAccept,
+    canStart,
+    canPause,
+    canResume,
+    deadlineDate,
+}: {
+    workOrderId: string;
+    myTimeLog: PageProps['my_time_log'];
+    canAccept: boolean;
+    canStart: boolean;
+    canPause: boolean;
+    canResume: boolean;
+    deadlineDate: string | null;
+}) {
+    const tenant = useRequiredTenant('work-orders.work-time.accept');
+    const state = myTimeLog?.state ?? 'not_started';
+    const elapsed = myTimeLog?.elapsed_seconds ?? 0;
+
+    const remainingDays = deadlineDate === null
+        ? null
+        : Math.round(
+              (new Date(deadlineDate).getTime() -
+                  new Date().setHours(0, 0, 0, 0)) /
+                  86_400_000,
+          );
+
+    const act = (
+        action: 'accept' | 'start' | 'pause' | 'resume',
+    ): void => {
+        router.post(
+            workTime[action]({ tenant, workOrder: workOrderId }).url,
+            {},
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2">
+                <UserCheck aria-hidden className="size-4 text-info" />
+                <h3 className="text-base font-semibold tracking-tight">
+                    Tugasan Saya
+                </h3>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+                <LiveTimer elapsedSeconds={elapsed} state={state} />
+                {deadlineDate !== null && remainingDays !== null && (
+                    <span
+                        className={`text-xs font-medium ${
+                            remainingDays < 0
+                                ? 'text-danger'
+                                : remainingDays <= 1
+                                  ? 'text-warning-ink'
+                                  : 'text-ink-muted'
+                        }`}
+                    >
+                        {remainingDays < 0
+                            ? `Lewat deadline ${Math.abs(remainingDays)} hari`
+                            : remainingDays === 0
+                              ? 'Deadline hari ini'
+                              : `Sisa ${remainingDays} hari menuju deadline`}
+                    </span>
+                )}
+            </div>
+
+            {state === 'not_started' && (
+                <p className="text-sm text-muted-foreground">
+                    Terima penugasan ini lalu mulai bekerja — durasi akan
+                    tercatat otomatis.
+                </p>
+            )}
+            {state === 'paused' && (
+                <p className="text-sm text-muted-foreground">
+                    Timer sedang dijeda. Lanjutkan saat siap bekerja kembali.
+                </p>
+            )}
+            {state === 'finished' && (
+                <p className="text-sm text-muted-foreground">
+                    Timer selesai — hasil telah diserahkan untuk verifikasi.
+                </p>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+                {canAccept && (
+                    <Button onClick={() => act('accept')}>
+                        Terima Penugasan
+                    </Button>
+                )}
+                {canStart && (
+                    <Button onClick={() => act('start')}>Mulai Bekerja</Button>
+                )}
+                {canPause && (
+                    <Button variant="secondary" onClick={() => act('pause')}>
+                        Jeda
+                    </Button>
+                )}
+                {canResume && (
+                    <Button onClick={() => act('resume')}>Lanjutkan</Button>
+                )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+                Menyelesaikan pekerjaan = Serahkan Hasil di bagian bawah
+                halaman — timer ikut berakhir otomatis.
+            </p>
         </section>
     );
 }

@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\WorkOrderCategory;
+use App\WorkOrderJobStatus;
 use App\WorkOrderStatus;
+use App\WorkOrderTicketStatus;
 use Database\Factories\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,8 +28,12 @@ use Illuminate\Support\Collection;
  * @property WorkOrderCategory $category
  * @property string $title
  * @property string $description
+ * @property string|null $location
  * @property array<int, string>|null $attachments
  * @property WorkOrderStatus $status
+ * @property WorkOrderTicketStatus|null $status_tiket
+ * @property WorkOrderJobStatus|null $status_pekerjaan
+ * @property Carbon|null $released_at
  * @property Carbon|null $requested_schedule_date
  * @property string|null $hod_action
  * @property Carbon|null $scheduled_date
@@ -43,6 +49,7 @@ use Illuminate\Support\Collection;
  * @property int $extend_count
  * @property string|null $extend_reason
  * @property Carbon|null $extended_at
+ * @property string|null $request_rejection_reason
  * @property string|null $result_notes
  * @property array<int, string>|null $result_attachments
  * @property Carbon|null $created_at
@@ -55,8 +62,14 @@ use Illuminate\Support\Collection;
     'category',
     'title',
     'description',
+    'location',
+    'priority',
+    'personnel_count',
+    'damage_type',
     'attachments',
     'status',
+    'status_tiket',
+    'status_pekerjaan',
     'requested_schedule_date',
     'hod_action',
     'scheduled_date',
@@ -72,6 +85,8 @@ use Illuminate\Support\Collection;
     'extend_count',
     'extend_reason',
     'extended_at',
+    'released_at',
+    'request_rejection_reason',
     'result_notes',
     'result_attachments',
 ])]
@@ -79,6 +94,20 @@ class WorkOrder extends Model
 {
     /** @use HasFactory<WorkOrderFactory> */
     use BelongsToTenant, HasFactory, HasUuids;
+
+    protected static function booted(): void
+    {
+        // ADR-0011 (R8): WO yang lahir tanpa melewati gerbang approval —
+        // alur lama, factory, dan fixtures — langsung dianggap dirilis ke
+        // department tujuan. Gerbang hanya hidup di
+        // WorkOrderService::create() lintas-department, yang men-set
+        // released_at secara eksplisit (null selama menunggu persetujuan).
+        static::creating(function (WorkOrder $workOrder): void {
+            if (! array_key_exists('released_at', $workOrder->getAttributes())) {
+                $workOrder->released_at = now();
+            }
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -90,7 +119,10 @@ class WorkOrder extends Model
         return [
             'category' => WorkOrderCategory::class,
             'status' => WorkOrderStatus::class,
+            'status_tiket' => WorkOrderTicketStatus::class,
+            'status_pekerjaan' => WorkOrderJobStatus::class,
             'attachments' => 'array',
+            'released_at' => 'datetime',
             'requested_schedule_date' => 'date',
             'scheduled_date' => 'date',
             'assigned_at' => 'datetime',
@@ -142,7 +174,14 @@ class WorkOrder extends Model
             $group->where('requester_user_id', $user->getKey());
 
             if ($departmentIds->isNotEmpty()) {
-                $group->orWhereIn('target_department_id', $departmentIds);
+                $group->orWhere(function ($released) use ($departmentIds): void {
+                    // R8: department tujuan tidak melihat WO yang belum
+                    // dirilis dari department pengaju (gerbang approval
+                    // lintas-department) — termasuk di daftar, hitungan,
+                    // dan pencarian.
+                    $released->whereIn('target_department_id', $departmentIds)
+                        ->whereNotNull('released_at');
+                });
             }
 
             if ($user->employee_id !== null) {
@@ -157,6 +196,16 @@ class WorkOrder extends Model
     public function events(): HasMany
     {
         return $this->hasMany(WorkOrderEvent::class);
+    }
+
+    /**
+     * Timer durasi kerja per pelaksana (ADR-0011, R16–R18).
+     *
+     * @return HasMany<WorkTimeLog, $this>
+     */
+    public function workTimeLogs(): HasMany
+    {
+        return $this->hasMany(WorkTimeLog::class);
     }
 
     /**

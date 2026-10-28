@@ -4,15 +4,23 @@ namespace App\Http\Controllers;
 
 use App\ExtendRequestStatus;
 use App\Http\Requests\WorkOrder\AssignWorkOrderRequest;
+use App\Http\Requests\WorkOrder\CancelWorkOrderRequest;
+use App\Http\Requests\WorkOrder\RejectWorkOrderRequest;
 use App\Http\Requests\WorkOrder\ReviewWorkOrderRequest;
+use App\Http\Requests\WorkOrder\UpdateWorkOrderRequest;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\ExtendRequest;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
+use App\Models\WorkTimeLog;
 use App\Services\ExtendRequestService;
+use App\Services\WorkOrderRequestService;
 use App\Services\WorkOrderService;
+use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
+use App\WorkOrderStatus;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,48 +32,22 @@ use Inertia\Response;
 
 class WorkOrderController extends Controller
 {
-    /**
-     * Indonesian day names, Monday first. Authored here rather than formatted
-     * from a locale so the server-rendered markup and the client render agree
-     * (the app timezone is Asia/Makassar and the server locale is not
-     * Indonesian).
-     *
-     * @var list<string>
-     */
-    private const DAY_NAMES = [
-        'Senin',
-        'Selasa',
-        'Rabu',
-        'Kamis',
-        'Jumat',
-        'Sabtu',
-        'Minggu',
-    ];
-
-    /** @var list<string> */
-    private const MONTH_NAMES = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'Mei',
-        'Jun',
-        'Jul',
-        'Agu',
-        'Sep',
-        'Okt',
-        'Nov',
-        'Des',
-    ];
-
     public function __construct(
         private WorkOrderService $workOrderService,
         private ExtendRequestService $extendRequestService,
+        private WorkOrderRequestService $requestService,
+        private WorkTimeLogService $workTimeLogService,
     ) {}
 
     public function index(Request $request): Response
     {
+        Gate::authorize('work-order.read');
+
         $user = $request->user();
+
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
 
         $reviewableDepartmentIds = Department::query()
             ->where('hod_user_id', $user->getKey())
@@ -75,6 +57,12 @@ class WorkOrderController extends Controller
         $workOrders = WorkOrder::query()
             ->with(['requester', 'targetDepartment'])
             ->visibleFor($user, $reviewableDepartmentIds)
+            ->when(
+                $validated['search'] ?? null,
+                fn ($query, $search) => $query->where(fn ($term) => $term
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('nomor_wo', 'like', "%{$search}%")),
+            )
             ->orderByDesc('created_at')
             ->paginate(10)
             ->withQueryString()
@@ -111,13 +99,22 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Timeline — a week grid of scheduled Work Orders.
+     * Timeline — a scheduler calendar of scheduled Work Orders (FullCalendar
+     * v7 dayGrid, redesign 2026-10-24 — see
+     * docs/audit/workorder-timeline-design-decisions.md).
      *
      * The grid is a *day* grid, not a time-of-day grid. `work_orders.scheduled_date`
      * is a DATE column and the model carries no time-of-day column anywhere, so a
-     * "08:30 / 09:00" gutter would have no data behind it. The date-level
-     * equivalent of a current-time indicator is the "today" column, which the page
-     * marks with a text label plus a rule — never colour alone (WCAG 1.4.1).
+     * "08:30 / 09:00" gutter would have no data behind it.
+     *
+     * The view range travels as `start`/`end` query parameters (end exclusive,
+     * the FullCalendar convention) so every view — week or month — is
+     * deep-linkable and the browser back button works. The legacy `week`
+     * parameter (Monday date) is still honored for old links.
+     *
+     * "Today" stays server-side (app timezone = Asia/Makassar, D2) and is sent
+     * to the calendar as its `now` value, so the today highlight agrees with
+     * WITA even when the browser timezone differs.
      *
      * Visibility mirrors index() via WorkOrder::scopeVisibleFor — the requester,
      * the departments the user heads or deputises for, and the assigned
@@ -127,8 +124,7 @@ class WorkOrderController extends Controller
     {
         $user = $request->user();
 
-        $weekStart = $this->resolveWeekStart($request->query('week'));
-        $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+        [$start, $end, $view] = $this->resolveTimelineRange($request);
 
         $reviewableDepartmentIds = Department::query()
             ->where('hod_user_id', $user->getKey())
@@ -138,67 +134,128 @@ class WorkOrderController extends Controller
         $workOrders = WorkOrder::query()
             ->with(['requester', 'targetDepartment'])
             ->whereNotNull('scheduled_date')
-            ->whereBetween('scheduled_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereBetween('scheduled_date', [
+                $start->toDateString(),
+                $end->copy()->subDay()->toDateString(),
+            ])
             ->visibleFor($user, $reviewableDepartmentIds)
             ->orderBy('scheduled_date')
             ->orderBy('nomor_wo')
             ->get();
 
-        $byDate = $workOrders->groupBy(
-            fn (WorkOrder $workOrder): string => $workOrder->scheduled_date->toDateString()
-        );
-
-        $days = collect(range(0, 6))
-            ->map(function (int $offset) use ($weekStart, $byDate): array {
-                $date = $weekStart->copy()->addDays($offset);
+        $events = $workOrders
+            ->map(function (WorkOrder $workOrder): array {
+                [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrder);
 
                 return [
-                    'date' => $date->toDateString(),
-                    'dayName' => self::DAY_NAMES[$date->dayOfWeekIso - 1],
-                    'dayNumber' => (int) $date->format('j'),
-                    'monthName' => self::MONTH_NAMES[$date->month - 1],
-                    'isToday' => $date->isSameDay(Carbon::today()),
-                    'workOrders' => ($byDate->get($date->toDateString()) ?? collect())
-                        ->map(fn (WorkOrder $workOrder): array => $this->timelineEntry($workOrder))
-                        ->values(),
+                    'id' => $workOrder->getKey(),
+                    // Fallback text for non-JSX renderings and screen readers;
+                    // the visual card is custom JSX (eventContent).
+                    'title' => $workOrder->nomor_wo.' — '.$workOrder->title,
+                    'start' => $workOrder->scheduled_date->toDateString(),
+                    // FullCalendar end is exclusive.
+                    'end' => $workOrder->scheduled_date->copy()->addDay()->toDateString(),
+                    'url' => route('work-orders.show', [
+                        'tenant' => tenant()?->code,
+                        'workOrder' => $workOrder->getKey(),
+                    ]),
+                    'extendedProps' => [
+                        'nomor_wo' => $workOrder->nomor_wo,
+                        'title' => $workOrder->title,
+                        'status' => $workOrder->status->value,
+                        'category' => $workOrder->category->value,
+                        'deadline_state' => $deadlineState,
+                        'deadline_label' => $deadlineLabel,
+                        'department_name' => $workOrder->targetDepartment?->nama_department,
+                    ],
                 ];
             })
+            ->values()
             ->all();
 
         return Inertia::render('work-orders/timeline', [
-            'weekStart' => $weekStart->toDateString(),
-            'weekEnd' => $weekEnd->toDateString(),
-            'weekLabel' => $weekStart->format('j M Y').' - '.$weekEnd->format('j M Y'),
+            'events' => $events,
+            'totalScheduled' => count($events),
             'today' => Carbon::today()->toDateString(),
-            'isCurrentWeek' => $weekStart->isSameDay(Carbon::today()->startOfWeek(Carbon::MONDAY)),
-            'prevWeek' => $weekStart->copy()->subWeek()->toDateString(),
-            'nextWeek' => $weekStart->copy()->addWeek()->toDateString(),
-            'totalScheduled' => $workOrders->count(),
-            'days' => $days,
+            'range' => [
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+                'view' => $view,
+            ],
         ]);
     }
 
     /**
-     * Flatten a Work Order into the shape a timeline event card renders.
+     * Resolve the visible date range from the query string.
      *
-     * @return array<string, mixed>
+     * `start` is inclusive and `end` exclusive, both `Y-m-d` (the ISO strings
+     * FullCalendar emits are sliced client-side). A missing/invalid value, or
+     * a range absurdly far from today, falls back to the current week rather
+     * than erroring; the range is capped at ~9 weeks so a hand-crafted URL can
+     * never force an unbounded query.
+     *
+     * @return array{0: Carbon, 1: Carbon, 2: string} start, end (exclusive), view type
      */
-    private function timelineEntry(WorkOrder $workOrder): array
+    private function resolveTimelineRange(Request $request): array
     {
-        [$deadlineState, $deadlineLabel] = $this->deadlineState($workOrder);
-
-        return [
-            'id' => $workOrder->getKey(),
-            'nomor_wo' => $workOrder->nomor_wo,
-            'title' => $workOrder->title,
-            'status' => $workOrder->status->value,
-            'category' => $workOrder->category->value,
-            'deadline_date' => $workOrder->deadline_date?->toDateString(),
-            'deadline_state' => $deadlineState,
-            'deadline_label' => $deadlineLabel,
-            'requester_name' => $workOrder->requester?->name,
-            'department_name' => $workOrder->targetDepartment?->nama_department,
+        $today = Carbon::today();
+        $defaultStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+        $allowedViews = [
+            'day',
+            'week',
+            'month',
+            // Legacy FullCalendar buckets still echo correctly for old links.
+            'dayGridWeek',
+            'dayGridMonth',
         ];
+
+        $view = in_array($request->query('view'), $allowedViews, true)
+            ? (string) $request->query('view')
+            : 'dayGridWeek';
+
+        // Legacy deep links: ?week=<monday> stays valid when start is absent.
+        $rawStart = $request->query('start');
+        if (! is_string($rawStart) || trim($rawStart) === '') {
+            $rawStart = $request->query('week');
+
+            if (is_string($rawStart) && trim($rawStart) !== '') {
+                $view = 'dayGridWeek';
+            }
+        }
+
+        try {
+            $start = is_string($rawStart) && trim($rawStart) !== ''
+                ? Carbon::parse(trim($rawStart))->startOfDay()
+                : $defaultStart->copy();
+        } catch (\Throwable) {
+            $start = $defaultStart->copy();
+        }
+
+        if ($start->lt($today->copy()->subYear()) || $start->gt($today->copy()->addYear())) {
+            $start = $defaultStart->copy();
+        }
+
+        $rawEnd = $request->query('end');
+
+        try {
+            $end = is_string($rawEnd) && trim($rawEnd) !== ''
+                ? Carbon::parse(trim($rawEnd))->startOfDay()
+                : $start->copy()->addWeek();
+        } catch (\Throwable) {
+            $end = $start->copy()->addWeek();
+        }
+
+        // Cap the range; keep it at least one day so a degenerate URL still
+        // renders a (single-day) grid instead of erroring.
+        if ($end->lte($start)) {
+            $end = $start->copy()->addDay();
+        }
+
+        if ($start->diffInDays($end) > 62) {
+            $end = $start->copy()->addWeeks(9);
+        }
+
+        return [$start, $end, $view];
     }
 
     /**
@@ -211,7 +268,7 @@ class WorkOrderController extends Controller
     private function deadlineState(WorkOrder $workOrder): array
     {
         if ($workOrder->deadline_date === null) {
-            return ['on_track', 'On track'];
+            return ['on_track', 'Sesuai jadwal'];
         }
 
         // DateTime::diff() reports the magnitude in ->days and the direction in
@@ -233,40 +290,14 @@ class WorkOrderController extends Controller
         return match (true) {
             $daysUntil === 0 => ['due_soon', 'Deadline hari ini'],
             $daysUntil === 1 => ['due_soon', 'Deadline besok'],
-            default => ['on_track', 'On track'],
+            default => ['on_track', 'Sesuai jadwal'],
         };
-    }
-
-    /**
-     * Resolve the Monday that opens the requested week.
-     *
-     * The week travels as a query parameter so a view is deep-linkable and the
-     * browser back button works. A value that will not parse, or one absurdly far
-     * from the current week, falls back to the current week rather than erroring.
-     */
-    private function resolveWeekStart(mixed $week): Carbon
-    {
-        $current = Carbon::today()->startOfWeek(Carbon::MONDAY);
-
-        if (! is_string($week) || trim($week) === '') {
-            return $current;
-        }
-
-        try {
-            $parsed = Carbon::parse(trim($week))->startOfWeek(Carbon::MONDAY);
-        } catch (\Throwable) {
-            return $current;
-        }
-
-        if ($parsed->lt($current->copy()->subYear()) || $parsed->gt($current->copy()->addYear())) {
-            return $current;
-        }
-
-        return $parsed;
     }
 
     public function create(): Response
     {
+        Gate::authorize('work-order.create');
+
         return Inertia::render('work-orders/create', [
             'departments' => Department::query()
                 ->where('is_active', true)
@@ -278,13 +309,21 @@ class WorkOrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        Gate::authorize('work-order.create');
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
+            'location' => ['nullable', 'string', 'max:255'],
             'category' => ['required', Rule::enum(WorkOrderCategory::class)],
             'target_department_id' => [
                 'required',
-                Rule::exists('departments', 'id')->where('tenant_id', tenant()?->getTenantKey()),
+                // FR-4.1: hanya department AKTIF — department yang dinonaktifkan
+                // sync tidak boleh jadi tujuan WO baru (dropdown create juga
+                // hanya menampilkan yang aktif).
+                Rule::exists('departments', 'id')
+                    ->where('tenant_id', tenant()?->getTenantKey())
+                    ->where('is_active', true),
             ],
             'requested_schedule_date' => [
                 'nullable',
@@ -424,6 +463,253 @@ class WorkOrderController extends Controller
             ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' dikembalikan untuk revisi.');
     }
 
+    /**
+     * R2/R3: approver department pengaju menyetujui permintaan lintas-
+     * department — WO rilis ke department tujuan dan alur lama berjalan.
+     */
+    public function approveRequest(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->approve($request->user(), $workOrder);
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' disetujui — diteruskan ke department tujuan.');
+    }
+
+    /**
+     * R4: tolak permintaan (alasan wajib) — WO berhenti sebelum dept tujuan.
+     */
+    public function rejectRequest(RejectWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->reject($request->user(), $workOrder, $request->validated('reason'));
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' ditolak.');
+    }
+
+    /**
+     * R12: revisi WO yang ditolak — hanya requester, saat RejectedByDept.
+     */
+    public function updateRequest(UpdateWorkOrderRequest $request): RedirectResponse
+    {
+        Gate::authorize('work-order.update');
+
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->updateRejected($request->user(), $workOrder, $request->validated());
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'Revisi WO '.$workOrder->nomor_wo.' tersimpan — silakan ajukan ulang.');
+    }
+
+    /**
+     * R12: ajukan ulang setelah revisi — kembali ke gerbang approval.
+     */
+    public function resubmitRequest(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->resubmit($request->user(), $workOrder);
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' diajukan ulang ke department pengaju.');
+    }
+
+    /**
+     * R12: cancel — (a) requester/approver dept pengaju saat belum rilis,
+     * (b) reviewer dept tujuan membatalkan duplikat saat review.
+     */
+    public function cancelRequest(CancelWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        $this->requestService->cancel(
+            $request->user(),
+            $workOrder,
+            $request->validated('reason'),
+            $request->validated('duplicate_of'),
+        );
+
+        $workOrder->refresh();
+
+        return redirect()
+            ->route('work-orders.index', ['tenant' => tenant()?->code])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' dibatalkan.');
+    }
+
+    /**
+     * R20: Approval inbox — permintaan WO lintas-department yang MENUNGGU
+     * keputusan department PENGAJU, terpisah dari antrian WO masuk
+     * department tujuan. Anggota rantai approver (ADR-0011) melihat
+     * permintaan dari department-nya sendiri; keputusan tetap dipaksa di
+     * WorkOrderRequestService (bukan cuma UI).
+     */
+    public function approvals(Request $request): Response
+    {
+        $user = $request->user();
+
+        $approverDepartmentIds = Department::query()
+            ->where('hod_user_id', $user->getKey())
+            ->orWhere('manager_user_id', $user->getKey())
+            ->pluck('id');
+
+        if ($user->employee_id !== null
+            && $user->hasAnyRole(['hod', 'staf_admin_dept'])) {
+            $ownDepartmentId = $user->employee?->department_id;
+
+            if ($ownDepartmentId !== null) {
+                $approverDepartmentIds->push($ownDepartmentId);
+            }
+        }
+
+        $workOrders = WorkOrder::query()
+            ->with(['requester:id,name', 'targetDepartment:id,nama_department'])
+            ->where('status', WorkOrderStatus::PendingDeptApproval->value)
+            ->whereHas(
+                'requester.employee',
+                fn ($query) => $query->whereIn(
+                    'department_id',
+                    $approverDepartmentIds->unique()->values(),
+                ),
+            )
+            ->orderByDesc('created_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        $requests = $workOrders->through(fn (WorkOrder $workOrder): array => [
+            'id' => $workOrder->getKey(),
+            'nomor_wo' => $workOrder->nomor_wo,
+            'title' => $workOrder->title,
+            'description' => $workOrder->description,
+            'category' => $workOrder->category->value,
+            'requester_name' => $workOrder->requester?->name,
+            'target_department' => $workOrder->targetDepartment?->nama_department,
+            'created_at' => $workOrder->created_at->toIso8601String(),
+            // OQ-4b: penanda kandidat duplikat — keputusan tetap manusia.
+            'duplicate_numbers' => $this->requestService
+                ->duplicateCandidates($workOrder, 3)
+                ->pluck('nomor_wo')
+                ->all(),
+        ]);
+
+        return Inertia::render('work-orders/approvals', [
+            'requests' => $requests,
+        ]);
+    }
+
+    /**
+     * R15: "Tugasan Saya" — WO eksekusi aktif yang ditugaskan ke karyawan
+     * ini (assigned/in_progress/revision), lengkap dengan penugasi, lokasi,
+     * deadline proximity, dan timer durasi server-computed (R17). Akses
+     * terbuka untuk akun ter-authentikasi; daftar hanya memuat WO yang
+     * benar-benar menugaskannya (whereJsonContains assigned_employees).
+     */
+    public function my(Request $request): Response
+    {
+        $user = $request->user();
+        $employeeId = (string) ($user->employee_id ?? '');
+
+        $workOrders = WorkOrder::query()
+            ->with(['requester:id,name', 'targetDepartment:id,nama_department'])
+            ->whereIn('status', [
+                WorkOrderStatus::Assigned->value,
+                WorkOrderStatus::InProgress->value,
+                WorkOrderStatus::Revision->value,
+            ]);
+
+        if ($employeeId === '') {
+            $workOrders->whereRaw('1 = 0');
+        } else {
+            $workOrders->whereJsonContains('assigned_employees', $employeeId);
+        }
+
+        $workOrders = $workOrders
+            ->orderBy('deadline_date')
+            ->orderByDesc('created_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        $workOrderIds = $workOrders->getCollection()
+            ->map(fn (WorkOrder $workOrder) => $workOrder->getKey())
+            ->all();
+
+        // Penugasi = pengguna pada event `assigned` terakhir per WO
+        // (satu query untuk seluruh halaman, bukan N+1).
+        $assigners = WorkOrderEvent::query()
+            ->whereIn('work_order_id', $workOrderIds)
+            ->where('action', 'assigned')
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('work_order_id')
+            ->map(fn ($events) => $events->first()?->user?->name);
+
+        // Timer milik karyawan ini untuk tiap WO (satu query).
+        $timeLogs = $employeeId === ''
+            ? collect()
+            : WorkTimeLog::query()
+                ->whereIn('work_order_id', $workOrderIds)
+                ->where('employee_id', $employeeId)
+                ->get()
+                ->keyBy('work_order_id');
+
+        $assignments = $workOrders->through(function (WorkOrder $workOrder) use ($assigners, $timeLogs): array {
+            $timeLog = $timeLogs->get($workOrder->getKey());
+
+            return [
+                'id' => $workOrder->getKey(),
+                'nomor_wo' => $workOrder->nomor_wo,
+                'title' => $workOrder->title,
+                'description' => $workOrder->description,
+                'category' => $workOrder->category->value,
+                'status' => $workOrder->status->value,
+                'location' => $workOrder->location,
+                'assignment_notes' => $workOrder->assignment_notes,
+                'deadline_date' => $workOrder->deadline_date?->toDateString(),
+                'deadline_state' => $this->deadlineState($workOrder)[0],
+                'deadline_label' => $this->deadlineState($workOrder)[1],
+                'target_department' => $workOrder->targetDepartment?->nama_department,
+                'assigner_name' => $assigners->get($workOrder->getKey()),
+                'attachments_count' => count($workOrder->attachments ?? []),
+                // R17: dihitung server dari timestamp tersimpan — dasar
+                // yang benar setelah refresh atau di perangkat lain.
+                'time_log' => $timeLog === null ? null : [
+                    'state' => $timeLog->timerState(),
+                    'elapsed_seconds' => $timeLog->elapsedSeconds(),
+                ],
+            ];
+        });
+
+        return Inertia::render('work-orders/my', [
+            'assignments' => $assignments,
+        ]);
+    }
+
     public function show(Request $request): Response
     {
         $workOrderId = $request->route('workOrder');
@@ -509,6 +795,81 @@ class WorkOrderController extends Controller
             ? $this->extendRequestService->canDecideExtend($user, $pendingExtend)
             : false;
 
+        // ADR-0011: gerbang approval — mirror server-side untuk panel
+        // frontend (keputusan tetap dipaksa ulang di service).
+        $canDecideRequest = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::PendingDeptApproval
+            && $this->requestService->isApprover($user, $workOrderModel);
+
+        $canCancelRequest = $user !== null
+            && in_array($workOrderModel->status, [
+                WorkOrderStatus::PendingDeptApproval,
+                WorkOrderStatus::RejectedByDept,
+            ], true)
+            && ($workOrderModel->requester_user_id === $user->getKey()
+                || $this->requestService->isApprover($user, $workOrderModel));
+
+        $canEditRequest = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::RejectedByDept
+            && $workOrderModel->requester_user_id === $user->getKey();
+
+        $canCancelDuplicate = $user !== null
+            && $workOrderModel->status === WorkOrderStatus::WaitingHod
+            && $this->requestService->isTargetReviewer($user, $workOrderModel);
+
+        $duplicateCandidates = ($canDecideRequest || $canCancelDuplicate)
+            ? $this->requestService
+                ->duplicateCandidates($workOrderModel)
+                ->map(fn (WorkOrder $candidate): array => [
+                    'id' => $candidate->getKey(),
+                    'nomor_wo' => $candidate->nomor_wo,
+                ])
+                ->all()
+            : [];
+
+        // R12: dialog revisi memilih ulang department tujuan (aktif saja).
+        $departments = $canEditRequest
+            ? Department::query()
+                ->where('is_active', true)
+                ->orderBy('nama_department')
+                ->get(['id', 'nama_department'])
+            : collect();
+
+        // ADR-0011 R15–R17: timer durasi untuk pelaksana — mirror
+        // server-side; aksi tetap dipaksa ulang di WorkTimeLogService.
+        $myEmployeeId = (string) ($user?->employee_id ?? '');
+        $isAssignee = $myEmployeeId !== ''
+            && in_array($myEmployeeId, $workOrderModel->assigned_employees ?? [], true);
+
+        $myTimeLog = $isAssignee
+            ? $this->workTimeLogService->logFor($workOrderModel, $myEmployeeId)
+            : null;
+
+        $executionStage = in_array($workOrderModel->status, [
+            WorkOrderStatus::Assigned,
+            WorkOrderStatus::InProgress,
+        ], true);
+
+        $canAcceptTime = $isAssignee && $executionStage
+            && ($myTimeLog === null || $myTimeLog->accepted_at === null);
+        $canStartTime = $isAssignee && $executionStage
+            && $myTimeLog?->accepted_at !== null
+            && $myTimeLog?->started_at === null;
+        $canPauseTime = $isAssignee && $executionStage
+            && $myTimeLog?->started_at !== null
+            && $myTimeLog?->finished_at === null
+            && $myTimeLog?->paused_at === null;
+        $canResumeTime = $isAssignee && $executionStage
+            && $myTimeLog?->paused_at !== null;
+
+        $myTimeLogPayload = $myTimeLog === null ? null : [
+            'state' => $myTimeLog->timerState(),
+            'elapsed_seconds' => $myTimeLog->elapsedSeconds(),
+            'accepted_at' => $myTimeLog->accepted_at?->toIso8601String(),
+            'started_at' => $myTimeLog->started_at?->toIso8601String(),
+            'finished_at' => $myTimeLog->finished_at?->toIso8601String(),
+        ];
+
         // FR-2.4: Work Planning untuk WO Terjadwal — detail jadwal + status
         // extend schedule; visibilitas panel dihitung server-side.
         $planning = $workOrderModel->planning()->with('extendRequester:id,name')->first();
@@ -557,6 +918,112 @@ class WorkOrderController extends Controller
             ],
             'can_update_planning' => $canUpdatePlanning,
             'can_decide_schedule' => $canDecideSchedule,
+            'can_decide_request' => $canDecideRequest,
+            'can_cancel_request' => $canCancelRequest,
+            'can_edit_request' => $canEditRequest,
+            'can_resubmit_request' => $canEditRequest,
+            'can_cancel_duplicate' => $canCancelDuplicate,
+            'is_requester' => $user?->getKey() === $workOrderModel->requester_user_id,
+            'duplicate_candidates' => $duplicateCandidates,
+            'departments' => $departments,
+            'is_assignee' => $isAssignee,
+            'my_time_log' => $myTimeLogPayload,
+            'can_accept_time' => $canAcceptTime,
+            'can_start_time' => $canStartTime,
+            'can_pause_time' => $canPauseTime,
+            'can_resume_time' => $canResumeTime,
+        ]);
+    }
+
+    /**
+     * Load the Work Order and its target-department employees for a workflow page.
+     *
+     * The route carries a `{tenant}` parameter, so `ControllerDispatcher` splats
+     * all route parameters into the method — `WorkOrder $workOrder` route model
+     * binding would bind `{tenant}` to `$workOrder` instead of the model.
+     * Manual resolution mirrors the existing `show()` method.
+     *
+     * @return array{workOrder: WorkOrder, employees: Collection<Employee>}
+     */
+    private function loadWorkOrderAndEmployees(Request $request): array
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('work_order'))
+            ->firstOrFail();
+
+        $employees = Employee::query()
+            ->where('department_id', $workOrder->target_department_id)
+            ->orderBy('nama_employee')
+            ->get(['id', 'nama_employee']);
+
+        return compact('workOrder', 'employees');
+    }
+
+    /**
+     * HOD review page — render the HOD decision screen for a work order.
+     *
+     * Loads target department employees for the assign/review selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function hodReview(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.review', $workOrder);
+
+        return Inertia::render('work-orders/hod-review', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Assign page — render the employee assignment screen for a work order.
+     *
+     * Loads target department employees for selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function assignForm(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.assign', $workOrder);
+
+        return Inertia::render('work-orders/assign', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Submit results page — render the result submission screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showSubmitResults(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.submit', $workOrder);
+
+        return Inertia::render('work-orders/submit-results', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Verify page — render the HOD verification screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showVerify(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.verify', $workOrder);
+
+        return Inertia::render('work-orders/verify', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
         ]);
     }
 

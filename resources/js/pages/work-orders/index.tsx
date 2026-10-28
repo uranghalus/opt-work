@@ -1,11 +1,25 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Plus, Calendar, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { create, show } from '@/routes/work-orders';
 import { CategoryBadge } from '@/components/category-badge';
 import { StatusBadge, type WoStatus } from '@/components/status-badge';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { InertiaConfig } from '@inertiajs/core';
 import { useRequiredTenant } from '@/lib/tenant';
+import { useState, useCallback } from 'react';
 
 type DeadlineState = 'on_track' | 'due_soon' | 'overdue' | 'escalated';
 
@@ -35,6 +49,39 @@ type PaginatedData = {
 type PageProps = {
     workOrders: PaginatedData;
 };
+
+/** Escalation chip rendered on the card when deadline_state warrants it. */
+function EscalationChip({ state }: { state: DeadlineState }) {
+    const chipByState: Record<DeadlineState, { label: string; className: string } | null> = {
+        on_track: null,
+        due_soon: {
+            label: 'H+3',
+            className: 'bg-warning/10 text-warning border-warning/30',
+        },
+        overdue: {
+            label: 'H+5',
+            className: 'bg-danger/10 text-danger border-danger/30',
+        },
+        escalated: {
+            label: 'H+6 · Eskalasi',
+            className: 'bg-escalation/10 text-escalation border-escalation/30',
+        },
+    };
+
+    const chip = chipByState[state];
+    if (!chip) return null;
+
+    return (
+        <span
+            className={cn(
+                'inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-xs font-semibold whitespace-nowrap',
+                chip.className,
+            )}
+        >
+            {chip.label}
+        </span>
+    );
+}
 
 /** Primary action of this page, rendered in the shell's heading band. */
 function WorkOrderActions() {
@@ -75,6 +122,33 @@ function DeadlineRail({ state, label }: { state: DeadlineState; label: string })
     );
 }
 
+function StatCard({
+    label,
+    value,
+    icon,
+    tone,
+}: {
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    tone: string;
+}) {
+    return (
+        <div
+            className={cn(
+                'rounded-xl border border-border bg-card p-4 flex items-center gap-3',
+                tone,
+            )}
+        >
+            <div className="p-1.5 rounded-md">{icon}</div>
+            <div className="flex flex-col">
+                <p className="text-xs text-ink-muted leading-none">{label}</p>
+                <p className="text-lg font-semibold text-ink leading-none">{value}</p>
+            </div>
+        </div>
+    );
+}
+
 function WorkOrderCard({
     workOrder,
     tenant,
@@ -82,6 +156,10 @@ function WorkOrderCard({
     workOrder: WorkOrder;
     tenant: string;
 }) {
+    const isEscalated =
+        workOrder.deadline_state === 'overdue' ||
+        workOrder.deadline_state === 'escalated';
+
     return (
         <Link
             href={show({ tenant, workOrder: workOrder.id })}
@@ -94,6 +172,7 @@ function WorkOrderCard({
                     <div className="flex flex-wrap items-center gap-2">
                         <CategoryBadge category={workOrder.category} />
                         <StatusBadge status={workOrder.status} />
+                        <EscalationChip state={workOrder.deadline_state} />
                     </div>
 
                     <h3 className="text-base font-semibold text-ink leading-snug truncate">
@@ -117,7 +196,9 @@ function WorkOrderCard({
                                     : '—'}
                             </span>
                         </span>
-                        <span className="font-medium text-ink-subtle">{workOrder.deadline_label}</span>
+                        <span className={cn('font-medium', isEscalated ? 'text-danger' : 'text-ink-subtle')}>
+                            {workOrder.deadline_label}
+                        </span>
                         {workOrder.target_department?.nama_department && (
                             <span className="flex items-center gap-1">
                                 <span>•</span>
@@ -155,6 +236,11 @@ function Pagination({
 
     const pages = Array.from({ length: lastPage }, (_, i) => i + 1);
 
+    const goToPage = (page: number) => {
+        // Inertia visit (bukan full reload) — state/progress tetap terjaga.
+        router.get(baseUrl, { page: String(page) }, { preserveScroll: true });
+    };
+
     return (
         <nav
             className="flex items-center justify-center gap-1"
@@ -164,7 +250,7 @@ function Pagination({
                 variant="secondary"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => window.location.href = `${baseUrl}?page=${currentPage - 1}`}
+                onClick={() => goToPage(currentPage - 1)}
                 aria-label="Halaman sebelumnya"
             >
                 <ChevronLeft aria-hidden className="h-4 w-4" />
@@ -178,7 +264,7 @@ function Pagination({
                         size="sm"
                         onClick={() => {
                             if (page !== currentPage) {
-                                window.location.href = `${baseUrl}?page=${page}`;
+                                goToPage(page);
                             }
                         }}
                         aria-label={`Halaman ${page}`}
@@ -193,7 +279,7 @@ function Pagination({
                 variant="secondary"
                 size="sm"
                 disabled={currentPage === lastPage}
-                onClick={() => window.location.href = `${baseUrl}?page=${currentPage + 1}`}
+                onClick={() => goToPage(currentPage + 1)}
                 aria-label="Halaman selanjutnya"
             >
                 <ChevronRight aria-hidden className="h-4 w-4" />
@@ -202,16 +288,167 @@ function Pagination({
     );
 }
 
+type FilterOption = { value: string; label: string };
+
+const STATUS_OPTIONS: FilterOption[] = [
+    { value: '', label: 'Semua status' },
+    { value: 'draft', label: 'Draf' },
+    { value: 'pending_dept_approval', label: 'Menunggu Persetujuan Dept' },
+    { value: 'rejected_by_dept', label: 'Ditolak Dept' },
+    { value: 'waiting_hod', label: 'Menunggu HOD' },
+    { value: 'hod_approved', label: 'Disetujui HOD' },
+    { value: 'scheduled', label: 'Terjadwal' },
+    { value: 'assigned', label: 'Ditugaskan' },
+    { value: 'in_progress', label: 'Dikerjakan' },
+    { value: 'pending_verify', label: 'Menunggu Verifikasi' },
+    { value: 'revision', label: 'Revisi' },
+    { value: 'closed', label: 'Selesai' },
+    { value: 'cancelled', label: 'Dibatalkan' },
+    // 'overdue'/'escalated' adalah nilai deadline_state (lihat EscalationChip), bukan status WO.
+    // Tidak dimasukkan ke dalam opsi filter status.
+];
+
+const CATEGORY_OPTIONS: FilterOption[] = [
+    { value: '', label: 'Semua kategori' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'accident', label: 'Urgent · Kecelakaan' },
+    { value: 'owner', label: 'Urgent · Owner' },
+];
+
+const PRIORITY_OPTIONS: FilterOption[] = [
+    { value: '', label: 'Semua prioritas' },
+    { value: 'low', label: 'Rendah' },
+    { value: 'medium', label: 'Sedang' },
+    { value: 'high', label: 'Tinggi' },
+];
+
+const SORT_OPTIONS: FilterOption[] = [
+    { value: 'created_desc', label: 'Terbaru' },
+    { value: 'created_asc', label: 'Terlama' },
+    { value: 'deadline_asc', label: 'Deadline terdekat' },
+];
+
 export default function WorkOrders({ workOrders }: PageProps) {
-    const { can } = usePage<InertiaConfig['sharedPageProps']>().props;
     const tenant = useRequiredTenant('work-orders.index');
     const baseUrl = `/${tenant}/work-orders`;
+    const [openFilter, setOpenFilter] = useState(false);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    const [priorityFilter, setPriorityFilter] = useState('');
+    const [departmentFilter, setDepartmentFilter] = useState('');
+    const [sortFilter, setSortFilter] = useState('created_desc');
+
+    const data = workOrders.data;
+
+    // NOTE (MVP): statistik dihitung hanya dari data halaman ini (workOrders.data),
+    // bukan total keseluruhan semua halaman. Payload server saat ini hanya menyertakan
+    // halaman yang diminta; statistik global butuh endpoint ringkas terpisah (pasca-MVP).
+    const stats = {
+        total: data.length,
+        completed: data.filter((w) => w.status === 'closed').length,
+        inProgress: data.filter((w) => w.status === 'in_progress').length,
+        pending: data.filter(
+            (w) =>
+                // Pending = belum selesai/dibatalkan/revisi DAN belum dikerjakan (in_progress
+                // sendiri punya StatCard, jadi tidak boleh ikut terhitung di sini).
+                w.status !== 'closed' &&
+                w.status !== 'cancelled' &&
+                w.status !== 'revision' &&
+                w.status !== 'in_progress',
+        ).length,
+    };
+
+    const handleFilterChange = useCallback(
+        (key: string, value: string) => {
+            switch (key) {
+                case 'search':
+                    setSearch(value);
+                    break;
+                case 'status':
+                    setStatusFilter(value);
+                    break;
+                case 'category':
+                    setCategoryFilter(value);
+                    break;
+                case 'priority':
+                    setPriorityFilter(value);
+                    break;
+                case 'department':
+                    setDepartmentFilter(value);
+                    break;
+                case 'sort':
+                    setSortFilter(value);
+                    break;
+            }
+        },
+        [],
+    );
+
+    const activeFilters =
+        (search ? 1 : 0) +
+        (statusFilter ? 1 : 0) +
+        (categoryFilter ? 1 : 0) +
+        (priorityFilter ? 1 : 0) +
+        (departmentFilter ? 1 : 0);
 
     return (
         <>
             <Head title="Work Order" />
 
             <div className="space-y-6">
+                {/* Stats cards row */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard
+                        label="Total"
+                        value={stats.total}
+                        icon={<Calendar className="size-4 text-ink" />}
+                        tone="bg-primary/10 text-primary border-primary/30"
+                    />
+                    <StatCard
+                        label="Selesai"
+                        value={stats.completed}
+                        icon={<Calendar className="size-4 text-success" />}
+                        tone="bg-success/10 text-success border-success/30"
+                    />
+                    <StatCard
+                        label="Dikerjakan"
+                        value={stats.inProgress}
+                        icon={<Calendar className="size-4 text-info" />}
+                        tone="bg-info/10 text-info border-info/30"
+                    />
+                    <StatCard
+                        label="Pending"
+                        value={stats.pending}
+                        icon={<Calendar className="size-4 text-warning" />}
+                        tone="bg-warning/10 text-warning border-warning/30"
+                    />
+                </div>
+
+                {/* Filter toolbar: open button + active filter chips */}
+                <div className="flex items-center justify-between gap-2">
+                    <DialogTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOpenFilter(true)}
+                            className={cn(
+                                'flex items-center gap-1.5',
+                                activeFilters > 0 && 'bg-accent text-accent-foreground',
+                            )}
+                        >
+                            <Filter aria-hidden className="size-4" />
+                            {activeFilters > 0 ? (
+                                <span className="font-medium">
+                                    Filter ({activeFilters})
+                                </span>
+                            ) : (
+                                <span className="font-medium">Filter</span>
+                            )}
+                        </Button>
+                    </DialogTrigger>
+                </div>
+
                 {workOrders.data.length === 0 ? (
                     <div className="rounded-2xl border border-border bg-card p-12 text-center">
                         <p className="text-ink-muted mb-6">
@@ -236,6 +473,182 @@ export default function WorkOrders({ workOrders }: PageProps) {
                     lastPage={workOrders.last_page}
                     baseUrl={baseUrl}
                 />
+
+                {/* Filter modal */}
+                <Dialog open={openFilter} onOpenChange={setOpenFilter}>
+                    <DialogContent className="sm:max-w-md p-6">
+                        <DialogHeader>
+                            <DialogTitle>Filter Work Order</DialogTitle>
+                            <DialogDescription>
+                                Atur tampilan daftar Work Order.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form className="space-y-5">
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-search">Cari</Label>
+                                <Input
+                                    id="filter-search"
+                                    placeholder="Nomor WO, judul, atau deskripsi..."
+                                    value={search}
+                                    onChange={(e) =>
+                                        handleFilterChange('search', e.target.value)
+                                    }
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-status">Status</Label>
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('status', value ?? '')
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Semua status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {STATUS_OPTIONS.map((opt) => (
+                                            <SelectItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                            >
+                                                {opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-category">Kategori</Label>
+                                <Select
+                                    value={categoryFilter}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('category', value ?? '')
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Semua kategori" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CATEGORY_OPTIONS.map((opt) => (
+                                            <SelectItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                            >
+                                                {opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-priority">Prioritas</Label>
+                                <Select
+                                    value={priorityFilter}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('priority', value ?? '')
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Semua prioritas" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PRIORITY_OPTIONS.map((opt) => (
+                                            <SelectItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                            >
+                                                {opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-department">Department</Label>
+                                <Select
+                                    value={departmentFilter}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('department', value ?? '')
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Semua department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {data
+                                            .map(
+                                                (w) =>
+                                                    w.target_department?.nama_department,
+                                            )
+                                            .filter(
+                                                (v, i, arr) =>
+                                                    v !== null &&
+                                                    arr.indexOf(v) === i,
+                                            )
+                                            .map((v) => (
+                                                <SelectItem
+                                                    key={v}
+                                                    value={v ?? ''}
+                                                >
+                                                    {v}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="filter-sort">Urutkan</Label>
+                                <Select
+                                    value={sortFilter}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('sort', value ?? '')
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Terbaru" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {SORT_OPTIONS.map((opt) => (
+                                            <SelectItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                            >
+                                                {opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setSearch('');
+                                        setStatusFilter('');
+                                        setCategoryFilter('');
+                                        setPriorityFilter('');
+                                        setDepartmentFilter('');
+                                        setSortFilter('created_desc');
+                                        setOpenFilter(false);
+                                    }}
+                                >
+                                    Reset
+                                </Button>
+                                <Button onClick={() => setOpenFilter(false)}>
+                                    Terapkan
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

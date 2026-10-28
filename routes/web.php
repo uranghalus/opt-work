@@ -7,6 +7,7 @@ use App\Http\Controllers\MasterData\DepartmentController;
 use App\Http\Controllers\MasterData\DivisionController;
 use App\Http\Controllers\MasterData\EmployeeController;
 use App\Http\Controllers\MasterData\PositionController;
+use App\Http\Controllers\MasterData\PositionTreeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SamlController;
 use App\Http\Controllers\TenantController;
@@ -14,12 +15,14 @@ use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkPlanningController;
+use App\Http\Controllers\WorkTimeLogController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (! auth()->check()) {
-        return redirect()->route('saml.redirect');
+        // SSO on: portal. Flag off (AUTH_SSO_ENABLED=false): local login screen.
+        return redirect()->route(config('auth.sso.enabled') ? 'saml.redirect' : 'login');
     }
 
     $user = auth()->user();
@@ -104,12 +107,14 @@ Route::prefix('saml')->group(function () {
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
             'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
+            'guest_provisioning' => 'Akun Anda hanya memiliki peran tamu dan belum memiliki akses ke unit bisnis. Minta administrator menambahkan peran.',
         ];
 
         $reason = session('saml.denial_reason');
 
         return inertia('saml/denied', [
             'message' => $messages[$reason] ?? 'Anda tidak dapat mengakses sistem saat ini. Hubungi administrator.',
+            'ssoEnabled' => (bool) config('auth.sso.enabled', true),
         ]);
     })->name('saml.denied');
 
@@ -140,6 +145,31 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
         ->name('work-orders.timeline');
 
+    Route::get('work-orders/approvals', [WorkOrderController::class, 'approvals'])
+        ->name('work-orders.approvals');
+
+    Route::get('work-orders/my', [WorkOrderController::class, 'my'])
+        ->name('work-orders.my');
+
+    Route::get('work-orders/extend-approvals', [ExtendRequestController::class, 'approvals'])
+        ->name('work-orders.extend-approvals');
+
+    // Dedicated GET page endpoints for the four WO workflow steps.
+    // Placed before the resource block so literal segments take precedence
+    // over the {workOrder} wildcard.
+    Route::get('work-orders/{work_order}/hod-review', [WorkOrderController::class, 'hodReview'])
+        ->name('work-orders.hod-review')
+        ->middleware('permission:work-order.review');
+    Route::get('work-orders/{work_order}/assign', [WorkOrderController::class, 'assignForm'])
+        ->name('work-orders.assign-form')
+        ->middleware('permission:work-order.assign');
+    Route::get('work-orders/{work_order}/submit-results', [WorkOrderController::class, 'showSubmitResults'])
+        ->name('work-orders.submit-results')
+        ->middleware('permission:work-order.submit');
+    Route::get('work-orders/{work_order}/verify', [WorkOrderController::class, 'showVerify'])
+        ->name('work-orders.verify-form')
+        ->middleware('permission:work-order.verify');
+
     Route::resource('work-orders', WorkOrderController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')
@@ -154,7 +184,30 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('work-orders.verify');
     Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
         ->name('work-orders.reject');
+
+    // Gerbang approval lintas-department (R1–R12).
+    Route::post('work-orders/{workOrder}/request/approve', [WorkOrderController::class, 'approveRequest'])
+        ->name('work-orders.request.approve');
+    Route::post('work-orders/{workOrder}/request/reject', [WorkOrderController::class, 'rejectRequest'])
+        ->name('work-orders.request.reject');
+    Route::patch('work-orders/{workOrder}/request', [WorkOrderController::class, 'updateRequest'])
+        ->name('work-orders.request.update');
+    Route::post('work-orders/{workOrder}/request/resubmit', [WorkOrderController::class, 'resubmitRequest'])
+        ->name('work-orders.request.resubmit');
+    Route::post('work-orders/{workOrder}/request/cancel', [WorkOrderController::class, 'cancelRequest'])
+        ->name('work-orders.request.cancel');
+
+    // Timer durasi kerja pelaksana (R15–R18) — selesai otomatis via submit.
+    Route::post('work-orders/{workOrder}/work-time/accept', [WorkTimeLogController::class, 'accept'])
+        ->name('work-orders.work-time.accept');
+    Route::post('work-orders/{workOrder}/work-time/start', [WorkTimeLogController::class, 'start'])
+        ->name('work-orders.work-time.start');
+    Route::post('work-orders/{workOrder}/work-time/pause', [WorkTimeLogController::class, 'pause'])
+        ->name('work-orders.work-time.pause');
+    Route::post('work-orders/{workOrder}/work-time/resume', [WorkTimeLogController::class, 'resume'])
+        ->name('work-orders.work-time.resume');
     Route::get('work-orders/{workOrder}/attachments/{index}/{type?}', [WorkOrderController::class, 'attachment'])->name('work-orders.attachments.show');
+
     Route::post('work-orders/{workOrder}/extend-requests', [ExtendRequestController::class, 'store'])
         ->name('work-orders.extend-requests.store');
     Route::post('work-orders/{workOrder}/extend-requests/{extendRequest}/approve', [ExtendRequestController::class, 'approve'])
@@ -177,11 +230,36 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('work-planning/{workPlanning}/reject', [WorkPlanningController::class, 'reject'])
         ->name('work-planning.reject');
 
-    // FR-5.x Daily Work — daftar harian karyawan (materialize-on-view)
-    // + update status/lokasi item milik sendiri. Template/adhoc/team di Task 3.
+    // FR-5.x Daily Work - daftar harian karyawan (materialize-on-view)
+    // + update status/lokasi item milik sendiri.
     Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
     Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
         ->name('daily-work.update');
+    Route::post('daily-work/{dailyWork}/submit', [DailyWorkController::class, 'submit'])
+        ->name('daily-work.submit');
+    Route::post('daily-work/{dailyWork}/verify', [DailyWorkController::class, 'verify'])
+        ->name('daily-work.verify');
+    Route::post('daily-work/{dailyWork}/reject', [DailyWorkController::class, 'reject'])
+        ->name('daily-work.reject');
+    Route::get('daily-work/{dailyWork}/attachments/{index}', [DailyWorkController::class, 'attachment'])
+        ->name('daily-work.attachment');
+
+    // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
+    // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).
+    Route::get('daily-work/templates', [DailyWorkController::class, 'templatesIndex'])
+        ->name('daily-work.templates');
+    Route::post('daily-work/templates', [DailyWorkController::class, 'templateStore'])
+        ->name('daily-work.templates.store');
+    Route::patch('daily-work/templates/{template}', [DailyWorkController::class, 'templateUpdate'])
+        ->name('daily-work.templates.update');
+    Route::delete('daily-work/templates/{template}', [DailyWorkController::class, 'templateDestroy'])
+        ->name('daily-work.templates.destroy');
+    Route::post('daily-work/adhoc', [DailyWorkController::class, 'adhocStore'])
+        ->name('daily-work.adhoc.store');
+    Route::get('daily-work/team', [DailyWorkController::class, 'teamIndex'])
+        ->name('daily-work.team');
+    Route::get('daily-work/verification', [DailyWorkController::class, 'verificationIndex'])
+        ->name('daily-work.verification');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

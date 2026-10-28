@@ -623,9 +623,9 @@ export default function HodReviewPage({
 
                                 <Button
                                     type="submit"
-                                    disabled={reviewForm.processing}
+                                    disabled={scheduleForm.processing}
                                 >
-                                    {reviewForm.processing ? 'Menyimpan…' : 'Simpan Jadwal'}
+                                    {scheduleForm.processing ? 'Menyimpan…' : 'Simpan Jadwal'}
                                 </Button>
                             </form>
                         </section>

@@ -110,7 +110,8 @@ it('seeds daily work templates, today instances, and history', function () {
     expect(demoCount(DailyWorkTemplate::class))->toBe(4)
         ->and(demoCount(DailyWork::class))->toBeGreaterThanOrEqual(4)
         ->and(DailyWork::withoutGlobalScope('tenant')->whereDate('work_date', now()->toDateString())->where('source', 'adhoc')->count())->toBe(2)
-        ->and(DailyWork::withoutGlobalScope('tenant')->where('source', 'template')->whereNull('template_id')->count())->toBe(0);
+        // 2 instance verifikasi demo (Task 8): pending_verify Sari + done Rudi, sengaja template_id null.
+        ->and(DailyWork::withoutGlobalScope('tenant')->where('source', 'template')->whereNull('template_id')->count())->toBe(2);
 });
 
 it('seeds in-app notification history for the demo bell', function () {

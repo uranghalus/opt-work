@@ -875,6 +875,51 @@ class DemoSeeder extends Seeder
             );
         }
 
+        // Demo data verifikasi Daily Work — Task 8.
+        // Instance 1: pending_verify — Sari mengajukan verifikasi bukti patroli hari ini (muncul di inbox HOD).
+        $this->firstOrCreateDailyWork(
+            [
+                'employee_id' => $org['employees']['sari']->getKey(),
+                'work_date' => $today,
+                'source' => 'template',
+                'title' => 'Patroli & inspeksi area teknik — verifikasi bukti',
+                'template_id' => null,
+            ],
+            [
+                'description' => 'Patroli rutin pagi dan inspeksi semua area teknik. Dokumentasikan hasil dengan foto.',
+                'location' => 'Seluruh area teknik gedung utama',
+                'status' => 'pending_verify',
+                'proof_notes' => 'Sudah melakukan patroli umum dan inspeksi semua area teknik. Berikut bukti foto.',
+                'proof_attachments' => [],
+                'submitted_at' => $today->copy()->setTime(15, 0),
+                'done_at' => $today->copy()->setTime(15, 0),
+                'created_by' => null,
+            ],
+        );
+
+        // Instance 2: done — Rudi selesai cek genset kemarin, diverifikasi HOD Budi (contoh item terverifikasi).
+        $this->firstOrCreateDailyWork(
+            [
+                'employee_id' => $org['employees']['rudi']->getKey(),
+                'work_date' => $today->copy()->subDay(),
+                'source' => 'template',
+                'title' => 'Cek level bahan bakar genset — verifikasi selesai',
+                'template_id' => null,
+            ],
+            [
+                'description' => 'Cek level bahan bakar genset, pastikan tidak ada bocor, catat bacaan.',
+                'location' => 'Ruang genset lantai bawah',
+                'status' => 'done',
+                'proof_notes' => 'Level bahan bakar genset normal, tidak ada bocor.',
+                'proof_attachments' => [],
+                'submitted_at' => $today->copy()->subDay()->setTime(9, 0),
+                'done_at' => $today->copy()->subDay()->setTime(9, 0),
+                'verified_by' => $org['users']['budi']->getKey(),
+                'verified_at' => $today->copy()->subDay()->setTime(10, 0),
+                'created_by' => $org['users']['budi']->getKey(),
+            ],
+        );
+
         return $sariAdhoc;
     }
 

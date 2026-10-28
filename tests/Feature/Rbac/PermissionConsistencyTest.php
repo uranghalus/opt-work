@@ -104,27 +104,18 @@ function rbacForwardLookingPermissions(): array
 {
     return [
         // work-order — CRUD gating lands with the WO flow, same as the verbs below.
-        'work-order.create' => 'gated when the WO flow lands',
-        'work-order.update' => 'gated when the WO flow lands',
         'work-order.delete' => 'gated when the WO flow lands',
         // work-order workflow verbs — review/assign/submit/verify all
         // gated in WorkOrderController.
 
         // Master data — gated when master data moves from flags to permissions.
         'division.create' => 'gated when master data moves to permissions',
-        'division.read' => 'gated when master data moves to permissions',
         'division.update' => 'gated when master data moves to permissions',
         'division.delete' => 'gated when master data moves to permissions',
         'department.create' => 'gated when master data moves to permissions',
-        'department.read' => 'gated when master data moves to permissions',
         'department.update' => 'gated when master data moves to permissions',
         'department.delete' => 'gated when master data moves to permissions',
         'tenant.create' => 'gated when master data moves to permissions',
-        'tenant.read' => 'gated when master data moves to permissions',
-        'tenant.update' => 'gated when master data moves to permissions',
-        'tenant.delete' => 'gated when master data moves to permissions',
-        'tenant.create' => 'gated when master data moves to permissions',
-        'tenant.read' => 'gated when master data moves to permissions',
         'tenant.update' => 'gated when master data moves to permissions',
         'tenant.delete' => 'gated when master data moves to permissions',
 

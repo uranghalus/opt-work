@@ -19,6 +19,7 @@ use App\Services\WorkOrderRequestService;
 use App\Services\WorkOrderService;
 use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
+use App\WorkOrderJobStatus;
 use App\WorkOrderStatus;
 use App\WorkOrderTicketStatus;
 use Illuminate\Database\Eloquent\Collection;
@@ -863,7 +864,7 @@ class WorkOrderController extends Controller
             && $workOrderModel->requester_user_id === $user->getKey();
 
         $canCancelDuplicate = $user !== null
-            && $workOrderModel->status === WorkOrderStatus::WaitingHod
+            && $workOrderModel->status_tiket === WorkOrderTicketStatus::WaitingHod
             && $this->requestService->isTargetReviewer($user, $workOrderModel);
 
         $duplicateCandidates = ($canDecideRequest || $canCancelDuplicate)
@@ -894,9 +895,9 @@ class WorkOrderController extends Controller
             ? $this->workTimeLogService->logFor($workOrderModel, $myEmployeeId)
             : null;
 
-        $executionStage = in_array($workOrderModel->status, [
-            WorkOrderStatus::Assigned,
-            WorkOrderStatus::InProgress,
+        $executionStage = in_array($workOrderModel->status_pekerjaan, [
+            WorkOrderJobStatus::Assigned,
+            WorkOrderJobStatus::InProgress,
         ], true);
 
         $canAcceptTime = $isAssignee && $executionStage
@@ -925,7 +926,7 @@ class WorkOrderController extends Controller
 
         $canUpdatePlanning = $user !== null
             && $planning !== null
-            && $workOrderModel->status === WorkOrderStatus::Scheduled
+            && $workOrderModel->status_tiket === WorkOrderTicketStatus::Scheduled
             && ! $planning->isPending()
             && $user->can('work-planning.update');
 

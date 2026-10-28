@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderEvent;
 use App\Notifications\WorkOrderCreated;
-use App\WorkOrderStatus;
 use App\WorkOrderTicketStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -182,7 +181,6 @@ class WorkOrderRequestService
                 WorkOrderTicketStatus::Cancelled->value,
                 WorkOrderTicketStatus::RejectedByDept->value,
             ])
-            ->where('status', '!=', WorkOrderStatus::Draft->value)
             ->whereRaw('LOWER(TRIM(title)) = ?', [mb_strtolower(trim($workOrder->title))])
             ->where('created_at', '>=', now()->subDays(30))
             ->orderByDesc('created_at')

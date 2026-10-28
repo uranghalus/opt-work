@@ -15,7 +15,9 @@ use App\Notifications\WorkOrderRejected;
 use App\Notifications\WorkOrderReviewed;
 use App\Notifications\WorkOrderSubmitted;
 use App\Notifications\WorkOrderVerified;
+use App\WorkOrderJobStatus;
 use App\WorkOrderStatus;
+use App\WorkOrderTicketStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +46,8 @@ class WorkOrderService
                 'description' => $data['description'],
                 'attachments' => $attachments === [] ? null : $attachments,
                 'status' => WorkOrderStatus::WaitingHod->value,
+                'status_tiket' => WorkOrderTicketStatus::WaitingHod->value,
+                'status_pekerjaan' => null,
                 'requested_schedule_date' => $data['requested_schedule_date'] ?? null,
             ]);
 
@@ -85,12 +89,17 @@ class WorkOrderService
             }
 
             $to = $action === 'schedule' ? WorkOrderStatus::Scheduled : WorkOrderStatus::HodApproved;
+            $ticket = $action === 'schedule'
+                ? WorkOrderTicketStatus::Scheduled
+                : WorkOrderTicketStatus::HodApproved;
 
             $workOrder->update([
                 'hod_action' => $action,
                 'scheduled_date' => $data['scheduled_date'] ?? null,
                 'hod_notes' => $data['hod_notes'] ?? null,
                 'status' => $to,
+                'status_tiket' => $ticket->value,
+                'status_pekerjaan' => null,
             ]);
 
             // FR-2.4: planning row lahir bersama keputusan jadwal.
@@ -182,6 +191,8 @@ class WorkOrderService
                 'assigned_employees' => $employees->modelKeys(),
                 'assignment_notes' => $data['assignment_notes'] ?? null,
                 'status' => WorkOrderStatus::Assigned,
+                'status_tiket' => WorkOrderTicketStatus::HodApproved->value,
+                'status_pekerjaan' => WorkOrderJobStatus::Assigned->value,
                 'assigned_at' => $firstAssignment ? now() : $workOrder->assigned_at,
                 'deadline_date' => $firstAssignment
                     ? app(DeadlineCalculator::class)->calculate($workOrder->category, now())
@@ -251,6 +262,8 @@ class WorkOrderService
                 'result_notes' => $notes,
                 'result_attachments' => $attachments === [] ? null : $attachments,
                 'status' => WorkOrderStatus::PendingVerify->value,
+                'status_tiket' => null,
+                'status_pekerjaan' => WorkOrderJobStatus::PendingVerify->value,
             ]);
 
             WorkOrderEvent::record(
@@ -286,7 +299,11 @@ class WorkOrderService
                 abort(409, 'Work Order tidak dalam tahap verifikasi hasil.');
             }
 
-            $workOrder->update(['status' => WorkOrderStatus::Closed->value]);
+            $workOrder->update([
+                'status' => WorkOrderStatus::Closed->value,
+                'status_tiket' => WorkOrderTicketStatus::Closed->value,
+                'status_pekerjaan' => null,
+            ]);
 
             WorkOrderEvent::record(
                 $workOrder,
@@ -326,6 +343,8 @@ class WorkOrderService
 
             $workOrder->update([
                 'status' => WorkOrderStatus::Revision->value,
+                'status_tiket' => null,
+                'status_pekerjaan' => WorkOrderJobStatus::Revision->value,
                 'hod_notes' => $notes,
             ]);
 

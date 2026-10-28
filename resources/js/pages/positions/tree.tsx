@@ -1,10 +1,12 @@
 import { Head, router, usePage } from "@inertiajs/react";
+import type { InertiaConfig } from "@inertiajs/core";
 import {
     ChevronDown,
     ChevronRight,
     ExternalLink,
     ListTree,
     Minimize2,
+    RefreshCw,
     Search,
     SearchX,
     Users,
@@ -15,11 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRequiredTenant } from "@/lib/tenant";
-import type { InertiaConfig } from "@inertiajs/core";
-import { show as positionsShow } from "@/routes/positions";
-import { tree as treeIndex } from "@/routes/positions";
+import { cn } from "@/lib/utils";
+import {
+    show as positionsShow,
+    tree as treeRoute,
+} from "@/routes/positions";
 
 type DepartmentRef = {
     id: string;
@@ -50,9 +54,6 @@ type PageProps = {
     initialRoot?: string | null;
 };
 
-type LayoutProps = PageProps & InertiaConfig["sharedPageProps"];
-
-/** Focus ring for interactive elements — matches app standard. */
 const focusRing =
     "rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
@@ -81,7 +82,10 @@ function filterTree(nodes: PositionNode[], query: string): PositionNode[] {
             .map(walk)
             .filter((child): child is PositionNode => child !== null);
 
-        if (node.nama_position.toLowerCase().includes(q) || matchedChildren.length > 0) {
+        if (
+            node.nama_position.toLowerCase().includes(q) ||
+            matchedChildren.length > 0
+        ) {
             return { ...node, children: matchedChildren };
         }
 
@@ -99,6 +103,7 @@ function NodeRow({
     searching,
     tenant,
     onToggle,
+    onNavigate,
 }: {
     node: PositionNode;
     depth: number;
@@ -106,6 +111,7 @@ function NodeRow({
     searching: boolean;
     tenant: string;
     onToggle: (id: string) => void;
+    onNavigate: (id: string) => void;
 }) {
     const hasChildren = node.children.length > 0;
     const isOpen = expanded.has(node.id);
@@ -117,8 +123,7 @@ function NodeRow({
         <li role="none">
             <div
                 className={cn(
-                    "group flex items-start gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-surface-hover/60 sm:items-center",
-                    "min-h-11",
+                    "group flex items-start gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-surface-hover/60 sm:items-center min-h-11",
                 )}
             >
                 {/* Disclosure — touch target ≥44px, status diumumkan ke SR. */}
@@ -150,9 +155,20 @@ function NodeRow({
                 {/* Identitas jabatan. */}
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-sm leading-snug font-medium text-ink">
+                        <a
+                            href={detailUrl}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                onNavigate(node.id);
+                            }}
+                            aria-label={`Buka detail ${node.nama_position}`}
+                            className={cn(
+                                "text-sm leading-snug font-medium text-ink",
+                                "hover:text-ink hover:underline",
+                            )}
+                        >
                             {node.nama_position}
-                        </span>
+                        </a>
                         {node.level_label && (
                             <Badge
                                 variant="outline"
@@ -162,12 +178,14 @@ function NodeRow({
                             </Badge>
                         )}
                         {filled ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink">
                                 <Users aria-hidden className="size-3.5" />
                                 {node.employees_count} terisi
                             </span>
                         ) : (
-                            <Badge className="h-5 border border-danger-subtle bg-danger-subtle px-1.5 text-[11px] font-normal text-danger">
+                            <Badge
+                                className="h-5 border border-danger-subtle bg-danger-subtle px-1.5 text-[11px] font-normal text-danger"
+                            >
                                 Kosong
                             </Badge>
                         )}
@@ -183,21 +201,22 @@ function NodeRow({
                         ) : (
                             <span>Tanpa department</span>
                         )}
-                        {node.division && <span>· {node.division.nama_division}</span>}
+                        {node.division && <span> · {node.division.nama_division}</span>}
                     </div>
                 </div>
 
-                {/* Tautan detail — icon-only, wajib aria-label. */}
+                {/* Tautan detail — selalu terlihat, bukan hanya saat hover. */}
                 <a
                     href={detailUrl}
                     onClick={(e) => {
                         e.preventDefault();
-                        router.visit(detailUrl);
+                        onNavigate(node.id);
                     }}
                     aria-label={`Buka detail ${node.nama_position}`}
                     className={cn(
-                        "flex size-11 shrink-0 items-center justify-center rounded-full text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-ink",
+                        "flex size-11 shrink-0 items-center justify-center rounded-full text-ink-subtle",
                         focusRing,
+                        "hover:bg-surface-hover hover:text-ink",
                     )}
                 >
                     <ExternalLink aria-hidden className="size-4" />
@@ -220,6 +239,7 @@ function NodeRow({
                             searching={searching}
                             tenant={tenant}
                             onToggle={onToggle}
+                            onNavigate={onNavigate}
                         />
                     ))}
                 </ul>
@@ -230,9 +250,10 @@ function NodeRow({
 
 export default function PositionTree() {
     const tenant = useRequiredTenant("positions.tree");
-    const { rootPositions, initialRoot } = usePage<LayoutProps>().props;
+    const { rootPositions, initialRoot } = usePage<PageProps>().props;
 
     const [query, setQuery] = useState("");
+    const [navigating, setNavigating] = useState(false);
     const searching = query.trim().length > 0;
 
     const filtered = useMemo(
@@ -276,66 +297,111 @@ export default function PositionTree() {
         <>
             <Head title="Struktur Jabatan" />
 
-            {/* Toolbar — sticky seperti halaman Posisi. */}
-            <div className="sticky top-16 z-40 flex flex-col gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between lg:px-6">
-                <div className="relative w-full max-w-xs sm:max-w-md">
-                    <Search
-                        aria-hidden
-                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-subtle"
-                    />
-                    <label className="sr-only" htmlFor="tree-search">
-                        Cari jabatan
-                    </label>
-                    <Input
-                        id="tree-search"
-                        type="search"
-                        placeholder="Cari jabatan…"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="pl-9"
-                    />
+            <div className="space-y-5">
+                {/* Toolbar — sticky seperti halaman Posisi. */}
+                <div className="sticky top-16 z-40 flex flex-col gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between lg:px-6">
+                    <div className="relative w-full max-w-xs sm:max-w-md">
+                        <Search
+                            aria-hidden
+                            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-subtle"
+                        />
+                        <label className="sr-only" htmlFor="tree-search">
+                            Cari jabatan
+                        </label>
+                        <Input
+                            id="tree-search"
+                            type="search"
+                            placeholder="Cari jabatan…"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className="h-11 pl-9"
+                            disabled={navigating}
+                        />
+                        {query && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-1/2 right-2 h-10 w-10 -translate-y-1/2 text-ink-muted hover:text-ink"
+                                onClick={() => setQuery("")}
+                                aria-label="Bersihkan pencarian"
+                            >
+                                <SearchX className="size-4" />
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                                setExpanded(
+                                    collectIds(rootPositions, new Set<string>()),
+                                )}
+                            disabled={searching || isEmpty}
+                            aria-label="Perluas semua cabang hierarki"
+                            className={focusRing}
+                        >
+                            <ListTree aria-hidden className="size-4" />
+                            Perluas semua
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                                setExpanded(
+                                    new Set(
+                                        rootPositions.map((n) => n.id),
+                                    ),
+                                )}
+                            disabled={searching || isEmpty}
+                            aria-label="Ciutkan ke jabatan teratas"
+                            className={focusRing}
+                        >
+                            <Minimize2 aria-hidden className="size-4" />
+                            Ciutkan
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setNavigating(true);
+                                router.reload();
+                            }}
+                            disabled={navigating}
+                            aria-label="Muat ulang struktur jabatan"
+                            className={focusRing}
+                        >
+                            <RefreshCw
+                                aria-hidden
+                                className={cn("size-4", navigating && "animate-spin")}
+                            />
+                            Refresh
+                        </Button>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpanded(collectIds(rootPositions, new Set<string>([])))}
-                        disabled={searching || isEmpty}
-                        aria-label="Perluas semua cabang hierarki"
-                        className={focusRing}
-                    >
-                        <ListTree aria-hidden className="size-4" />
-                        Perluas semua
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpanded(new Set(rootPositions.map((n) => n.id)))}                        disabled={searching || isEmpty}
-                        aria-label="Ciutkan ke jabatan teratas"
-                        className={focusRing}
-                    >
-                        <Minimize2 aria-hidden className="size-4" />
-                        Ciutkan
-                    </Button>
-                </div>
-            </div>
-
-            <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 {/* Fokus deep-link dari detail jabatan. */}
                 {focusedRoot && (
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-soft bg-brand-soft/50 px-3 py-2 text-sm text-ink">
                         <span>
                             Menampilkan struktur dari{" "}
-                            <strong className="font-semibold">{focusedRoot.nama_position}</strong>
+                            <strong className="font-semibold">
+                                {focusedRoot.nama_position}
+                            </strong>
                         </span>
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => router.visit(treeIndex({ tenant }).url)}
+                            onClick={() => {
+                                setNavigating(true);
+                                router.visit(treeRoute({ tenant }).url);
+                            }}
                             aria-label="Tampilkan seluruh struktur jabatan"
                             className={cn(focusRing, "h-8 gap-1 px-2 text-xs")}
                         >
@@ -345,7 +411,14 @@ export default function PositionTree() {
                     </div>
                 )}
 
-                {isEmpty ? (
+                {/* Konten: Empty / Skeleton / Tree */}
+                {navigating && rootPositions.length > 0 ? (
+                    <div className="flex flex-col gap-3" aria-busy="true">
+                        {[...Array(3)].map((_, i) => (
+                            <Skeleton key={i} className="h-36 rounded-xl" />
+                        ))}
+                    </div>
+                ) : isEmpty ? (
                     <EmptyState
                         icon={ListTree}
                         title="Belum ada struktur jabatan"
@@ -373,6 +446,13 @@ export default function PositionTree() {
                                     searching={searching}
                                     tenant={tenant}
                                     onToggle={toggle}
+                                    onNavigate={(id) =>
+                                        router.visit(
+                                            positionsShow({
+                                                tenant,
+                                                position: id,
+                                            }).url,
+                                        )}
                                 />
                             ))}
                         </ul>
@@ -384,7 +464,11 @@ export default function PositionTree() {
 }
 
 PositionTree.layout = {
-    breadcrumbs: [{ title: "Data Master" }, { title: "Position" }, { title: "Struktur Jabatan" }],
+    breadcrumbs: [
+        { title: "Data Master" },
+        { title: "Posisi" },
+        { title: "Struktur Jabatan" },
+    ],
     title: "Struktur Jabatan",
     description:
         "Hierarki jabatan organisasi — perluas cabang untuk melihat bawahan, kekosongan, dan penempatan.",

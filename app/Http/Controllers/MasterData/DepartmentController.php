@@ -11,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,6 +44,8 @@ class DepartmentController extends Controller
 
     public function index(): Response
     {
+        Gate::authorize('department.read');
+
         $tenant = tenant();
 
         $departments = Department::query()
@@ -136,6 +139,8 @@ class DepartmentController extends Controller
 
     public function show(Request $request): Response
     {
+        Gate::authorize('department.read');
+
         $department = $this->resolveDepartmentFromRoute($request);
 
         return Inertia::render('departments/show', [

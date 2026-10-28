@@ -13,6 +13,7 @@ use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,6 +36,8 @@ class TenantController extends Controller
 
     public function index(Request $request): Response
     {
+        Gate::authorize('tenant.read');
+
         $search = $request->string('search')->toString();
         $status = $request->query('status', 'all');
 
@@ -63,6 +66,8 @@ class TenantController extends Controller
 
     public function show(Tenant $tenant): Response
     {
+        Gate::authorize('tenant.read');
+
         return Inertia::render('tenants/show', [
             'branch' => $tenant,
             'usage' => $this->usageCounts($tenant->id),

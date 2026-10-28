@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,6 +18,8 @@ class DivisionController extends Controller
 {
     public function index(): Response
     {
+        Gate::authorize('division.read');
+
         $tenant = tenant();
 
         $divisions = Division::query()
@@ -50,6 +53,8 @@ class DivisionController extends Controller
 
     public function show(Request $request): Response
     {
+        Gate::authorize('division.read');
+
         $division = $this->resolveDivisionFromRoute($request);
 
         return Inertia::render('divisions/show', [

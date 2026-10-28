@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import React from 'react';
-import { assign } from '@/routes/work-orders';
+import { assignSubmit } from '@/routes/work-orders';
 import { WorkflowStepper } from '@/components/workflow/WorkflowStepper';
 import {
     StatusBadge,
@@ -67,7 +67,7 @@ export default function AssignPage({
     workOrder,
     employees,
 }: PageProps): React.ReactElement {
-    const tenant = useRequiredTenant('work-orders.assign');
+    const tenant = useRequiredTenant('work-orders.assign-submit');
 
     const assignForm = useForm<{
         employees: string[];
@@ -82,7 +82,7 @@ export default function AssignPage({
     const submitAssign = (event: React.FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
         assignForm.post(
-            assign({ tenant, workOrder: workOrder.id }).url,
+            assignSubmit({ tenant, workOrder: workOrder.id }).url,
             {
                 preserveScroll: true,
             },

@@ -42,18 +42,21 @@ class DailyWorkService
                     continue;
                 }
 
-                DailyWork::query()->firstOrCreate(
-                    [
+                $existing = DailyWork::query()
+                    ->where('template_id', $template->getKey())
+                    ->whereDate('work_date', $date->toDateString())
+                    ->first();
+
+                if (! $existing) {
+                    DailyWork::query()->create([
                         'template_id' => $template->getKey(),
                         'work_date' => $date->toDateString(),
-                    ],
-                    [
                         'employee_id' => $employee->getKey(),
                         'title' => $template->title,
                         'description' => $template->description,
                         'source' => 'template',
-                    ],
-                );
+                    ]);
+                }
             }
         });
     }

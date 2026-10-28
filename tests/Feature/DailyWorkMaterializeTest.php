@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\DailyWorkService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Task 2 — Materialize-on-view: item template aktif di-upsert idempoten
@@ -62,15 +63,22 @@ it('materializes monday-to-friday templates on monday but not saturday', functio
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('daily-work/index')
-            ->where('dailyWork.meta.total', 1)
+            ->where('dailyWork.total', 1)
             ->where('dailyWork.data.0.source', 'template'));
 
     $this->actingAs($user)->get('/hq/daily-work?date=2026-10-31') // Sabtu
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('dailyWork.meta.total', 0));
+        ->assertInertia(fn ($page) => $page->where('dailyWork.total', 0));
 
-    expect(DailyWork::where('work_date', '2026-10-26')->count())->toBe(1)
-        ->and(DailyWork::where('work_date', '2026-10-31')->count())->toBe(0);
+    DB::table('daily_works')->insertUsing(
+        ['employee_id', 'work_date', 'title', 'description', 'source', 'template_id', 'tenant_id'],
+        DB::table('daily_works')
+            ->select('employee_id', 'work_date', 'title', 'description', 'source', 'template_id', 'tenant_id')
+            ->where('work_date', '2026-10-26')
+    );
+
+    expect(DailyWork::whereDate('work_date', '2026-10-26')->count())->toBe(1)
+        ->and(DailyWork::whereDate('work_date', '2026-10-31')->count())->toBe(0);
 });
 
 it('skips inactive templates for new dates', function () {
@@ -78,7 +86,7 @@ it('skips inactive templates for new dates', function () {
 
     $this->actingAs($user)->get('/hq/daily-work?date=2026-10-26')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('dailyWork.meta.total', 0));
+        ->assertInertia(fn ($page) => $page->where('dailyWork.total', 0));
 });
 
 it('never overwrites progress on re-materialize', function () {
@@ -87,14 +95,14 @@ it('never overwrites progress on re-materialize', function () {
     $this->actingAs($user)->get('/hq/daily-work?date=2026-10-26')->assertOk();
 
     $instance = DailyWork::where('employee_id', $employee->getKey())
-        ->where('work_date', '2026-10-26')->firstOrFail();
+        ->whereDate('work_date', '2026-10-26')->firstOrFail();
     $instance->update(['status' => 'done', 'location' => 'Ruang Server', 'done_at' => now()]);
 
     // Buka daftar yang sama lagi — materialize jalan lagi, progres tetap.
     $this->actingAs($user)->get('/hq/daily-work?date=2026-10-26')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('dailyWork.meta.total', 1)
+            ->where('dailyWork.total', 1)
             ->where('dailyWork.data.0.status', 'done')
             ->where('dailyWork.data.0.location', 'Ruang Server'));
 });
@@ -109,7 +117,7 @@ it('keeps history when the template is deleted', function () {
     app(DailyWorkService::class)->materializeFor($employee->fresh(), CarbonImmutable::parse('2026-10-26'));
 
     $instance = DailyWork::where('employee_id', $employee->getKey())
-        ->where('work_date', '2026-10-26')->firstOrFail();
+        ->whereDate('work_date', '2026-10-26')->firstOrFail();
     expect($instance->source)->toBe('template')
         ->and($instance->template_id)->toBeNull();
 });
@@ -122,7 +130,7 @@ it('renders an empty list safely for a user without linked employee', function (
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('daily-work/index')
-            ->where('dailyWork.meta.total', 0)
+            ->where('dailyWork.total', 0)
             ->where('can_update', false));
 });
 
@@ -146,5 +154,5 @@ it('does not leak other tenants daily works', function () {
 
     $this->actingAs($user)->get('/hq/daily-work?date=2026-10-26')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('dailyWork.meta.total', 0));
+        ->assertInertia(fn ($page) => $page->where('dailyWork.total', 0));
 });

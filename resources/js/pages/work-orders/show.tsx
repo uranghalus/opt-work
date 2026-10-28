@@ -17,7 +17,7 @@ import {
     UserCheck,
 } from 'lucide-react';
 import { show as showAttachment } from '@/routes/work-orders/attachments';
-import { assign, reject, review, submit, verify } from '@/routes/work-orders';
+import { assignSubmit, reject, review, submit, verifySubmit } from '@/routes/work-orders';
 import {
     approve as approveRequestAction,
     cancel as cancelRequestAction,
@@ -1058,7 +1058,7 @@ function AssignPanel({
     employees: EmployeeOption[];
     isRevision: boolean;
 }) {
-    const tenant = useRequiredTenant('work-orders.assign');
+    const tenant = useRequiredTenant('work-orders.assign-submit');
 
     const form = useForm<{
         employees: string[];
@@ -1095,7 +1095,7 @@ function AssignPanel({
                 className="space-y-4"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.post(assign({ tenant, workOrder: workOrderId }).url, {
+                    form.post(assignSubmit({ tenant, workOrder: workOrderId }).url, {
                         preserveScroll: true,
                         onSuccess: () => form.reset(),
                     });
@@ -1271,7 +1271,7 @@ function SubmitPanel({ workOrderId }: { workOrderId: string }) {
  * the read-only "Hasil Pekerjaan" section.
  */
 function VerifyPanel({ workOrderId }: { workOrderId: string }) {
-    const tenant = useRequiredTenant('work-orders.verify');
+    const tenant = useRequiredTenant('work-orders.verify-submit');
 
     const approveForm = useForm({});
     const rejectForm = useForm<{ revision_notes: string }>({
@@ -1299,7 +1299,7 @@ function VerifyPanel({ workOrderId }: { workOrderId: string }) {
                 description="Tindakan ini akan menutup WO secara permanen dan tidak dapat dibatalkan."
                 confirmLabel="Ya, tutup WO"
                 cancelLabel="Batal"
-                onConfirm={() => approveForm.post(verify({ tenant, workOrder: workOrderId }).url, { preserveScroll: true })}
+                onConfirm={() => approveForm.post(verifySubmit({ tenant, workOrder: workOrderId }).url, { preserveScroll: true })}
                 processing={approveForm.processing}
             >
                 <Button type="button" onClick={() => setApproveOpen(true)} disabled={approveForm.processing}>

@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import React from 'react';
-import { verify } from '@/routes/work-orders';
+import { verifySubmit } from '@/routes/work-orders';
 import { WorkflowStepper } from '@/components/workflow/WorkflowStepper';
 import {
     StatusBadge,
@@ -103,7 +103,7 @@ VerifyPage.layout = {
 export default function VerifyPage({
     workOrder,
 }: PageProps): React.ReactElement {
-    const tenant = useRequiredTenant('work-orders.verify');
+    const tenant = useRequiredTenant('work-orders.verify-submit');
 
     const steps = [
         { ...VERIFY_STEPS[0] },
@@ -136,7 +136,7 @@ export default function VerifyPage({
         }
 
         verifyForm.post(
-            verify({ tenant, workOrder: workOrder.id }).url,
+            verifySubmit({ tenant, workOrder: workOrder.id }).url,
             {
                 preserveScroll: true,
                 onSuccess: () => verifyForm.reset(),

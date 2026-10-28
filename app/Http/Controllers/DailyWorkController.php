@@ -45,8 +45,8 @@ class DailyWorkController extends Controller
         }
 
         $dailyWork = DailyWork::query()
-            ->when($employee !== null, fn ($query) => $query->where('employee_id', $employee->getKey()))
-            ->where('work_date', $date->toDateString())
+            ->when($employee !== null, fn ($query) => $query->where('employee_id', (string) $employee->getKey()))
+            ->whereDate('work_date', $date)
             ->when($validated['search'] ?? null, fn ($query, $search) => $query->where('title', 'like', "%{$search}%"))
             ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('created_at')
@@ -98,7 +98,6 @@ class DailyWorkController extends Controller
 
         return redirect()->route('daily-work.index', [
             'tenant' => tenant()?->code,
-            'date' => $dailyWork->work_date->toDateString(),
         ]);
     }
 }

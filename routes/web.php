@@ -177,11 +177,11 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
     Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
-        ->name('work-orders.assign');
+        ->name('work-orders.assign-submit');
     Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
         ->name('work-orders.submit');
     Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
-        ->name('work-orders.verify');
+        ->name('work-orders.verify-submit');
     Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
         ->name('work-orders.reject');
 

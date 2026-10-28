@@ -12,7 +12,7 @@ type EchoLike = {
                 nomor_wo?: string;
             }) => void,
         ) => void;
-        leave: () => void;
+        unsubscribe: () => void;
     };
 };
 
@@ -47,7 +47,7 @@ export function RealtimeNotifications() {
         });
 
         return () => {
-            channel.leave();
+            channel.unsubscribe();
         };
     }, [userId]);
 

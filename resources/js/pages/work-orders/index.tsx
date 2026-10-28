@@ -425,30 +425,6 @@ export default function WorkOrders({ workOrders }: PageProps) {
                     />
                 </div>
 
-                {/* Filter toolbar: open button + active filter chips */}
-                <div className="flex items-center justify-between gap-2">
-                    <DialogTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOpenFilter(true)}
-                            className={cn(
-                                'flex items-center gap-1.5',
-                                activeFilters > 0 && 'bg-accent text-accent-foreground',
-                            )}
-                        >
-                            <Filter aria-hidden className="size-4" />
-                            {activeFilters > 0 ? (
-                                <span className="font-medium">
-                                    Filter ({activeFilters})
-                                </span>
-                            ) : (
-                                <span className="font-medium">Filter</span>
-                            )}
-                        </Button>
-                    </DialogTrigger>
-                </div>
-
                 {workOrders.data.length === 0 ? (
                     <div className="rounded-2xl border border-border bg-card p-12 text-center">
                         <p className="text-ink-muted mb-6">
@@ -476,6 +452,18 @@ export default function WorkOrders({ workOrders }: PageProps) {
 
                 {/* Filter modal */}
                 <Dialog open={openFilter} onOpenChange={setOpenFilter}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={() => setOpenFilter(true)}>
+                            <Filter aria-hidden className="size-4" />
+                            {activeFilters > 0 ? (
+                                <span className="font-medium">
+                                    Filter ({activeFilters})
+                                </span>
+                            ) : (
+                                <span className="font-medium">Filter</span>
+                            )}
+                        </Button>
+                    </DialogTrigger>
                     <DialogContent className="sm:max-w-md p-6">
                         <DialogHeader>
                             <DialogTitle>Filter Work Order</DialogTitle>

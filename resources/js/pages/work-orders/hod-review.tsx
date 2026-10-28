@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import React from 'react';
-import { assign, review } from '@/routes/work-orders';
+import { assignSubmit, review } from '@/routes/work-orders';
 import { WorkflowStepper } from '@/components/workflow/WorkflowStepper';
 import { CategoryBadge } from '@/components/category-badge';
 import {
@@ -129,7 +129,7 @@ export default function HodReviewPage({
     const submitAssign = (event: React.FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
         assignForm.post(
-            assign({ tenant, workOrder: workOrder.id }).url,
+            assignSubmit({ tenant, workOrder: workOrder.id }).url,
             {
                 preserveScroll: true,
             },

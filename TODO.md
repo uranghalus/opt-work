@@ -572,3 +572,19 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 - tests/Feature/NotificationTest.php ‚Üê 2026-10-10: tenants table required-field fix
 - tests/Support/ProbeTenantContext.php ‚Üê 2026-10-10: removed v3-era helpers, declared statics
 - tests/Pest.php (createTestTenant, initTenant helpers)
+
+---
+
+## Task 10 ó WO Flow Alignment: edit/update/destroy (2026-10-28) ó DONE, commit d9ee29b
+
+- routes/web.php: work-orders resource penuh (index, create, store, show, edit, update, destroy)
+- app/Http/Controllers/WorkOrderController.php: + edit()/update()/destroy(), gated work-order.update / work-order-delete
+- app/Http/Requests/WorkOrder/UpdateWorkOrderRequest.php (baru)
+- app/Services/WorkOrderRequestService.php + app/Services/WorkTimeLogService.php + app/Models/WorkTimeLog.php (baru ó dependensi yang di-drop, controller butuhnya untuk di-instansiasi)
+- database/migrations/2026_10_28_000001_add_released_at_to_work_orders_table.php (baru ó kolom released_at + request_rejection_reason yang model sudah asumsikan)
+- resources/js/pages/work-orders/Edit.tsx (baru ó form terisi awal, PUT ke work-orders.update, title 'Edit - {nomor_wo}')
+- tests/Feature/WorkOrderEditTest.php (baru, 8 test lulus)
+- tests/Feature/WorkOrderTest.php + PermissionConsistencyTest.php (assert rute flip ke true; update/delete keluar dari forward-looking allowlist)
+- Perbaikan R1-R3 (tersebut di progress.md): migration released_at, pulihkan WorkOrderRequestService, fix show() status_tiket
+- Verifikasi: WorkOrderEditTest 8/8 lulus; tsc exit 2 = 12 error baseline (tidak ada baru); npm run build exit 2 (baseline ts errors, tidak ada baru); pint --dirty --format agent bersih
+- TERTINGAL pre-existing (bukan Task 10): WorkOrderTest create/index (test belum grant work-order.create/read; disk s3 vs fake), WorkOrderExtendTest/SubmitTest/VisibilityTest error sama baseline

@@ -176,15 +176,71 @@ class WorkOrderController extends Controller
             ->all();
 
         return Inertia::render('work-orders/timeline', [
-            'events' => $events,
-            'totalScheduled' => count($events),
+            'weekStart' => $start->toDateString(),
+            'weekEnd' => $end->copy()->subDay()->toDateString(),
+            'weekLabel' => $start->format('d M') . ' – ' . $end->copy()->subDay()->format('d M Y'),
             'today' => Carbon::today()->toDateString(),
-            'range' => [
-                'start' => $start->toDateString(),
-                'end' => $end->toDateString(),
-                'view' => $view,
-            ],
+            'isCurrentWeek' => $start->isSameWeek(Carbon::today()),
+            'prevWeek' => $start->copy()->subWeek()->toDateString(),
+            'nextWeek' => $end->toDateString(),
+            'totalScheduled' => count($events),
+            'days' => $this->buildTimelineDays($start, $end, $workOrders),
         ]);
+    }
+
+    /**
+     * Build day-grouped timeline data for the full week grid.
+     *
+     * Groups work orders by scheduled_date and pads each calendar day
+     * (Monday–Sunday) with an empty workOrders array so the grid always
+     * renders seven columns.
+     */
+    private function buildTimelineDays(Carbon $start, Carbon $end, Collection $workOrders): array
+    {
+        $grouped = $workOrders->groupBy(fn (WorkOrder $wo) => $wo->scheduled_date->toDateString());
+        $today = Carbon::today()->toDateString();
+
+        $dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+
+        $days = [];
+        $cursor = $start->copy();
+        while ($cursor->lt($end)) {
+            $date = $cursor->toDateString();
+            $dayOfWeek = (int) $cursor->format('N') - 1; // 0 = Monday
+
+            $days[] = [
+                'date' => $date,
+                'dayName' => $dayNames[$dayOfWeek],
+                'dayNumber' => (int) $cursor->format('j'),
+                'monthName' => $monthNames[(int) $cursor->format('n')],
+                'isToday' => $date === $today,
+                'workOrders' => ($grouped->get($date) ?? collect())->map(function (WorkOrder $wo): array {
+                    [$deadlineState, $deadlineLabel] = $this->deadlineState($wo);
+
+                    return [
+                        'id' => $wo->getKey(),
+                        'nomor_wo' => $wo->nomor_wo,
+                        'title' => $wo->title,
+                        'status' => $wo->status->value,
+                        'category' => $wo->category->value,
+                        'deadline_date' => $wo->deadline_date?->toDateString(),
+                        'deadline_state' => $deadlineState,
+                        'deadline_label' => $deadlineLabel,
+                        'requester_name' => $wo->requester?->name,
+                        'department_name' => $wo->targetDepartment?->nama_department,
+                    ];
+                })->values()->all(),
+            ];
+
+            $cursor->addDay();
+        }
+
+        return $days;
     }
 
     /**

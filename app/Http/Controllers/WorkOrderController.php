@@ -40,6 +40,8 @@ class WorkOrderController extends Controller
 
     public function index(Request $request): Response
     {
+        Gate::authorize('work-order.read');
+
         $user = $request->user();
 
         $validated = $request->validate([
@@ -293,6 +295,8 @@ class WorkOrderController extends Controller
 
     public function create(): Response
     {
+        Gate::authorize('work-order.create');
+
         return Inertia::render('work-orders/create', [
             'departments' => Department::query()
                 ->where('is_active', true)
@@ -304,6 +308,8 @@ class WorkOrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        Gate::authorize('work-order.create');
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
@@ -498,6 +504,8 @@ class WorkOrderController extends Controller
      */
     public function updateRequest(UpdateWorkOrderRequest $request): RedirectResponse
     {
+        Gate::authorize('work-order.update');
+
         $workOrder = WorkOrder::query()
             ->where('id', $request->route('workOrder'))
             ->firstOrFail();

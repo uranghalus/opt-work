@@ -437,9 +437,9 @@ it('registers only the work order routes backed by controller methods', function
         ->and(Route::has('work-orders.show'))->toBeTrue()
         ->and(Route::has('work-orders.timeline'))->toBeTrue()
         ->and(Route::has('work-orders.assign'))->toBeTrue()
-        ->and(Route::has('work-orders.edit'))->toBeFalse()
-        ->and(Route::has('work-orders.update'))->toBeFalse()
-        ->and(Route::has('work-orders.destroy'))->toBeFalse();
+        ->and(Route::has('work-orders.edit'))->toBeTrue()
+        ->and(Route::has('work-orders.update'))->toBeTrue()
+        ->and(Route::has('work-orders.destroy'))->toBeTrue();
 });
 
 it('passes the WO event history on the detail page', function () {

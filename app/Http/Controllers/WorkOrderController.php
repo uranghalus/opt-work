@@ -20,6 +20,7 @@ use App\Services\WorkOrderService;
 use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
+use App\WorkOrderTicketStatus;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -353,6 +354,54 @@ class WorkOrderController extends Controller
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
             ->with('success', 'Work Order '.$workOrder->nomor_wo.' berhasil dibuat.');
+    }
+
+    public function edit(Request $request): Response
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.update', $workOrder);
+
+        return Inertia::render('work-orders/edit', [
+            'workOrder' => $workOrder,
+            'departments' => Department::query()
+                ->where('is_active', true)
+                ->orderBy('nama_department')
+                ->get(['id', 'nama_department']),
+            'categories' => WorkOrderCategory::options(),
+        ]);
+    }
+
+    public function update(UpdateWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.update', $workOrder);
+
+        $workOrder->update($request->validated());
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' diperbarui.');
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.delete', $workOrder);
+
+        $workOrder->delete();
+
+        return redirect()
+            ->route('work-orders.index', ['tenant' => tenant()?->code])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' dihapus.');
     }
 
     public function review(ReviewWorkOrderRequest $request): RedirectResponse
@@ -798,19 +847,19 @@ class WorkOrderController extends Controller
         // ADR-0011: gerbang approval — mirror server-side untuk panel
         // frontend (keputusan tetap dipaksa ulang di service).
         $canDecideRequest = $user !== null
-            && $workOrderModel->status === WorkOrderStatus::PendingDeptApproval
+            && $workOrderModel->status_tiket === WorkOrderTicketStatus::PendingDeptApproval
             && $this->requestService->isApprover($user, $workOrderModel);
 
         $canCancelRequest = $user !== null
-            && in_array($workOrderModel->status, [
-                WorkOrderStatus::PendingDeptApproval,
-                WorkOrderStatus::RejectedByDept,
+            && in_array($workOrderModel->status_tiket, [
+                WorkOrderTicketStatus::PendingDeptApproval,
+                WorkOrderTicketStatus::RejectedByDept,
             ], true)
             && ($workOrderModel->requester_user_id === $user->getKey()
                 || $this->requestService->isApprover($user, $workOrderModel));
 
         $canEditRequest = $user !== null
-            && $workOrderModel->status === WorkOrderStatus::RejectedByDept
+            && $workOrderModel->status_tiket === WorkOrderTicketStatus::RejectedByDept
             && $workOrderModel->requester_user_id === $user->getKey();
 
         $canCancelDuplicate = $user !== null

@@ -171,7 +171,7 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->middleware('permission:work-order.verify');
 
     Route::resource('work-orders', WorkOrderController::class)
-        ->only(['index', 'create', 'store', 'show'])
+        ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names('work-orders')
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])

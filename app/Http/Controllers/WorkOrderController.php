@@ -20,6 +20,7 @@ use App\Services\WorkOrderService;
 use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
 use App\WorkOrderStatus;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -931,6 +932,98 @@ class WorkOrderController extends Controller
             'can_start_time' => $canStartTime,
             'can_pause_time' => $canPauseTime,
             'can_resume_time' => $canResumeTime,
+        ]);
+    }
+
+    /**
+     * Load the Work Order and its target-department employees for a workflow page.
+     *
+     * The route carries a `{tenant}` parameter, so `ControllerDispatcher` splats
+     * all route parameters into the method — `WorkOrder $workOrder` route model
+     * binding would bind `{tenant}` to `$workOrder` instead of the model.
+     * Manual resolution mirrors the existing `show()` method.
+     *
+     * @return array{workOrder: WorkOrder, employees: Collection<Employee>}
+     */
+    private function loadWorkOrderAndEmployees(Request $request): array
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('work_order'))
+            ->firstOrFail();
+
+        $employees = Employee::query()
+            ->where('department_id', $workOrder->target_department_id)
+            ->orderBy('nama_employee')
+            ->get(['id', 'nama_employee']);
+
+        return compact('workOrder', 'employees');
+    }
+
+    /**
+     * HOD review page — render the HOD decision screen for a work order.
+     *
+     * Loads target department employees for the assign/review selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function hodReview(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.review', $workOrder);
+
+        return Inertia::render('work-orders/hod-review', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Assign page — render the employee assignment screen for a work order.
+     *
+     * Loads target department employees for selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function assignForm(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.assign', $workOrder);
+
+        return Inertia::render('work-orders/assign', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Submit results page — render the result submission screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showSubmitResults(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.submit', $workOrder);
+
+        return Inertia::render('work-orders/submit-results', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Verify page — render the HOD verification screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showVerify(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.verify', $workOrder);
+
+        return Inertia::render('work-orders/verify', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
         ]);
     }
 

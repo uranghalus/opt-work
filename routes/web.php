@@ -154,6 +154,22 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-orders/extend-approvals', [ExtendRequestController::class, 'approvals'])
         ->name('work-orders.extend-approvals');
 
+    // Dedicated GET page endpoints for the four WO workflow steps.
+    // Placed before the resource block so literal segments take precedence
+    // over the {workOrder} wildcard.
+    Route::get('work-orders/{work_order}/hod-review', [WorkOrderController::class, 'hodReview'])
+        ->name('work-orders.hod-review')
+        ->middleware('permission:work-order.review');
+    Route::get('work-orders/{work_order}/assign', [WorkOrderController::class, 'assignForm'])
+        ->name('work-orders.assign-form')
+        ->middleware('permission:work-order.assign');
+    Route::get('work-orders/{work_order}/submit-results', [WorkOrderController::class, 'showSubmitResults'])
+        ->name('work-orders.submit-results')
+        ->middleware('permission:work-order.submit');
+    Route::get('work-orders/{work_order}/verify', [WorkOrderController::class, 'showVerify'])
+        ->name('work-orders.verify-form')
+        ->middleware('permission:work-order.verify');
+
     Route::resource('work-orders', WorkOrderController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->names('work-orders')

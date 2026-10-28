@@ -1,4 +1,5 @@
 import {
+    BadgeCheck,
     Bell,
     Boxes,
     BriefcaseBusiness,
@@ -42,6 +43,7 @@ import {
     my as workOrdersMy,
     timeline as workOrdersTimeline,
 } from '@/routes/work-orders';
+import { verification as verificationRoute } from '@/routes/daily-work';
 import tenants from '@/routes/tenants';
 import type { InertiaConfig } from '@inertiajs/core';
 import type { NavItem } from '@/types';
@@ -77,6 +79,7 @@ export function navContext(props: InertiaConfig['sharedPageProps']): NavContext 
         canReadDivision: auth?.can?.['division.read'],
         canReadDepartment: auth?.can?.['department.read'],
         canReadTenant: auth?.can?.['tenant.read'],
+        canVerifyDailyWork: auth?.can?.['daily-work.verify'],
         canApproveRequests: auth?.can?.['work-order.approve-request'],
         hasEmployeeLink: auth?.user?.employee_id != null,
         canDecideExtends:
@@ -166,6 +169,10 @@ type NavContext = {
     canReadDepartment?: boolean;
     canReadTenant?: boolean;
     /**
+     * FR-6.2: Daily Work verification — `daily-work.verify`.
+     */
+    canVerifyDailyWork?: boolean;
+    /**
      * ADR-0011: Approval inbox — permintaan WO lintas-department dari
      * department pengaju, gated `can('work-order.approve-request')`.
      */
@@ -240,6 +247,7 @@ export function navGroups({
     canReadDivision = false,
     canReadDepartment = false,
     canReadTenant = false,
+    canVerifyDailyWork = false,
     canApproveRequests = false,
     hasEmployeeLink = false,
     canDecideExtends = false,
@@ -398,6 +406,20 @@ export function navGroups({
                               'Daily Work',
                           ),
                       ]),
+                ...(canVerifyDailyWork
+                    ? [
+                          tenantItem(
+                              {
+                                  title: 'Perlu Verifikasi',
+                                  shortTitle: 'Verifikasi',
+                                  icon: BadgeCheck,
+                                  tone: 'ops',
+                              },
+                              tenant,
+                              (t) => verificationRoute({ tenant: t }),
+                          ),
+                      ]
+                    : []),
                 ...(canManageDailyWork
                     ? [
                           tenantItem(

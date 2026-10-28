@@ -7,6 +7,7 @@ import {
     Circle,
     CircleDot,
     CheckCircle2,
+    Clock3,
     MapPin,
     RefreshCw,
     Search,
@@ -29,7 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useRequiredTenant } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
-import { team, index as dailyWorkIndex } from '@/routes/daily-work';
+import { team, index as dailyWorkIndex, verification as verificationRoute } from '@/routes/daily-work';
 
 /**
  * Pratinjau HOD (Task 3) — daftar harian satu karyawan bawahan pada satu
@@ -43,7 +44,7 @@ type DailyWorkItem = {
     title: string;
     description: string | null;
     location: string | null;
-    status: 'pending' | 'in_progress' | 'done';
+    status: 'pending' | 'in_progress' | 'pending_verify' | 'done';
     done_at: string | null;
     source: 'template' | 'adhoc';
     template_id: string | null;
@@ -70,6 +71,7 @@ type PageProps = {
 const STATUS_LABELS: Record<DailyWorkItem['status'], string> = {
     pending: 'Belum',
     in_progress: 'Proses',
+    pending_verify: 'Perlu verifikasi HOD/TL',
     done: 'Selesai',
 };
 
@@ -84,6 +86,10 @@ const STATUS_STYLES: Record<
     in_progress: {
         icon: CircleDot,
         badge: 'bg-info-subtle text-info border-transparent',
+    },
+    pending_verify: {
+        icon: Clock3,
+        badge: 'bg-warning-subtle text-warning-ink border-warning/30',
     },
     done: {
         icon: CheckCircle2,
@@ -340,6 +346,25 @@ export default function DailyWorkTeam({
                                                     minute: '2-digit',
                                                 })}
                                             </span>
+                                        )}
+                                        {item.status === 'pending_verify' && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        router.get(
+                                                            verificationRoute({
+                                                                tenant,
+                                                            }),
+                                                        )
+                                                    }
+                                                    className="text-xs"
+                                                >
+                                                    Lihat antrean verifikasi
+                                                </Button>
+                                            </div>
                                         )}
                                     </div>
                                 </CardContent>

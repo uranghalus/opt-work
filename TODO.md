@@ -632,3 +632,14 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 - tests/Feature/NotificationTest.php â† 2026-10-10: tenants table required-field fix
 - tests/Support/ProbeTenantContext.php â† 2026-10-10: removed v3-era helpers, declared statics
 - tests/Pest.php (createTestTenant, initTenant helpers)
+
+
+## Work Order Flow Alignment — Task 3: Halaman HOD Review (2026-10-28) — DONE
+- [x] resources/js/pages/work-orders/hod-review.tsx: mengganti stub Task 1 dengan halaman review HOD dedicated, format bergantung pada workOrder.status:
+    - waiting_hod: form keputusan — radio Eksekusi Langsung / Dijadwalkan (disembunyikan bila Urgent by Accident), input tanggal jadwal (conditional), multiselect karyawan department tujuan, textarea catatan HOD; submit POST ke work-orders.review via Inertia useForm.
+    - hod_approved: read-only Disetujui HOD + keputusan + tanggal jadwal + catatan + tim pelaksana, dengan opsi re-assign (checkbox karyawan, submit POST work-orders.assign).
+    - scheduled: read-only detail jadwal + opsi perbarui jadwal (submit POST work-orders.review dengan action schedule).
+- WorkflowStepper langkah 1 (Review HOD aktif) di atas form.
+- Urgent by Accident (category === accident): opsi jadwal tidak dirender, execute_immediately dipaksa di sisi klien (server tetap sumber kebenaran).
+- Wayfinder: review({ tenant, workOrder }).url / assign({ tenant, workOrder }).url; useRequiredTenant('work-orders.review').
+- Verifikasi: npx tsc --noEmit -> 0 error di hod-review.tsx (11 error pre-existing di file lain, identik baseline 57fe5cc); npm run build -> gagal pada baseline yang sama (duplikat const assignForm/const verifyForm hasil wayfinder:generate di file ter-commit), tidak disebabkan perubahan ini.

@@ -35,6 +35,12 @@ class EnsureTenantAccess
             abort(403);
         }
 
+        // Guest (zero permissions) cannot operate any tenant — even when a
+        // tenant_id happens to match, a guest holds no tenant-scoped rights.
+        if ($user->roles->isNotEmpty() && $user->roles->every(fn ($role) => $role->name === 'guest')) {
+            abort(403);
+        }
+
         return $next($request);
     }
 }

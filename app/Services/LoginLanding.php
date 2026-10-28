@@ -50,6 +50,11 @@ class LoginLanding
             return $this->deny('no_role');
         }
 
+        // Guest (zero permissions) cannot operate any tenant — provisioning-waiting.
+        if ($user->roles->every(fn ($role) => $role->name === 'guest')) {
+            return $this->deny('guest_provisioning');
+        }
+
         $tenant = $user->tenant_id
             ? Tenant::find($user->tenant_id)
             : null;

@@ -107,6 +107,7 @@ Route::prefix('saml')->group(function () {
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
             'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
+            'guest_provisioning' => 'Akun Anda hanya memiliki peran tamu dan belum memiliki akses ke unit bisnis. Minta administrator menambahkan peran.',
         ];
 
         $reason = session('saml.denial_reason');

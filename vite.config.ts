@@ -31,6 +31,13 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    // [DEBUG-cka] Dep dinamis halaman work-orders/timeline perlu dioptimasi
+    // eksplisit di saat server start: discovery on-demand di dev-pernah
+    // gagal diam-diam (lihat docs/audit/workorder-timeline-calendarkit-decisions.md
+    // catatan runtime), efeknya halaman tampil tanpa grid. Sengaja dipertahankan.
+    optimizeDeps: {
+        include: ['calendarkit-pro'],
+    },
     server: {
         watch: {
             ignored: [

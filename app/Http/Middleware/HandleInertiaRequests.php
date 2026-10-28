@@ -111,6 +111,8 @@ class HandleInertiaRequests extends Middleware
                     'daily-work.update' => (bool) ($user?->can('daily-work.update')),
                     'daily-work.create' => (bool) ($user?->can('daily-work.create')),
                     'daily-work.delete' => (bool) ($user?->can('daily-work.delete')),
+                    // Verifikasi bukti Daily Work — inbox "Perlu Verifikasi" (Task 5).
+                    'daily-work.verify' => (bool) ($user?->can('daily-work.verify')),
                     // WO slice 3: extend deadline WO telat (FR-2.3–2.5).
                     'work-order.extend' => (bool) ($user?->can('work-order.extend')),
                     'work-order.extend-approve' => (bool) ($user?->can('work-order.extend-approve')),

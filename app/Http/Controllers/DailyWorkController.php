@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\DailyWorkStatus;
 use App\Models\DailyWork;
 use App\Models\DailyWorkTemplate;
 use App\Models\Department;
@@ -9,6 +10,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Notifications\DailyWorkAssigned;
 use App\Services\DailyWorkService;
+use App\Services\DailyWorkVerifierScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -228,6 +230,57 @@ class DailyWorkController extends Controller
         abort_if(! Storage::disk('s3')->exists($path), 404);
 
         return redirect(Storage::disk('s3')->url($path));
+    }
+
+    /**
+     * Task 5 — inbox "Perlu Verifikasi": seluruh item pending_verify
+     * dalam scope verifikasi user (HOD/manager/TL satu-department/admin
+     * tenant). Antrean LINTAS tanggal (tanpa filter work_date), urut
+     * submitted_at desc.
+     */
+    public function verificationIndex(Request $request): Response
+    {
+        Gate::authorize('daily-work.verify');
+
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'employee_id' => ['nullable', 'uuid'],
+        ]);
+
+        $scope = app(DailyWorkVerifierScope::class);
+        $user = $request->user();
+
+        if (isset($validated['employee_id'])) {
+            // Karyawan di luar scope verifikasi tidak boleh disorot.
+            abort_unless($scope->verifiableEmployeeIds($user)->contains($validated['employee_id']), 403);
+        }
+
+        $verificationQueue = DailyWork::query()
+            ->whereIn('employee_id', $scope->verifiableEmployeeIds($user))
+            ->where('status', DailyWorkStatus::PendingVerify->value)
+            ->when($validated['search'] ?? null, fn ($query, $search) => $query->where('title', 'like', "%{$search}%"))
+            ->when($validated['employee_id'] ?? null, fn ($query, $employeeId) => $query->where('employee_id', $employeeId))
+            ->orderByDesc('submitted_at')
+            ->paginate(20)
+            ->withQueryString()
+            ->through(fn (DailyWork $work) => $this->verificationEntry($work));
+
+        // Dropdown filter karyawan — dalam scope verifikasi saja
+        // (limit 200 pola templatesIndex agar payload wajar).
+        $employees = Employee::query()
+            ->whereIn('id', $scope->verifiableEmployeeIds($user))
+            ->orderBy('nama_employee')
+            ->limit(200)
+            ->get(['id', 'nama_employee'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'nama_employee' => $employee->nama_employee,
+            ]);
+
+        return Inertia::render('daily-work/verification', [
+            'verificationQueue' => $verificationQueue,
+            'employees' => $employees,
+        ]);
     }
 
     /**
@@ -518,6 +571,36 @@ class DailyWorkController extends Controller
             'done_at' => $work->done_at?->toDateTimeString(),
             'source' => $work->source,
             'template_id' => $work->template_id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function verificationEntry(DailyWork $work): array
+    {
+        return [
+            'id' => $work->id,
+            'work_date' => $work->work_date->toDateString(),
+            'title' => $work->title,
+            'description' => $work->description,
+            'location' => $work->location,
+            'status' => $work->status,
+            'submitted_at' => $work->submitted_at?->toDateTimeString(),
+            'done_at' => $work->done_at?->toDateTimeString(),
+            'proof_notes' => $work->proof_notes,
+            'proof_attachments' => $work->proof_attachments ?? [],
+            'source' => $work->source,
+            'employee' => [
+                'id' => $work->employee?->id,
+                'nama_employee' => $work->employee?->nama_employee,
+            ],
+            'verification' => [
+                'verified_by_name' => $work->verifier?->name,
+                'verified_at' => $work->verified_at?->toDateTimeString(),
+                'rejected' => $work->rejected_at !== null,
+                'rejection_note' => $work->rejection_note,
+            ],
         ];
     }
 

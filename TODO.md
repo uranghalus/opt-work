@@ -69,7 +69,7 @@ Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0
 
 ---
 
-## Daily Work FR-5.x (2026-10-23 → 2026-10-24) — DONE (Task 1–5 selesai; sisa Task 6 vault sync)
+## Daily Work FR-5.x (2026-10-23 → 2026-10-24) — DONE (Task 1–6 selesai)
 
 Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetujui `.scratch/daily-work/design.md` (UI tanpa tabel, search+filter+paginasi wajib, shadcn) · ledger SDD `.superpowers/sdd/daily-work/progress.md`.
 
@@ -81,10 +81,10 @@ Sumber kebenaran: plan `.scratch/daily-work/plan.md` (6 task) · design disetuju
 - [x] **Task 4 — UI karyawan:** `daily-work/index.tsx` — card list (bukan tabel), navigasi tanggal prev/next/"Hari ini", search debounce 300ms + filter status (pola `employees/index.tsx`), aksi status 3 tombol (Belum/Proses/Selesai, aria-pressed) + input lokasi inline hanya bila `can_update`, paginasi server-side, EmptyState, Skeleton saat navigating.
 - [x] **Task 5 — UI HOD:** `daily-work/templates.tsx` (card grid template, dialog create/edit + weekday picker toggle 7 hari, filter karyawan/search/status-aktif, hapus via ConfirmDialog, tugas tambahan dialog → redirect team) + `daily-work/team.tsx` (preview harian bawahan, read-only). Nav: "Daily Work" (gated `daily-work.read`) + "Template Daily" (gated `daily-work.create`) menggantikan placeholder "Segera".
 
-### Sisa (Task 6 — bukan kode)
+### Selesai (termasuk Task 6)
 
-- [ ] Vault sync: catat sesi + ADR-lite keputusan (`daily-work.delete` verb, `whereDate` pola) — dijalankan sesi berikutnya.
-- [ ] `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete` belum di-grant ke role existing di DB dev — additive-only).
+- [x] Vault sync: catat sesi + ADR-lite keputusan (`daily-work.delete` verb, `whereDate` pola) — session log `Sessions/2026-10/23..24/`, `Sessions/2026-10/28/1000-vault-sync-daily-work.md`, changelog di-update.
+- [x] `php artisan app:grant-default-permissions` di dev DB — 2 izin baru (`daily-work.view`, `daily-work.verify`) diberikan ke admin_tenant/hod/team_leader; `daily-work.delete` sudah ter-grant pada semua role yang sepatutnya (idempoten).
 
 ---
 

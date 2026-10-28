@@ -197,7 +197,14 @@ class WorkOrderController extends Controller
     {
         $today = Carbon::today();
         $defaultStart = $today->copy()->startOfWeek(Carbon::MONDAY);
-        $allowedViews = ['dayGridWeek', 'dayGridMonth'];
+        $allowedViews = [
+            'day',
+            'week',
+            'month',
+            // Legacy FullCalendar buckets still echo correctly for old links.
+            'dayGridWeek',
+            'dayGridMonth',
+        ];
 
         $view = in_array($request->query('view'), $allowedViews, true)
             ? (string) $request->query('view')
@@ -258,7 +265,7 @@ class WorkOrderController extends Controller
     private function deadlineState(WorkOrder $workOrder): array
     {
         if ($workOrder->deadline_date === null) {
-            return ['on_track', 'On track'];
+            return ['on_track', 'Sesuai jadwal'];
         }
 
         // DateTime::diff() reports the magnitude in ->days and the direction in
@@ -280,7 +287,7 @@ class WorkOrderController extends Controller
         return match (true) {
             $daysUntil === 0 => ['due_soon', 'Deadline hari ini'],
             $daysUntil === 1 => ['due_soon', 'Deadline besok'],
-            default => ['on_track', 'On track'],
+            default => ['on_track', 'Sesuai jadwal'],
         };
     }
 

@@ -1,5 +1,6 @@
 import {
     Bell,
+    Boxes,
     BriefcaseBusiness,
     Building2,
     CalendarClock,
@@ -10,7 +11,6 @@ import {
     Hourglass,
     KeyRound,
     LayoutGrid,
-    LifeBuoy,
     ListChecks,
     ListTree,
     Network,
@@ -43,6 +43,7 @@ import {
     timeline as workOrdersTimeline,
 } from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
+import type { InertiaConfig } from '@inertiajs/core';
 import type { NavItem } from '@/types';
 
 /**
@@ -54,6 +55,33 @@ import type { NavItem } from '@/types';
  * fake URL.
  */
 export type NavTone = 'ops' | 'master' | 'system';
+
+/**
+ * Single translation point from the shared page props into nav gating
+ * flags (ADR-0004/ADR-0011): every navigation surface — sidebar, mobile
+ * sheet, future surfaces — must derive its NavContext through this helper
+ * so items never appear on one surface and vanish on another.
+ */
+export function navContext(props: InertiaConfig['sharedPageProps']): NavContext {
+    const auth = props.auth;
+
+    return {
+        activeTenant: props.activeTenant,
+        isSuperAdmin: auth?.isSuperAdmin,
+        canReadRoles: auth?.can?.['role.read'],
+        canReadPermissions: auth?.can?.['permission.read'],
+        canReadWorkData: auth?.can?.['work-data.read'],
+        canReadDailyWork: auth?.can?.['daily-work.read'],
+        canManageDailyWork: auth?.can?.['daily-work.create'],
+        canApproveRequests: auth?.can?.['work-order.approve-request'],
+        hasEmployeeLink: auth?.user?.employee_id != null,
+        canDecideExtends:
+            (auth?.can?.['work-order.extend-approve'] ?? false) ||
+            (auth?.isSuperAdmin ?? false) ||
+            (auth?.user?.roles?.includes('general_manager') ?? false) ||
+            (auth?.user?.roles?.includes('deputy_general_manager') ?? false),
+    };
+}
 
 /**
  * A renderable item: it has a destination.
@@ -229,7 +257,7 @@ export function navGroups({
             ? [
                   {
                       title: 'Unit Bisnis',
-                      icon: Building2,
+                      icon: Boxes,
                       tone: 'master',
                       href: tenants.index(),
                   } satisfies OptiNavItem,
@@ -263,20 +291,6 @@ export function navGroups({
                     tenant,
                     (t) => workOrdersIndex({ tenant: t }),
                 ),
-                ...(hasEmployeeLink
-                    ? [
-                          tenantItem(
-                              {
-                                  title: 'Tugasan Saya',
-                                  shortTitle: 'Tugas',
-                                  icon: Wrench,
-                                  tone: 'ops',
-                              },
-                              tenant,
-                              (t) => workOrdersMy({ tenant: t }),
-                          ),
-                      ]
-                    : []),
                 ...(hasEmployeeLink
                     ? [
                           tenantItem(
@@ -458,33 +472,6 @@ export function navGroups({
 
     return groups.filter((group) => group.items.length > 0);
 }
-
-/**
- * Flat primary navigation for the header tabs, the tablet menu, and the
- * icon rail: the operations group plus role-gated system entries.
- */
-export function mainNavItems(context: NavContext): OptiNavItem[] {
-    const groups = navGroups(context);
-    const ops = groups.find((group) => group.id === 'ops');
-    const access = groups.find((group) => group.id === 'access');
-    const system = groups.find((group) => group.id === 'system');
-
-    return [
-        ...(ops?.items ?? []),
-        ...(access?.items ?? []),
-        ...(system?.items ?? []),
-    ];
-}
-
-/** Footer utilities: help is not shipped yet, so it stays inert. */
-export const utilityNavItems: OptiNavItem[] = [
-    {
-        title: 'Bantuan',
-        icon: LifeBuoy,
-        disabled: true,
-        hint: 'Pusat bantuan segera hadir',
-    },
-];
 
 /** Mobile bottom bar entries (≤4 destinations; "Lainnya" holds the rest). */
 export function mobileNavItems(context: NavContext): OptiNavItem[] {

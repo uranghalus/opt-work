@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { BranchSwitcher } from '@/components/branch-switcher';
 import {
+    navContext,
     navGroups,
     navIcon,
     navToneStyles,
@@ -117,9 +118,11 @@ function PanelNavItem({
                             <span className="truncate group-data-[collapsible=icon]:hidden">
                                 {item.title}
                             </span>
-                            <span className="ms-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-wide text-panel-ink-subtle uppercase group-data-[collapsible=icon]:hidden">
-                                Segera
-                            </span>
+                        <span className="ms-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-wide text-panel-ink-subtle uppercase group-data-[collapsible=icon]:hidden">
+                            {item.hint?.startsWith('Pilih cabang')
+                                ? 'Pilih Cabang'
+                                : 'Segera'}
+                        </span>
                         </SidebarMenuButton>
                     </TooltipTrigger>
                     <TooltipContent side="right">
@@ -155,7 +158,12 @@ function PanelNavItem({
                         {item.title}
                     </span>
                     {item.badge === 'notifications' && badge > 0 && (
-                        <UnreadBadge count={badge} />
+                        <>
+                            <span className="sr-only">
+                                {`${badge} notifikasi belum dibaca`}
+                            </span>
+                            <UnreadBadge count={badge} />
+                        </>
                     )}
                 </Link>
             </SidebarMenuButton>
@@ -231,26 +239,10 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
 }
 
 export function AppSidebar() {
-    const { activeTenant, unreadNotificationsCount, auth } =
-        usePage<InertiaConfig['sharedPageProps']>().props;
+    const props = usePage<InertiaConfig['sharedPageProps']>().props;
     const { state } = useSidebar();
-    const groups = navGroups({
-        activeTenant,
-        isSuperAdmin: auth?.isSuperAdmin,
-        canReadRoles: auth?.can?.['role.read'],
-        canReadPermissions: auth?.can?.['permission.read'],
-        canReadWorkData: auth?.can?.['work-data.read'],
-        canReadDailyWork: auth?.can?.['daily-work.read'],
-        canManageDailyWork: auth?.can?.['daily-work.create'],
-        canApproveRequests: auth?.can?.['work-order.approve-request'],
-        hasEmployeeLink: auth?.user?.employee_id != null,
-        canDecideExtends:
-            (auth?.can?.['work-order.extend-approve'] ?? false) ||
-            (auth?.isSuperAdmin ?? false) ||
-            (auth?.user?.roles?.includes('general_manager') ?? false) ||
-            (auth?.user?.roles?.includes('deputy_general_manager') ?? false),
-    });
-    const unread = Number(unreadNotificationsCount ?? 0);
+    const groups = navGroups(navContext(props));
+    const unread = Number(props.unreadNotificationsCount ?? 0);
 
     return (
         <Sidebar
@@ -271,7 +263,7 @@ export function AppSidebar() {
                     />
                 </Link>
                 <BranchSwitcher variant="sidebar" />
-                <CreateWorkOrderButton tenant={activeTenant} />
+                <CreateWorkOrderButton tenant={props.activeTenant} />
             </SidebarHeader>
 
             <SidebarContent className="gap-1 overflow-x-hidden overflow-y-auto">

@@ -241,6 +241,8 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->name('daily-work.adhoc.store');
     Route::get('daily-work/team', [DailyWorkController::class, 'teamIndex'])
         ->name('daily-work.team');
+    Route::get('daily-work/verification', [DailyWorkController::class, 'verificationIndex'])
+        ->name('daily-work.verification');
 
     Route::get('divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::get('divisions/{division}', [DivisionController::class, 'show'])->name('divisions.show');

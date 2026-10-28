@@ -48,6 +48,7 @@ export type Auth = {
         'daily-work.update': boolean;
         'daily-work.create': boolean;
         'daily-work.delete': boolean;
+        'daily-work.verify': boolean;
     };
 };
 

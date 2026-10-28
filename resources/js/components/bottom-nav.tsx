@@ -3,6 +3,7 @@ import { Ellipsis, LogOut } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import {
     mobileNavItems,
+    navContext,
     navGroups,
     navIcon,
     navToneStyles,
@@ -28,7 +29,13 @@ import type { InertiaConfig } from '@inertiajs/core';
  * the navigation. Nothing without a route is rendered as a fake link.
  */
 
-function SheetNavRow({ item }: { item: OptiNavItem }) {
+function SheetNavRow({
+    item,
+    badge = 0,
+}: {
+    item: OptiNavItem;
+    badge?: number;
+}) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const Icon = navIcon(item);
     const tone = navToneStyles[item.tone ?? 'ops'];
@@ -61,7 +68,9 @@ function SheetNavRow({ item }: { item: OptiNavItem }) {
                 {icon}
                 {item.title}
                 <span className="ms-auto rounded-full bg-surface-sunken px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-wide text-ink-subtle uppercase">
-                    Segera
+                    {item.hint?.startsWith('Pilih cabang')
+                        ? 'Pilih Cabang'
+                        : 'Segera'}
                 </span>
             </span>
         );
@@ -77,37 +86,34 @@ function SheetNavRow({ item }: { item: OptiNavItem }) {
             >
                 {icon}
                 <span className="truncate">{item.title}</span>
+                {item.badge === 'notifications' && badge > 0 && (
+                    <>
+                        <span className="sr-only">
+                            {`${badge} notifikasi belum dibaca`}
+                        </span>
+                        <span className="ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-[0.6875rem] leading-none font-semibold text-brand tabular-nums">
+                            {badge > 99 ? '99+' : badge}
+                        </span>
+                    </>
+                )}
             </Link>
         </SheetClose>
     );
 }
 
 export function BottomNav() {
-    const { activeTenant, auth, name, tenants } =
-        usePage<InertiaConfig['sharedPageProps']>().props;
+    const props = usePage<InertiaConfig['sharedPageProps']>().props;
+    const { activeTenant, auth, name, tenants } = props;
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const tenantsArray = Array.isArray(tenants) ? tenants : [];
+    const navCtx = navContext(props);
     const tenantLabel =
         tenantsArray.find(
             (item) => item.code === activeTenant || item.id === activeTenant,
         )?.name ?? activeTenant;
-    const items = mobileNavItems({ activeTenant });
-    const groups = navGroups({
-        activeTenant,
-        isSuperAdmin: auth?.isSuperAdmin,
-        canReadRoles: auth?.can?.['role.read'],
-        canReadPermissions: auth?.can?.['permission.read'],
-        canReadWorkData: auth?.can?.['work-data.read'],
-        canReadDailyWork: auth?.can?.['daily-work.read'],
-        canManageDailyWork: auth?.can?.['daily-work.create'],
-        canApproveRequests: auth?.can?.['work-order.approve-request'],
-        hasEmployeeLink: auth?.user?.employee_id != null,
-        canDecideExtends:
-            (auth?.can?.['work-order.extend-approve'] ?? false) ||
-            (auth?.isSuperAdmin ?? false) ||
-            (auth?.user?.roles?.includes('general_manager') ?? false) ||
-            (auth?.user?.roles?.includes('deputy_general_manager') ?? false),
-    });
+    const items = mobileNavItems(navCtx);
+    const groups = navGroups(navCtx);
+    const unread = Number(props.unreadNotificationsCount ?? 0);
 
     return (
         <nav
@@ -190,6 +196,7 @@ export function BottomNav() {
                                             <SheetNavRow
                                                 key={item.title}
                                                 item={item}
+                                                badge={unread}
                                             />
                                         ))}
                                     </div>

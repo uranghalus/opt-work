@@ -36,7 +36,7 @@ function NotificationButton() {
             variant="ghost"
             size="icon"
             asChild
-            className="relative size-9 cursor-pointer rounded-lg text-ink-muted after:absolute after:-inset-1 after:content-[''] hover:bg-accent hover:text-foreground"
+            className="relative size-9 cursor-pointer rounded-xl text-ink-muted transition-all duration-200 hover:bg-accent hover:text-foreground"
         >
             <Link
                 href={notificationsIndex()}
@@ -46,7 +46,7 @@ function NotificationButton() {
                 {unread > 0 && (
                     <span
                         aria-hidden="true"
-                        className="absolute top-1.5 right-1.5 size-2 rounded-full bg-danger ring-2 ring-surface"
+                        className="absolute top-2 right-2 size-2 rounded-full bg-danger ring-2 ring-surface animate-pulse"
                     />
                 )}
             </Link>
@@ -60,7 +60,7 @@ function HelpButton() {
             variant="ghost"
             size="icon"
             aria-label="Pusat Bantuan"
-            className="size-9 cursor-pointer rounded-lg text-ink-muted hover:bg-accent hover:text-foreground"
+            className="size-9 cursor-pointer rounded-xl text-ink-muted transition-all duration-200 hover:bg-accent hover:text-foreground"
         >
             <HelpCircle aria-hidden="true" className="size-[18px]" />
         </Button>
@@ -103,13 +103,13 @@ function WorkOrderSearch() {
                 disabled={!tenant}
                 placeholder="Cari WO, aset, PIC..."
                 className={cn(
-                    'h-9 w-56 rounded-xl border border-border bg-surface-raised/70 pr-12 pl-9 text-xs text-ink',
-                    'transition-colors duration-200 ease-standard placeholder:text-ink-subtle motion-reduce:transition-none',
-                    'hover:bg-surface focus:bg-surface focus:ring-2 focus:ring-brand/20 focus:ring-offset-0 focus:outline-none',
+                    'h-9.5 w-56 rounded-xl border border-border/80 bg-surface-sunken/60 pr-12 pl-9 text-xs text-ink',
+                    'transition-all duration-200 ease-standard placeholder:text-ink-subtle motion-reduce:transition-none',
+                    'hover:bg-surface-sunken/90 focus:border-[#2D82B7] focus:bg-surface focus:ring-4 focus:ring-[#2D82B7]/15 focus:outline-none',
                     'disabled:cursor-not-allowed disabled:opacity-60 lg:w-72',
                 )}
             />
-            <kbd className="absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[0.625rem] leading-none text-ink-subtle select-none">
+            <kbd className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md border border-border/80 bg-surface px-1.5 py-0.5 font-mono text-[0.625rem] leading-none text-ink-subtle shadow-xs select-none">
                 Ctrl+K
             </kbd>
         </form>
@@ -124,17 +124,17 @@ function UserButton() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" aria-label={`Menu pengguna: ${auth.user.name}`} className="h-9 cursor-pointer gap-1.5 rounded-full pr-2 pl-1 hover:bg-accent">
-                    <Avatar className="size-7 rounded-full ring-1 ring-border">
+                <Button variant="ghost" aria-label={`Menu pengguna: ${auth.user.name}`} className="h-9 cursor-pointer gap-2 rounded-full border border-border/70 bg-surface/60 py-1 pr-2.5 pl-1 shadow-xs transition-all duration-200 hover:border-[#2D82B7]/40 hover:bg-accent">
+                    <Avatar className="size-7 rounded-full ring-1 ring-border/80">
                         <AvatarImage src={auth.user.avatar} alt={auth.user.name} />
-                        <AvatarFallback className="rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand">
+                        <AvatarFallback className="rounded-full bg-[#2D82B7]/10 text-[0.625rem] font-bold text-[#2D82B7]">
                             {getInitials(auth.user.name)}
                         </AvatarFallback>
                     </Avatar>
                     <ChevronDown aria-hidden="true" className="size-3.5 text-ink-subtle" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-xl">
+            <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-xl border border-border/80 shadow-soft-lg">
                 <UserMenuContent user={auth.user} />
             </DropdownMenuContent>
         </DropdownMenu>
@@ -146,16 +146,16 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
     return (
         <header className={cn(
-            'sticky top-0 z-30 flex h-16 shrink-0 w-full items-center justify-between gap-3 border-b bg-surface/95 px-6 lg:px-8 shadow-sm backdrop-blur-md',
-            'border-border transition-[box-shadow] duration-200 ease-standard motion-reduce:transition-none',
-            scrolled && 'shadow-md',
+            'sticky top-0 z-30 flex h-16 shrink-0 w-full items-center justify-between gap-3 border-b bg-surface/85 px-6 lg:px-8 backdrop-blur-md',
+            'border-border/80 transition-all duration-200 ease-standard motion-reduce:transition-none',
+            scrolled ? 'shadow-soft-md border-border/95 bg-surface/95' : 'shadow-soft-xs',
         )}>
             <div className="flex items-center gap-3">
                 <SidebarTrigger
                     aria-label="Buka atau tutup panel navigasi"
-                    className="relative -ml-1 size-9 cursor-pointer rounded-xl border border-border bg-surface-raised/90 text-ink-muted shadow-xs hover:bg-accent hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
+                    className="relative -ml-1 size-9 cursor-pointer rounded-xl border border-border/80 bg-surface text-ink-muted shadow-xs transition-all duration-200 hover:border-[#2D82B7]/50 hover:bg-[#2D82B7]/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-[#2D82B7]/60 focus-visible:outline-none active:scale-95"
                 />
-                <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border sm:block" />
+                <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border/80 sm:block" />
                 <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
                     <Breadcrumbs breadcrumbs={breadcrumbs} />
                 </nav>
@@ -163,9 +163,9 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
             <div className="flex shrink-0 items-center gap-2">
                 <WorkOrderSearch />
-                <span aria-hidden="true" className="hidden h-5 w-px shrink-0 border-l border-border lg:block" />
+                <span aria-hidden="true" className="hidden h-5 w-px shrink-0 border-l border-border/80 lg:block" />
                 <ThemeToggle className="hidden sm:inline-flex" />
-                <div className="flex items-center gap-1.5 border-l border-border pl-3">
+                <div className="flex items-center gap-1.5 border-l border-border/80 pl-3">
                     <NotificationButton />
                     <HelpButton />
                 </div>

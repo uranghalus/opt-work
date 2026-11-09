@@ -57,9 +57,9 @@ function UnreadBadge({ count }: { count: number }) {
             aria-hidden="true"
             className={cn(
                 'ms-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5',
-                'bg-brand-strong/20 text-[0.6875rem] leading-none font-semibold text-brand-strong tabular-nums',
+                'bg-[#2D82B7]/25 text-[0.6875rem] leading-none font-bold text-[#3D9BD6] ring-1 ring-[#3D9BD6]/30 tabular-nums',
                 'group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1.5 group-data-[collapsible=icon]:right-1.5',
-                'group-data-[collapsible=icon]:size-2 group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:bg-brand-strong group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:text-transparent',
+                'group-data-[collapsible=icon]:size-2 group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:bg-[#3D9BD6] group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:text-transparent',
             )}
         >
             {label}
@@ -82,12 +82,12 @@ function PanelNavItem({
 
     const itemClasses = cn(
         'group/nav relative h-10 gap-3 overflow-hidden rounded-xl px-3 text-[0.8125rem] font-medium text-panel-ink-muted',
-        'transition-[background-color,color] duration-200 ease-standard motion-reduce:transition-none',
-        'hover:bg-white/5 hover:text-panel-ink',
-        'data-[active=true]:bg-brand-strong/15! data-[active=true]:font-semibold data-[active=true]:text-brand-strong',
-        'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
-        // Collapsed, the button is a 40px square (size-10!) inside a full-width row, so
-        // justify-center no longer centers anything â€” mx-auto does.
+        'transition-all duration-200 ease-standard motion-reduce:transition-none',
+        'hover:bg-white/[0.06] hover:text-white',
+        'data-[active=true]:bg-[#2D82B7]/18! data-[active=true]:font-semibold data-[active=true]:text-white!',
+        'data-[active=true]:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_2px_8px_rgba(45,130,183,0.25)]',
+        'focus-visible:ring-2 focus-visible:ring-[#3D9BD6]/70 focus-visible:outline-none',
+        // Collapsed, the button is a 40px square inside a full-width row
         'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center',
     );
 
@@ -135,7 +135,7 @@ function PanelNavItem({
             {active && (
                 <span
                     aria-hidden="true"
-                    className="absolute top-1/2 left-0 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-strong"
+                    className="absolute top-1/2 left-0 h-6 w-[3.5px] -translate-y-1/2 rounded-r-full bg-[#3D9BD6] shadow-[0_0_10px_rgba(61,155,214,0.6)]"
                 />
             )}
             <SidebarMenuButton
@@ -217,12 +217,14 @@ function CreateWorkOrderButton({ tenant }: { tenant: string | null }) {
             title="Buat Work Order"
             className={cn(
                 'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-white',
-                'bg-linear-to-r from-[#059669] to-[#0d9488] shadow-md shadow-emerald-950/40',
-                'transition-[filter,transform] duration-200 hover:brightness-110 active:scale-[0.98] motion-reduce:transition-none',
-                'focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none',
+                'bg-gradient-to-r from-[#2D82B7] via-[#246D9B] to-[#1C567B]',
+                'shadow-md shadow-[#2D82B7]/30 hover:shadow-lg hover:shadow-[#2D82B7]/40 hover:brightness-105 active:scale-[0.98]',
+                'ring-1 ring-inset ring-white/20',
+                'transition-all duration-200 ease-standard motion-reduce:transition-none',
+                'focus-visible:ring-2 focus-visible:ring-[#3D9BD6]/70 focus-visible:outline-none',
             )}
         >
-            <Plus aria-hidden="true" className="size-5 shrink-0" />
+            <Plus aria-hidden="true" className="size-4.5 shrink-0 stroke-[2.5]" />
             <span className="group-data-[collapsible=icon]:hidden">
                 Buat Work Order
             </span>
@@ -246,14 +248,14 @@ export function AppSidebar() {
     return (
         <Sidebar
             collapsible="icon"
-            className="overflow-x-hidden bg-[#0B151C] text-panel-ink group-data-[side=left]:border-r group-data-[side=left]:border-slate-800"
+            className="overflow-x-hidden bg-[#0B141E] text-panel-ink group-data-[side=left]:border-r group-data-[side=left]:border-white/[0.08]"
         >
-            <SidebarHeader className="gap-4 overflow-hidden px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
+            <SidebarHeader className="gap-3.5 overflow-hidden px-4 pt-4 pb-2 group-data-[collapsible=icon]:px-2">
                 <Link
                     href={home()}
                     prefetch
                     aria-label="Beranda OptiWorks"
-                    className="-m-1 flex items-center gap-3 rounded-md px-2 py-1 transition-colors duration-150 group-data-[collapsible=icon]:justify-center hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
+                    className="-m-1 flex items-center gap-3 rounded-xl px-2 py-1.5 transition-all duration-150 group-data-[collapsible=icon]:justify-center hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#3D9BD6]/70 focus-visible:outline-none"
                 >
                     <AppLogo
                         variant="panel"
@@ -265,7 +267,7 @@ export function AppSidebar() {
                 <CreateWorkOrderButton tenant={activeTenant} />
             </SidebarHeader>
 
-            <SidebarContent className="gap-1 overflow-x-hidden overflow-y-auto">
+            <SidebarContent className="gap-1 overflow-x-hidden overflow-y-auto px-1 py-1">
                 {groups.map((group) => (
                     <PanelNavGroup
                         key={group.id}
@@ -275,7 +277,7 @@ export function AppSidebar() {
                 ))}
             </SidebarContent>
 
-            <SidebarFooter className="gap-1 border-t border-slate-800 bg-[#0E1B24] px-3 pt-2 pb-3 group-data-[collapsible=icon]:px-2">
+            <SidebarFooter className="gap-1 border-t border-white/[0.08] bg-[#09111A] px-3 pt-2.5 pb-3 group-data-[collapsible=icon]:px-2">
                 <SidebarMenu className="gap-1">
                     {/* Footer utilities live in the NavUser strip now. */}
                 </SidebarMenu>

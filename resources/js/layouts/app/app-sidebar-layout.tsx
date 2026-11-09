@@ -25,9 +25,9 @@ export default function AppSidebarLayout({
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
-            <AppContent variant="sidebar" className="min-w-0 overflow-x-clip">
+            <AppContent variant="sidebar" className="min-w-0 overflow-x-clip bg-background">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <div className="flex w-full flex-1 flex-col gap-4 px-4 pt-5 pb-20 sm:gap-5 sm:px-6 sm:pt-6 lg:px-8 lg:pt-7 lg:pb-12">
+                <div className="flex w-full flex-1 flex-col gap-5 px-4 pt-5 pb-24 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8 lg:pt-7 lg:pb-12">
                     <PageHeader
                         title={title}
                         description={description}

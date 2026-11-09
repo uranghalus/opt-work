@@ -42,15 +42,13 @@ interface BranchSwitcherProps {
 /*  ink-subtle: #8494A7 | focus-ring: #0C6B58                        */
 /* ------------------------------------------------------------------ */
 const light = {
-    // The branch switcher is deliberately a light card on the dark panel, in
-    // both themes. The Select base carries `dark:bg-input/30`, which would
-    // otherwise turn the trigger dark and leave the slate-900 label unreadable.
+    // The branch switcher is a polished card on the dark panel, with subtle depth.
     surface: 'bg-white!',
-    surfaceHover: 'hover:bg-slate-50!',
+    surfaceHover: 'hover:bg-slate-50/90!',
     surfaceOpen: 'data-[state=open]:bg-slate-50',
-    border: 'border-slate-200',
+    border: 'border-slate-200/90',
     borderHover: 'hover:border-slate-300',
-    borderOpen: 'data-[state=open]:border-emerald-500/40',
+    borderOpen: 'data-[state=open]:border-[#2D82B7]/50',
     eyebrow: 'text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500',
     title: 'text-sm font-bold text-slate-900',
     subtitle: 'text-[11px] font-medium text-slate-500',
@@ -125,10 +123,10 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                         light.borderHover,
                         light.surfaceOpen,
                         light.borderOpen,
-                        'rounded-lg px-4 shadow-sm',
-                        'transition-all duration-200',
-                        'focus-visible:border-emerald-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25',
-                        variant === 'sidebar' ? 'py-6' : 'py-2.5',
+                        'rounded-xl px-4 shadow-xs',
+                        'transition-all duration-200 ease-standard',
+                        'focus-visible:border-[#2D82B7]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D82B7]/25',
+                        variant === 'sidebar' ? 'py-4 sm:py-5' : 'py-2.5',
                         '[&>span]:line-clamp-none',
                         '[&>svg:last-of-type]:hidden',
                         className,
@@ -151,7 +149,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                         {currentTenant && (
                             <span className="flex w-full items-center gap-3">
                                 <Building2
-                                    className="size-5 shrink-0 text-emerald-600 transition-colors duration-200 group-hover:text-emerald-700 group-data-[state=open]:text-emerald-700"
+                                    className="size-5 shrink-0 text-[#2D82B7] transition-colors duration-200 group-hover:text-[#246D9B] group-data-[state=open]:text-[#246D9B]"
                                     aria-hidden="true"
                                 />
                                 <span className="flex min-w-0 flex-col items-start">
@@ -201,9 +199,9 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                     key={t.id}
                                     value={t.code}
                                     className={cn(
-                                        'flex cursor-pointer items-center rounded-lg px-2.5 py-2 outline-none transition-colors duration-150',
+                                        'flex cursor-pointer items-center rounded-xl px-2.5 py-2 outline-none transition-colors duration-150',
                                         'focus:bg-slate-100 data-[highlighted]:bg-slate-100',
-                                        isSelected ? 'bg-emerald-50' : 'hover:bg-slate-50',
+                                        isSelected ? 'bg-[#EBF4FA] text-[#2D82B7]' : 'hover:bg-slate-50',
                                         'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                                         '[&>span.absolute]:hidden',
                                         '[&>span:not(.absolute)]:min-w-0 [&>span:not(.absolute)]:flex-1',
@@ -214,7 +212,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                             className={cn(
                                                 'flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150',
                                                 isSelected
-                                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                    ? 'border-[#2D82B7]/30 bg-[#2D82B7]/10 text-[#2D82B7]'
                                                     : 'border-slate-200 bg-white text-slate-400',
                                             )}
                                         >
@@ -225,7 +223,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                             <span
                                                 className={cn(
                                                     'w-full truncate text-sm font-semibold',
-                                                    isSelected ? 'text-emerald-700' : 'text-slate-900',
+                                                    isSelected ? 'text-[#2D82B7]' : 'text-slate-900',
                                                 )}
                                             >
                                                 {t.name}
@@ -236,7 +234,7 @@ export const BranchSwitcher = ({ variant = 'header', className }: BranchSwitcher
                                         </span>
 
                                         {isSelected && (
-                                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.45)]">
+                                            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#2D82B7] text-white shadow-[0_0_12px_rgba(45,130,183,0.45)]">
                                                 <Check className="size-3" strokeWidth={3} aria-hidden="true" />
                                             </span>
                                         )}

@@ -478,7 +478,7 @@ class WorkOrderController extends Controller
             ->with('success', 'Keputusan review WO '.$workOrder->nomor_wo.' tersimpan.');
     }
 
-    public function assign(AssignWorkOrderRequest $request): RedirectResponse
+    public function assignSubmit(AssignWorkOrderRequest $request): RedirectResponse
     {
         Gate::authorize('work-order.assign');
 

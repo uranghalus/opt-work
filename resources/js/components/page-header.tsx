@@ -1,4 +1,4 @@
-﻿import { usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { navGroups, navIcon, navToneStyles } from '@/components/nav-items';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -59,28 +59,28 @@ export function PageHeader({
 
     return (
         <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 items-start gap-3.5">
                 {current && Icon && (
                     <span
                         aria-hidden="true"
                         className={cn(
-                            'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1',
+                            'mt-0.5 flex size-9.5 shrink-0 items-center justify-center rounded-xl ring-1 shadow-soft-xs',
                             tone.chip,
                             tone.chipRing,
                             tone.icon,
                         )}
                     >
-                        <Icon className="size-4" />
+                        <Icon className="size-4.5" />
                     </span>
                 )}
                 <div className="min-w-0">
                     {heading && (
-                        <h1 className="text-[1.375rem] leading-tight font-semibold tracking-[-0.02em] text-balance sm:text-2xl">
+                        <h1 className="text-[1.375rem] leading-tight font-bold tracking-tight text-foreground text-balance sm:text-2xl">
                             {heading}
                         </h1>
                     )}
                     {description && (
-                        <p className="mt-1.5 max-w-[65ch] text-[0.8125rem] leading-relaxed text-ink-muted">
+                        <p className="mt-1 max-w-[68ch] text-[0.8125rem] sm:text-sm leading-relaxed text-ink-muted">
                             {description}
                         </p>
                     )}
@@ -88,7 +88,7 @@ export function PageHeader({
             </div>
 
             {actionNode && (
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2.5">
                     {actionNode}
                 </div>
             )}

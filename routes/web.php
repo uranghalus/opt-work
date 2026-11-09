@@ -176,7 +176,7 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
-    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
+    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assignSubmit'])
         ->name('work-orders.assign-submit');
     Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
         ->name('work-orders.submit');

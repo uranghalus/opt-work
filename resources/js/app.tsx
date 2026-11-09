@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
+import AuthSplitLayout from '@/layouts/auth/auth-split-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -12,6 +13,9 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            // Guest screens get their own chrome — never the dashboard shell.
+            case name.startsWith('auth/'):
+                return AuthSplitLayout;
             // Unit Bisnis pages set their own `.layout` metadata (breadcrumbs,
             // title, actions) resolved against the plain AppLayout shell.
             case name.startsWith('settings/'):

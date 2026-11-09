@@ -35,9 +35,9 @@ function SheetNavRow({ item }: { item: OptiNavItem }) {
     const active = !item.disabled && isCurrentOrParentUrl(item.href);
 
     const classes = cn(
-        'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors duration-150',
+        'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150',
         active
-            ? 'bg-brand-soft text-foreground'
+            ? 'bg-[#2D82B7]/15 font-semibold text-[#2D82B7]'
             : 'text-ink-muted hover:bg-accent hover:text-foreground',
     );
 
@@ -104,7 +104,7 @@ export function BottomNav() {
             aria-label="Navigasi utama"
             className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden"
         >
-            <div className="mx-auto flex h-16 max-w-md items-stretch gap-1 rounded-2xl border border-border bg-surface/95 p-1.5 shadow-[var(--shadow-popover)] backdrop-blur-md">
+            <div className="mx-auto flex h-16 max-w-md items-stretch gap-1 rounded-2xl border border-border/80 bg-surface/90 p-1.5 shadow-soft-lg backdrop-blur-lg">
                 {items.map((item) => {
                     const Icon = navIcon(item);
                     const tone = navToneStyles[item.tone ?? 'ops'];
@@ -118,9 +118,9 @@ export function BottomNav() {
                             aria-current={active ? 'page' : undefined}
                             className={cn(
                                 'flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[0.6875rem] font-semibold transition-all duration-200 ease-standard active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
-                                'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none',
+                                'focus-visible:ring-2 focus-visible:ring-[#2D82B7]/60 focus-visible:outline-none',
                                 active
-                                    ? 'bg-brand text-on-brand shadow-[var(--shadow-card)]'
+                                    ? 'bg-[#2D82B7] text-white shadow-md shadow-[#2D82B7]/30'
                                     : 'text-ink-muted hover:bg-accent hover:text-foreground',
                             )}
                         >
@@ -128,7 +128,7 @@ export function BottomNav() {
                                 aria-hidden="true"
                                 className={cn(
                                     'size-5 shrink-0',
-                                    active ? 'text-on-brand' : tone.icon,
+                                    active ? 'text-white' : tone.icon,
                                 )}
                             />
                             {item.shortTitle ?? item.title}

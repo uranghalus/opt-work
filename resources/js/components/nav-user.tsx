@@ -42,24 +42,24 @@ export function NavUser() {
     return (
         <SidebarMenu>
             <SidebarMenuItem>
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/5 p-2">
+                <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] p-1.5 shadow-xs transition-colors hover:bg-white/[0.08]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <SidebarMenuButton
                                 size="lg"
                                 className={cn(
-                                    'h-12 gap-2.5 rounded-xl px-2 text-panel-ink transition-colors duration-200',
+                                    'h-11 gap-2.5 rounded-xl px-2 text-panel-ink transition-colors duration-200',
                                     'hover:bg-panel-hover',
                                     'data-[state=open]:bg-panel-hover',
                                     'motion-reduce:transition-none',
                                 )}
                             >
-                                <Avatar className="size-9 rounded-xl ring-2 ring-brand-strong/40">
+                                <Avatar className="size-8.5 rounded-xl ring-2 ring-[#3D9BD6]/40">
                                     <AvatarImage
                                         src={auth.user.avatar}
                                         alt={auth.user.name}
                                     />
-                                    <AvatarFallback className="rounded-xl bg-gradient-to-tr from-brand-strong to-brand-deep text-sm font-bold text-on-brand">
+                                    <AvatarFallback className="rounded-xl bg-gradient-to-tr from-[#2D82B7] to-[#1A4E70] text-sm font-bold text-white shadow-xs">
                                         {getInitials(auth.user.name)}
                                     </AvatarFallback>
                                 </Avatar>
@@ -78,7 +78,7 @@ export function NavUser() {
                             </SidebarMenuButton>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
-                            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
+                            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl shadow-soft-lg"
                             align="end"
                             side={
                                 isMobile
@@ -95,7 +95,7 @@ export function NavUser() {
                     <button
                         type="button"
                         onClick={handleLogout}
-                        className="rounded-lg p-1.5 text-panel-ink-muted transition-colors group-data-[collapsible=icon]:hidden hover:bg-white/5 hover:text-panel-ink"
+                        className="rounded-lg p-2 text-panel-ink-muted transition-colors group-data-[collapsible=icon]:hidden hover:bg-white/10 hover:text-white"
                         aria-label="Keluar / Logout"
                         title="Keluar"
                     >

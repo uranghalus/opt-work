@@ -1,4 +1,4 @@
-﻿import { usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { navGroups, navIcon, navToneStyles } from '@/components/nav-items';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -67,7 +67,7 @@ export function PageHeader({
 
     return (
         <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 items-start gap-3.5">
                 {current && Icon && (
                     <span
                         aria-hidden="true"
@@ -78,7 +78,7 @@ export function PageHeader({
                             tone.icon,
                         )}
                     >
-                        <Icon className="size-4" />
+                        <Icon className="size-4.5" />
                     </span>
                 )}
                 <div className="min-w-0">
@@ -96,7 +96,7 @@ export function PageHeader({
             </div>
 
             {actionNode && (
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2.5">
                     {actionNode}
                 </div>
             )}

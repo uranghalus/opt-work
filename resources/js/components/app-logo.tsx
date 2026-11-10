@@ -54,14 +54,15 @@ export default function AppLogo({
         >
             <span
                 className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-lg',
-                    'bg-linear-to-br from-brand-strong to-brand-deep text-on-brand',
+                    'flex size-8.5 shrink-0 items-center justify-center rounded-xl',
+                    'bg-gradient-to-br from-[#3D9BD6] via-[#2D82B7] to-[#1A4E70] text-white',
+                    'shadow-xs shadow-[#2D82B7]/25',
                     onPanel
-                        ? 'ring-1 ring-brand-strong/40'
+                        ? 'ring-1 ring-white/20'
                         : 'ring-1 ring-black/5 dark:ring-white/10',
                 )}
             >
-                <AppLogoIcon className="size-4 fill-current" />
+                <AppLogoIcon className="size-4.5 fill-current" />
             </span>
             {!compact && (
                 <span className="flex min-w-0 flex-col leading-tight">
@@ -69,7 +70,7 @@ export default function AppLogo({
                         <span
                             data-slot="app-logo-wordmark"
                             className={cn(
-                                'truncate text-base font-semibold tracking-[-0.01em]',
+                                'truncate text-base font-bold tracking-tight',
                                 onPanel ? 'text-panel-ink' : 'text-ink',
                             )}
                         >
@@ -78,8 +79,8 @@ export default function AppLogo({
                                 <span
                                     className={
                                         onPanel
-                                            ? 'text-brand-strong'
-                                            : 'text-brand'
+                                            ? 'text-[#3D9BD6]'
+                                            : 'text-[#2D82B7]'
                                     }
                                 >
                                     {tail}
@@ -89,10 +90,10 @@ export default function AppLogo({
                         {badge && (
                             <span
                                 className={cn(
-                                    'shrink-0 rounded border px-1.5 py-0.5 text-[0.5625rem] leading-none font-bold tracking-wide',
+                                    'shrink-0 rounded-md border px-1.5 py-0.5 text-[0.5625rem] leading-none font-bold tracking-wide',
                                     onPanel
-                                        ? 'border-brand-strong/30 bg-brand-strong/20 text-brand-strong'
-                                        : 'border-brand/30 bg-brand-soft text-brand',
+                                        ? 'border-[#3D9BD6]/30 bg-[#3D9BD6]/20 text-[#3D9BD6]'
+                                        : 'border-[#2D82B7]/30 bg-[#2D82B7]/10 text-[#2D82B7]',
                                 )}
                             >
                                 {badge}

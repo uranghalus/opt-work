@@ -22,7 +22,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { InertiaConfig } from '@inertiajs/core';
 
 /**
- * Top bar of the content stratum: shell trigger, breadcrumb trail, WO search (⌘/Ctrl+K),
+ * Top bar of the content stratum: shell trigger, breadcrumb trail, WO search (âŒ˜/Ctrl+K),
  * and the account cluster (appearance, notifications, help, identity).
  */
 
@@ -46,7 +46,7 @@ function NotificationButton() {
                 {unread > 0 && (
                     <span
                         aria-hidden="true"
-                        className="absolute top-1.5 right-1.5 size-2 rounded-full bg-danger ring-2 ring-surface"
+                        className="absolute top-2 right-2 size-2 rounded-full bg-danger ring-2 ring-surface animate-pulse"
                     />
                 )}
             </Link>
@@ -87,7 +87,7 @@ function WorkOrderSearch() {
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         if (!tenant) return;
-        // Inertia visit (bukan full reload) + query sampai ke server —
+        // Inertia visit (bukan full reload) + query sampai ke server â€”
         // WorkOrderController::index memfilter title/nomor_wo.
         router.get(
             workOrdersIndex.url({ tenant }, { query: query.trim() ? { search: query.trim() } : undefined }),
@@ -115,7 +115,7 @@ function WorkOrderSearch() {
                     'disabled:cursor-not-allowed disabled:opacity-60 lg:w-72',
                 )}
             />
-            <kbd className="absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[0.625rem] leading-none text-ink-subtle select-none">
+            <kbd className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md border border-border/80 bg-surface px-1.5 py-0.5 font-mono text-[0.625rem] leading-none text-ink-subtle shadow-xs select-none">
                 Ctrl+K
             </kbd>
         </form>
@@ -133,14 +133,14 @@ function UserButton() {
                 <Button variant="ghost" aria-label={`Menu pengguna: ${auth.user.name}`} className="h-11 cursor-pointer gap-1.5 rounded-full pr-2 pl-1 hover:bg-accent">
                     <Avatar className="size-7 rounded-full ring-1 ring-border">
                         <AvatarImage src={auth.user.avatar} alt={auth.user.name} />
-                        <AvatarFallback className="rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand">
+                        <AvatarFallback className="rounded-full bg-[#2D82B7]/10 text-[0.625rem] font-bold text-[#2D82B7]">
                             {getInitials(auth.user.name)}
                         </AvatarFallback>
                     </Avatar>
                     <ChevronDown aria-hidden="true" className="size-3.5 text-ink-subtle" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-xl">
+            <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-xl border border-border/80 shadow-soft-lg">
                 <UserMenuContent user={auth.user} />
             </DropdownMenuContent>
         </DropdownMenu>
@@ -161,7 +161,7 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                     aria-label="Buka atau tutup panel navigasi"
                     className="relative -ml-1 size-11 cursor-pointer rounded-lg border border-border bg-surface-raised/90 text-ink-muted shadow-xs hover:bg-accent hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-strong/70 focus-visible:outline-none"
                 />
-                <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border sm:block" />
+                <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border/80 sm:block" />
                 <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
                     <Breadcrumbs breadcrumbs={breadcrumbs} />
                 </nav>
@@ -169,9 +169,9 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
             <div className="flex shrink-0 items-center gap-2">
                 <WorkOrderSearch />
-                <span aria-hidden="true" className="hidden h-5 w-px shrink-0 border-l border-border lg:block" />
+                <span aria-hidden="true" className="hidden h-5 w-px shrink-0 border-l border-border/80 lg:block" />
                 <ThemeToggle className="hidden sm:inline-flex" />
-                <div className="flex items-center gap-1.5 border-l border-border pl-3">
+                <div className="flex items-center gap-1.5 border-l border-border/80 pl-3">
                     <NotificationButton />
                     <HelpButton />
                 </div>

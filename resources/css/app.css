@@ -28,17 +28,24 @@
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
     /* Elevation: a surface must actually leave the canvas.
-       Level 1 is the resting card; Level 2 is hover/focus. */
-    --shadow-card: 0 1px 2px rgba(20, 33, 43, 0.05), 0 2px 8px -2px rgba(20, 33, 43, 0.1);
-    --shadow-raised: 0 6px 20px -6px rgba(20, 33, 43, 0.18), 0 2px 6px -2px rgba(20, 33, 43, 0.08);
-    --shadow-popover: 0 12px 32px -6px rgba(20, 33, 43, 0.18);
-    --shadow-modal: 0 24px 56px -14px rgba(20, 33, 43, 0.34);
+       Evolved soft UI with subtle depth and improved multi-layered shadows. */
+    --shadow-card: 0 2px 8px -1px rgba(27, 49, 71, 0.07), 0 1px 3px rgba(27, 49, 71, 0.04);
+    --shadow-raised: 0 6px 18px -2px rgba(27, 49, 71, 0.09), 0 2px 6px -1px rgba(27, 49, 71, 0.05);
+    --shadow-popover: 0 12px 32px -4px rgba(27, 49, 71, 0.14), 0 4px 10px -2px rgba(27, 49, 71, 0.06);
+    --shadow-modal: 0 24px 64px -12px rgba(27, 49, 71, 0.22), 0 8px 24px -4px rgba(27, 49, 71, 0.1);
+
+    /* Evolved Soft UI semantic shadow tokens */
+    --shadow-soft-xs: 0 1px 2px rgba(27, 49, 71, 0.05);
+    --shadow-soft-sm: 0 2px 5px rgba(27, 49, 71, 0.06), 0 1px 2px rgba(27, 49, 71, 0.04);
+    --shadow-soft-md: 0 4px 16px -2px rgba(27, 49, 71, 0.09), 0 2px 6px -1px rgba(27, 49, 71, 0.05);
+    --shadow-soft-lg: 0 12px 32px -4px rgba(27, 49, 71, 0.13), 0 4px 12px -2px rgba(27, 49, 71, 0.06);
+    --shadow-soft-xl: 0 20px 48px -8px rgba(27, 49, 71, 0.18), 0 8px 20px -4px rgba(27, 49, 71, 0.08);
 
     /* Material depth: translucent surfaces with a hairline and a soft halo.
        Used by the settings strata so content is never flat white-on-white. */
-    --shadow-glass: 0 8px 32px -8px rgba(21, 32, 43, 0.14);
-    --shadow-glass-deep: 0 16px 48px -12px rgba(21, 32, 43, 0.22);
-    --shadow-glow-brand: 0 4px 16px -2px rgba(12, 107, 88, 0.45);
+    --shadow-glass: 0 8px 32px -8px rgba(27, 49, 71, 0.14);
+    --shadow-glass-deep: 0 16px 48px -12px rgba(27, 49, 71, 0.22);
+    --shadow-glow-brand: 0 4px 20px -2px rgba(45, 130, 183, 0.35);
 
     /* Ambient blur tokens for decorative depth (never carry meaning). */
     --ambient-blur-sm: 32px;
@@ -147,100 +154,95 @@
 :root {
     color-scheme: light;
 
-    --background: #eef1f4; /* Stitch: canvas — one step below the card */
-    --foreground: #111d27; /* Stitch: on-background */
-    --card: #ffffff; /* Stitch: surface */
-    --card-foreground: #111d27;
+    --background: #f4f7fa; /* Evolved soft canvas — comfortable cool tint */
+    --foreground: #0f1e2a; /* Slate ink */
+    --card: #ffffff; /* Surface */
+    --card-foreground: #0f1e2a;
     --popover: #ffffff;
-    --popover-foreground: #111d27;
-    --primary: #005142; /* Stitch: primary */
+    --popover-foreground: #0f1e2a;
+    --primary: #2d82b7; /* Primary Cerulean */
     --primary-foreground: #ffffff;
-    --secondary: #f7f9fb; /* Stitch: surface-raised */
-    --secondary-foreground: #111d27;
-    --muted: #f7f9fb;
-    --muted-foreground: #5b6b7c; /* Stitch: ink-muted */
-    --accent: #e6ebef; /* Stitch: canvas, one step darker for hover fills */
-    --accent-foreground: #111d27;
-    --destructive: #c0392b; /* Stitch: danger */
+    --secondary: #f8fafc; /* Surface-raised */
+    --secondary-foreground: #0f1e2a;
+    --muted: #f1f5f9;
+    --muted-foreground: #4e6578; /* Ink-muted */
+    --accent: #e8f0f6; /* Soft blue-tinted hover */
+    --accent-foreground: #0f1e2a;
+    --destructive: #c0392b; /* Danger */
     --destructive-foreground: #ffffff;
-    --border: #d5dce5; /* Stitch: border */
-    --input: #d5dce5;
-    --ring: #0c6b58; /* Stitch: focus-ring */
-    --chart-1: #2a5f8f;
-    --chart-2: #0c6b58;
-    --chart-3: #b86e00;
-    --chart-4: #c0392b;
-    --chart-5: #1f7a4c;
+    --border: #dce4ec; /* Clean soft border */
+    --input: #dce4ec;
+    --ring: #2d82b7; /* Focus-ring */
+    --chart-1: #2d82b7;
+    --chart-2: #3d9bd6;
+    --chart-3: #e59d22;
+    --chart-4: #dc4a3b;
+    --chart-5: #2ba46b;
 
-    --canvas: #eef1f4; /* Stitch: canvas */
-    --surface: #ffffff; /* Stitch: surface */
-    --surface-raised: #f7f9fb; /* Stitch: surface-raised */
-    --surface-sunken: #e8ecf1; /* Stitch: surface-sunken */
-    --ink: #15202b; /* Stitch: ink */
-    --ink-muted: #5b6b7c; /* Stitch: ink-muted */
-    --ink-subtle: #8494a7; /* Stitch: ink-subtle */
-    --border-strong: #8894a2; /* Boundary that passes 3:1 on white (WCAG 1.4.11) */
+    --canvas: #f4f7fa;
+    --surface: #ffffff;
+    --surface-raised: #f8fafc;
+    --surface-sunken: #e9eef4;
+    --ink: #0f1e2a;
+    --ink-muted: #4e6578;
+    --ink-subtle: #7f96a8;
+    --border-strong: #8da4b8;
 
-    --brand: #0c6b58; /* Stitch: brand (primary-container) */
-    --brand-hover: #095445; /* Stitch: brand-hover */
-    --brand-strong: #12a383; /* Stitch: mod-ops / brand-strong */
-    --brand-deep: #084c3e;
-    --brand-soft: #dcefe9;
-    --on-brand: #ffffff; /* Stitch: on-brand */
-    --info: #2a5f8f; /* Stitch: info */
-    --warning: #b86e00; /* Stitch: warning */
-    --warning-ink: #7a4a00; /* Warning text on warning-subtle — 6.4:1 */
-    --warning-bright: #f0be6a; /* Warning numeral on the dark Registry plate */
-    --danger: #c0392b; /* Stitch: danger */
-    --escalation: #7a1f3d; /* Stitch: escalation */
-    --success: #1f7a4c; /* Stitch: success */
-    --owner-urgent: #8a4b12; /* Stitch: owner-urgent */
-    --focus-ring: #0c6b58; /* Stitch: focus-ring */
-    --overlay: rgba(21, 32, 43, 0.45); /* Stitch: overlay */
+    --brand: #2d82b7;
+    --brand-hover: #246d9b;
+    --brand-strong: #3d9bd6;
+    --brand-deep: #1a4e70;
+    --brand-soft: #ebf4fa;
+    --on-brand: #ffffff;
+    --info: #2d82b7;
+    --warning: #b86e00;
+    --warning-ink: #7a4a00;
+    --warning-bright: #f0be6a;
+    --danger: #c0392b;
+    --escalation: #7a1f3d;
+    --success: #1f7a4c;
+    --owner-urgent: #8a4b12;
+    --focus-ring: #2d82b7;
+    --overlay: rgba(15, 30, 45, 0.45);
 
-    --info-subtle: #e4edf6; /* Stitch: info-subtle */
-    --warning-subtle: #f7ecda; /* Stitch: warning-subtle */
-    --danger-subtle: #f7e2df; /* Stitch: danger-subtle */
-    --escalation-subtle: #f2e2e8; /* Stitch: escalation-subtle */
-    --success-subtle: #dfeefe6; /* Stitch: success-subtle */
-    --owner-urgent-subtle: #f3e5d6; /* Stitch: owner-urgent-subtle */
+    --info-subtle: #e4eff8;
+    --warning-subtle: #fbf3e6;
+    --danger-subtle: #fbeae8;
+    --escalation-subtle: #f8eaf0;
+    --success-subtle: #e6f6ee;
+    --owner-urgent-subtle: #faefe5;
 
-    /* Contrast panel (navigation stratum) — dark in both themes. The
-       gradient is decorative depth on top of the flat `panel` value so the
-       token stays a colour and dark mode keeps a single authored floor. */
-    --panel: #0d1b22; /* Stitch: panel */
-    --panel-raised: #12262f; /* Stitch: panel-raised */
-    --panel-hover: rgba(255, 255, 255, 0.06); /* Stitch: panel-hover */
-    --panel-active: rgba(18, 163, 131, 0.18); /* Stitch: panel-active */
-    --panel-border: rgba(255, 255, 255, 0.09); /* Stitch: panel-border */
-    --panel-ink: #e7eff4; /* Stitch: panel-ink */
-    --panel-ink-muted: #9db0bc; /* Stitch: panel-ink-muted */
-    --panel-ink-subtle: #6e8391; /* Stitch: panel-ink-subtle */
+    /* Contrast panel (navigation stratum) — Evolved soft navy panel with subtle depth */
+    --panel: #0b141e;
+    --panel-raised: #101c28;
+    --panel-hover: rgba(255, 255, 255, 0.06);
+    --panel-active: rgba(45, 130, 183, 0.22);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --panel-ink: #e6eff5;
+    --panel-ink-muted: #95aab8;
+    --panel-ink-subtle: #62798a;
     --panel-gradient: linear-gradient(
         180deg,
-        #0d1b22 0%,
-        #0d1b22 55%,
-        #12262f 100%
+        #0b141e 0%,
+        #0d1723 55%,
+        #101c28 100%
     );
 
-    /* Console stratum (Hak Akses page) — a deep pine-teal ground instead of
-       neutral ink, so the page's dominant surface carries the brand hue and
-       black never dominates a content page. Panel-invariant like the nav
-       panel, tuned per app theme; mint accent for illumination. */
-    --console: #0c332d;
-    --console-raised: #11423a;
-    --console-hover: rgba(234, 246, 241, 0.06);
-    --console-active: rgba(62, 207, 166, 0.16);
-    --console-border: rgba(214, 245, 232, 0.11);
-    --console-ink: #eaf6f1;
-    --console-ink-muted: #9cc3b6;
-    --console-ink-subtle: #7aa89a;
-    --console-accent: #3ecfa6;
+    /* Console stratum */
+    --console: #0e2433;
+    --console-raised: #142e40;
+    --console-hover: rgba(235, 244, 250, 0.06);
+    --console-active: rgba(61, 155, 214, 0.18);
+    --console-border: rgba(215, 235, 248, 0.12);
+    --console-ink: #ebf4fa;
+    --console-ink-muted: #9cc0d8;
+    --console-ink-subtle: #7aa2bd;
+    --console-accent: #3d9bd6;
 
     /* Group identity hues (nav icon tints) */
-    --mod-ops: #12a383; /* Stitch: mod-ops */
-    --mod-master: #2f6fb5; /* Stitch: mod-master */
-    --mod-system: #8ba6b8; /* Stitch: mod-system */
+    --mod-ops: #2d82b7;
+    --mod-master: #4f85c7;
+    --mod-system: #7f96a8;
 
     --sidebar: var(--panel);
     --sidebar-foreground: var(--panel-ink);
@@ -259,47 +261,47 @@
 .dark {
     color-scheme: dark;
 
-    --background: #0a1015;
-    --foreground: #e9f1f6;
-    --card: #101922;
-    --card-foreground: #e9f1f6;
-    --popover: #131f29;
-    --popover-foreground: #e9f1f6;
-    --primary: #12836b;
-    --primary-foreground: #ffffff;
-    --secondary: #17232d;
-    --secondary-foreground: #e9f1f6;
-    --muted: #16212b;
-    --muted-foreground: #9aaab8;
-    --accent: #17232d;
-    --accent-foreground: #e9f1f6;
+    --background: #0b1219;
+    --foreground: #f0f5f9;
+    --card: #111c26;
+    --card-foreground: #f0f5f9;
+    --popover: #14212d;
+    --popover-foreground: #f0f5f9;
+    --primary: #3d9bd6;
+    --primary-foreground: #081119;
+    --secondary: #172431;
+    --secondary-foreground: #f0f5f9;
+    --muted: #15222e;
+    --muted-foreground: #97abc0;
+    --accent: #192735;
+    --accent-foreground: #f0f5f9;
     --destructive: #e05a4a;
-    --destructive-foreground: #14060a;
-    --border: #22303b;
-    --input: #2b3a46;
-    --ring: #3ecfa6;
-    --chart-1: #74acd8;
-    --chart-2: #3ecfa6;
+    --destructive-foreground: #ffffff;
+    --border: #1f2e3d;
+    --input: #263849;
+    --ring: #3d9bd6;
+    --chart-1: #4ba4dd;
+    --chart-2: #3d9bd6;
     --chart-3: #e5ab4e;
     --chart-4: #ec8474;
     --chart-5: #52c08c;
 
-    --canvas: #0a1015;
-    --surface: #101922;
-    --surface-raised: #17232d;
-    --surface-sunken: #0d151c;
-    --ink: #e9f1f6;
-    --ink-muted: #9aaab8;
-    --ink-subtle: #74899a;
-    --border-strong: #3a4c5a;
+    --canvas: #0b1219;
+    --surface: #111c26;
+    --surface-raised: #172431;
+    --surface-sunken: #080e14;
+    --ink: #f0f5f9;
+    --ink-muted: #97abc0;
+    --ink-subtle: #677e93;
+    --border-strong: #374d60;
 
-    --brand: #12836b;
-    --brand-hover: #0f6f5b;
-    --brand-strong: #3ecfa6;
-    --brand-deep: #0b5a4a;
-    --brand-soft: rgba(62, 207, 166, 0.14);
+    --brand: #2d82b7;
+    --brand-hover: #3692cd;
+    --brand-strong: #4ba4dd;
+    --brand-deep: #164361;
+    --brand-soft: rgba(45, 130, 183, 0.18);
     --on-brand: #ffffff;
-    --info: #74acd8;
+    --info: #4ba4dd;
     --warning: #e5ab4e;
     --warning-ink: #f0c172;
     --warning-bright: #f0be6a;
@@ -307,47 +309,45 @@
     --escalation: #dc8fae;
     --success: #52c08c;
     --owner-urgent: #dfa35f;
-    --focus-ring: #3ecfa6;
-    --overlay: rgba(3, 7, 10, 0.62);
+    --focus-ring: #3d9bd6;
+    --overlay: rgba(4, 8, 12, 0.65);
 
-    --info-subtle: rgba(116, 172, 216, 0.16);
+    --info-subtle: rgba(75, 164, 221, 0.16);
     --warning-subtle: rgba(229, 171, 78, 0.16);
     --danger-subtle: rgba(236, 132, 116, 0.16);
     --escalation-subtle: rgba(220, 143, 174, 0.16);
     --success-subtle: rgba(82, 192, 140, 0.16);
     --owner-urgent-subtle: rgba(223, 163, 95, 0.16);
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45);
-    --shadow-raised: 0 3px 10px -2px rgba(0, 0, 0, 0.55);
-    --shadow-popover: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
-    --shadow-modal: 0 24px 56px -12px rgba(0, 0, 0, 0.7);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 6px 20px -2px rgba(0, 0, 0, 0.6);
+    --shadow-popover: 0 14px 40px -6px rgba(0, 0, 0, 0.75);
+    --shadow-modal: 0 24px 56px -12px rgba(0, 0, 0, 0.85);
 
-    --panel: #070d12; /* Stitch dark: panel */
-    --panel-raised: #0a141c; /* Stitch dark: panel-raised */
+    --panel: #070d14;
+    --panel-raised: #0a131c;
     --panel-hover: rgba(255, 255, 255, 0.05);
-    --panel-active: rgba(62, 207, 166, 0.18);
+    --panel-active: rgba(61, 155, 214, 0.2);
     --panel-border: rgba(255, 255, 255, 0.07);
-    --panel-ink: #e7eff4;
-    --panel-ink-muted: #9db0bc;
-    --panel-ink-subtle: #6e8391;
+    --panel-ink: #e6eff5;
+    --panel-ink-muted: #95aab8;
+    --panel-ink-subtle: #62798a;
     --panel-gradient: linear-gradient(
         180deg,
-        #070d12 0%,
-        #070d12 55%,
-        #0a141c 100%
+        #070d14 0%,
+        #070d14 55%,
+        #0a131c 100%
     );
 
-    /* Console stratum, after hours: a step deeper to sit against the darker
-       canvas; text scale and accent carry over unchanged. */
-    --console: #082521;
-    --console-raised: #0e352e;
-    --console-hover: rgba(234, 246, 241, 0.05);
-    --console-active: rgba(62, 207, 166, 0.18);
-    --console-border: rgba(214, 245, 232, 0.09);
+    --console: #081722;
+    --console-raised: #0d2232;
+    --console-hover: rgba(235, 244, 250, 0.05);
+    --console-active: rgba(61, 155, 214, 0.2);
+    --console-border: rgba(215, 235, 248, 0.09);
 
-    --mod-ops: #3ecfa6;
-    --mod-master: #74acd8;
-    --mod-system: #93a9b8;
+    --mod-ops: #4ba4dd;
+    --mod-master: #74aee2;
+    --mod-system: #8fa5b8;
 }
 
 @layer base {

@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\WorkOrderCategory;
+use App\WorkOrderJobStatus;
 use App\WorkOrderStatus;
+use App\WorkOrderTicketStatus;
 use Database\Factories\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +31,8 @@ use Illuminate\Support\Collection;
  * @property string|null $location
  * @property array<int, string>|null $attachments
  * @property WorkOrderStatus $status
+ * @property WorkOrderTicketStatus|null $status_tiket
+ * @property WorkOrderJobStatus|null $status_pekerjaan
  * @property Carbon|null $released_at
  * @property Carbon|null $requested_schedule_date
  * @property string|null $hod_action
@@ -64,6 +68,8 @@ use Illuminate\Support\Collection;
     'damage_type',
     'attachments',
     'status',
+    'status_tiket',
+    'status_pekerjaan',
     'requested_schedule_date',
     'hod_action',
     'scheduled_date',
@@ -113,6 +119,8 @@ class WorkOrder extends Model
         return [
             'category' => WorkOrderCategory::class,
             'status' => WorkOrderStatus::class,
+            'status_tiket' => WorkOrderTicketStatus::class,
+            'status_pekerjaan' => WorkOrderJobStatus::class,
             'attachments' => 'array',
             'released_at' => 'datetime',
             'requested_schedule_date' => 'date',

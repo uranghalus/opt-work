@@ -107,6 +107,7 @@ Route::prefix('saml')->group(function () {
             'no_role' => 'Akun Anda belum memiliki peran aktif. Minta administrator menetapkan peran Anda terlebih dahulu.',
             'no_tenant' => 'Akun Anda belum terhubung ke unit bisnis mana pun. Hubungi administrator.',
             'banned' => 'Akun Anda terkait dengan karyawan yang sedang diblokir. Hubungi administrator.',
+            'guest_provisioning' => 'Akun Anda hanya memiliki peran tamu dan belum memiliki akses ke unit bisnis. Minta administrator menambahkan peran.',
         ];
 
         $reason = session('saml.denial_reason');
@@ -153,16 +154,38 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('work-orders/extend-approvals', [ExtendRequestController::class, 'approvals'])
         ->name('work-orders.extend-approvals');
 
+    // Dedicated GET page endpoints for the four WO workflow steps.
+    // Placed before the resource block so literal segments take precedence
+    // over the {workOrder} wildcard.
+    Route::get('work-orders/{work_order}/hod-review', [WorkOrderController::class, 'hodReview'])
+        ->name('work-orders.hod-review')
+        ->middleware('permission:work-order.review');
+    Route::get('work-orders/{work_order}/assign', [WorkOrderController::class, 'assignForm'])
+        ->name('work-orders.assign-form')
+        ->middleware('permission:work-order.assign');
+    Route::get('work-orders/{work_order}/submit-results', [WorkOrderController::class, 'showSubmitResults'])
+        ->name('work-orders.submit-results')
+        ->middleware('permission:work-order.submit');
+    Route::get('work-orders/{work_order}/verify', [WorkOrderController::class, 'showVerify'])
+        ->name('work-orders.verify-form')
+        ->middleware('permission:work-order.verify');
+
     Route::resource('work-orders', WorkOrderController::class)
-        ->only(['index', 'create', 'store', 'show'])
+        ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names('work-orders')
         ->parameters(['work-orders' => 'workOrder']);
     Route::post('work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])
         ->name('work-orders.review');
-    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assign'])
+    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assignSubmit'])
+        ->name('work-orders.assign-submit');
+    // Alias kanonik: test `main` (WorkOrderVerifyTest, WorkOrderTest) memakai
+    // nama `work-orders.assign`; FE memakai `*-submit`. Satu aksi, dua nama.
+    Route::post('work-orders/{workOrder}/assign', [WorkOrderController::class, 'assignSubmit'])
         ->name('work-orders.assign');
     Route::post('work-orders/{workOrder}/submit', [WorkOrderController::class, 'submit'])
         ->name('work-orders.submit');
+    Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
+        ->name('work-orders.verify-submit');
     Route::post('work-orders/{workOrder}/verify', [WorkOrderController::class, 'verify'])
         ->name('work-orders.verify');
     Route::post('work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])
@@ -218,6 +241,31 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     Route::get('daily-work', [DailyWorkController::class, 'index'])->name('daily-work.index');
     Route::patch('daily-work/{dailyWork}', [DailyWorkController::class, 'update'])
         ->name('daily-work.update');
+    Route::post('daily-work/{dailyWork}/submit', [DailyWorkController::class, 'submit'])
+        ->name('daily-work.submit');
+    Route::post('daily-work/{dailyWork}/verify', [DailyWorkController::class, 'verify'])
+        ->name('daily-work.verify');
+    Route::post('daily-work/{dailyWork}/reject', [DailyWorkController::class, 'reject'])
+        ->name('daily-work.reject');
+    Route::get('daily-work/{dailyWork}/attachments/{index}', [DailyWorkController::class, 'attachment'])
+        ->name('daily-work.attachment');
+
+    // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
+    // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).
+    Route::get('daily-work/templates', [DailyWorkController::class, 'templatesIndex'])
+        ->name('daily-work.templates');
+    Route::post('daily-work/templates', [DailyWorkController::class, 'templateStore'])
+        ->name('daily-work.templates.store');
+    Route::patch('daily-work/templates/{template}', [DailyWorkController::class, 'templateUpdate'])
+        ->name('daily-work.templates.update');
+    Route::delete('daily-work/templates/{template}', [DailyWorkController::class, 'templateDestroy'])
+        ->name('daily-work.templates.destroy');
+    Route::post('daily-work/adhoc', [DailyWorkController::class, 'adhocStore'])
+        ->name('daily-work.adhoc.store');
+    Route::get('daily-work/team', [DailyWorkController::class, 'teamIndex'])
+        ->name('daily-work.team');
+    Route::get('daily-work/verification', [DailyWorkController::class, 'verificationIndex'])
+        ->name('daily-work.verification');
 
     // FR-5.x Daily Work Task 3 - template rutin per karyawan (HOD) +
     // tugas tambahan adhoc (FR-5.2) + pratinjau harian bawahan (team).

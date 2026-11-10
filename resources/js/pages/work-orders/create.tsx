@@ -6,8 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { WorkOrderCategoryChoice } from '@/components/work-order-category-choice';
 import { useRequiredTenant } from '@/lib/tenant';
+import { AlertTriangle, CircleAlert, Clock, UserRoundCheck, Zap } from 'lucide-react';
 
 /** Kategori tanpa opsi jadwal (PRD FR-1.2): Urgent by Accident. */
 const NO_SCHEDULE_CATEGORIES = ['accident'];
@@ -39,6 +42,36 @@ type DamageTypeOption = {
     label: string;
 };
 
+type PriorityType = 'normal' | 'urgent';
+type UrgentSubType = 'by_accident' | 'by_owner';
+type PriorityLevel = 'low' | 'medium' | 'high';
+
+const PRIORITY_TYPES: { value: PriorityType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { value: 'normal', label: 'Normal', icon: Zap },
+    { value: 'urgent', label: 'Urgent', icon: CircleAlert },
+];
+
+const URGENT_SUB_TYPES: { value: UrgentSubType; label: string; hint: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    {
+        value: 'by_accident',
+        label: 'Urgent by Accident',
+        hint: 'HOD wajib eksekusi langsung â€” tidak bisa dijadwalkan.',
+        icon: CircleAlert,
+    },
+    {
+        value: 'by_owner',
+        label: 'Urgent Request by Owner',
+        hint: 'Permintaan urgent atas nama owner.',
+        icon: UserRoundCheck,
+    },
+];
+
+const PRIORITY_LEVELS: { value: PriorityLevel; label: string; estimate: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { value: 'low', label: 'Low', estimate: '7â€“14 hari kerja', icon: Clock },
+    { value: 'medium', label: 'Medium', estimate: '3â€“7 hari kerja', icon: Clock },
+    { value: 'high', label: 'High', estimate: '1â€“3 hari kerja', icon: AlertTriangle },
+];
+
 CreateWorkOrder.layout = {
     breadcrumbs: [{ title: 'Work Order' }, { title: 'Buat' }],
     title: 'Buat Work Order',
@@ -57,6 +90,8 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
         requested_schedule_date: string;
         attachments: File[];
         priority: string;
+        priority_type: PriorityType;
+        urgent_sub_type: UrgentSubType | '';
         personnel_count: number;
         damage_type: string;
     }>({
@@ -65,10 +100,12 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
         target_department_id: '',
         description: '',
         location: '',
-        priority: '',
-        personnel_count: 1,
         requested_schedule_date: '',
         attachments: [],
+        priority: '',
+        priority_type: 'normal',
+        urgent_sub_type: '',
+        personnel_count: 1,
         damage_type: '',
     });
 
@@ -89,6 +126,8 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
     };
 
     const allowsScheduling = !NO_SCHEDULE_CATEGORIES.includes(form.data.category);
+
+    const isUrgent = form.data.priority_type === 'urgent';
 
     return (
         <>
@@ -127,6 +166,89 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
                             categories={categories}
                             error={form.errors.category}
                         />
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="priority_type">Tipe Prioritas</Label>
+                            <ToggleGroup
+                                id="priority_type"
+                                type="single"
+                                value={form.data.priority_type}
+                                onValueChange={(value) => {
+                                    form.setData('priority_type', value as PriorityType);
+                                    if (value !== 'urgent') {
+                                        form.setData('urgent_sub_type', '');
+                                    }
+                                }}
+                                className="grid w-full grid-cols-2"
+                            >
+                                {PRIORITY_TYPES.map((option) => {
+                                    const Icon = option.icon;
+                                    const checked = form.data.priority_type === option.value;
+                                    return (
+                                        <ToggleGroupItem
+                                            key={option.value}
+                                            value={option.value}
+                                            className={`flex items-center justify-center gap-2 rounded-xl border bg-card p-3 text-sm font-medium transition-[border-color,background-color] ${checked ? 'border-brand bg-brand-subtle text-brand' : 'border-border text-ink-muted hover:border-brand hover:text-brand'}`}
+                                        >
+                                            <Icon className="h-4 w-4" aria-hidden />
+                                            {option.label}
+                                        </ToggleGroupItem>
+                                    );
+                                })}
+                            </ToggleGroup>
+                            {form.errors.priority_type && (
+                                <p className="text-xs text-danger">{form.errors.priority_type}</p>
+                            )}
+                        </div>
+
+                        {isUrgent && (
+                            <>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="urgent_sub_type">Sub-tipe Urgent</Label>
+                                    <div className="grid gap-3">
+                                        {URGENT_SUB_TYPES.map((option) => {
+                                            const Icon = option.icon;
+                                            const checked = form.data.urgent_sub_type === option.value;
+                                            return (
+                                                <label
+                                                    key={option.value}
+                                                    className={`flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 transition-[border-color,box-shadow] hover:border-brand hover:shadow-raised ${checked ? 'border-brand bg-brand-subtle shadow-raised' : 'border-border'}`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="urgent_sub_type"
+                                                        value={option.value}
+                                                        checked={checked}
+                                                        onChange={(e) => form.setData('urgent_sub_type', e.target.value as UrgentSubType)}
+                                                        className="sr-only"
+                                                    />
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-brand">
+                                                        <Icon className="h-5 w-5" aria-hidden />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-ink">{option.label}</p>
+                                                        <p className="text-sm text-ink-muted mt-0.5">{option.hint}</p>
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    {form.errors.urgent_sub_type && (
+                                        <p className="text-xs text-danger">{form.errors.urgent_sub_type}</p>
+                                    )}
+                                </div>
+
+                                {form.data.urgent_sub_type === 'by_accident' && (
+                                    <Alert variant="destructive" className="rounded-xl border border-destructive/20 bg-destructive/5">
+                                        <AlertTriangle className="h-4 w-4" aria-hidden />
+                                        <AlertTitle>Immediate Execution Required</AlertTitle>
+                                        <AlertDescription>
+                                            HOD must execute this work immediately. Scheduling is not allowed for emergency situations.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                            </>
+                        )}
 
                         <div className="space-y-1.5">
                             <Label htmlFor="target_department_id">Department Tujuan</Label>
@@ -182,19 +304,35 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="priority">Prioritas</Label>
-                            <select
-                                id="priority"
-                                value={form.data.priority}
-                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => form.setData('priority', e.target.value)}
-                                className="flex h-12 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                                aria-invalid={Boolean(form.errors.priority)}
-                            >
-                                <option value="">Pilih prioritas</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                            </select>
+                            <Label htmlFor="priority">Tingkat Prioritas</Label>
+                            <div className="grid gap-3">
+                                {PRIORITY_LEVELS.map((level) => {
+                                    const Icon = level.icon;
+                                    const checked = form.data.priority === level.value;
+                                    return (
+                                        <label
+                                            key={level.value}
+                                            className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-card p-4 transition-[border-color,box-shadow] hover:border-brand hover:shadow-raised ${checked ? 'border-brand bg-brand-subtle shadow-raised' : 'border-border'}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="priority"
+                                                value={level.value}
+                                                checked={checked}
+                                                onChange={(e) => form.setData('priority', e.target.value as PriorityLevel)}
+                                                className="sr-only"
+                                            />
+                                            <div className="flex shrink-0 items-center justify-center rounded-lg bg-surface-raised text-brand">
+                                                <Icon className="h-5 w-5" aria-hidden />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-ink">{level.label}</p>
+                                                <p className="text-sm text-ink-muted">{level.estimate}</p>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                             {form.errors.priority && (
                                 <p className="text-xs text-danger">{form.errors.priority}</p>
                             )}
@@ -342,7 +480,7 @@ export default function CreateWorkOrder({ departments, categories }: PageProps) 
                                 className="w-full"
                                 data-test="create-work-order-button"
                             >
-                                {form.processing ? 'Menyimpan…' : 'Buat Work Order'}
+                                {form.processing ? 'Menyimpanâ€¦' : 'Buat Work Order'}
                             </Button>
                         </div>
                     </form>

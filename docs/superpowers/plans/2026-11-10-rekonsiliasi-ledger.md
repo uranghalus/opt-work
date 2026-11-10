@@ -38,3 +38,27 @@
 - P1-A tetap terbuka: `priority/personnel_count/damage_type` masih gagal persist (store()+service belum menyertakan) — verifikasi ulang di baseline final.
 - P1-B: semantik H+N — perlu cek `CheckDeadlineEscalation` di branch ternyata diverge; untuk merge ini saya biarkan versi branch (belum di-reconcile ke versi `main`). **TODO P1-B belum selesai** — lihat catatan Fase 4 di plan; saya belum menjalankan TDD P1-B pada sesi ini.
 
+
+## Fase 3–6 (selesai sesi ini)
+- [x] P1-A (FR-1.1 persist): store() validasi + service menyimpan 3 field. TDD merah->hijau. commit `510b26d`.
+- [x] P1-B inti: merge sudah membawa fix kalender `deadline_date->diffInDays(now)` dari `main`. Sisa staged catch-up -> #4.
+- [x] Fase 5 verify frontend: `tsc --noEmit` 0 error; `vite build` sukses (commit `e577e3a`).
+- [x] Fase 6 publikasi: push `integration/wo-reconcile` + **PR #12**; issues #2,#3,#4,#5 dikomentari.
+
+## HASIL AKHIR (baseline final)
+- **PHP: 677 test / 669 lulus / 0 gagal / 0 error / 8 skip** (HIJAU PENUH).
+  - Catatan: 5 kegagalan "baseline main" ternyata **artefak Vite manifest** di worktree baru; setelah `vite build` nyata -> hijau.
+- **Frontend: tsc 0 error; vite build sukses.**
+- 10 tiket: #2–#11 (P0-A done via PR#12; P1-A done; sisanya backlog).
+
+## Keputusan tambahan saat integrasi
+- Route assign/verify: URI kanonik + alias `assign-submit`/`verify-submit` (URI BERBEDA) — bukan dua route URI sama (itu membuat Wayfinder menulis deklarasi ganda).
+- Page endpoint GET: `assign-form`/`verify-form` → `assign-page`/`verify-page` (hindari tabrakan export Wayfinder `assignForm`/`verifyForm`).
+- `npm ci` nyata di worktree (bukan junction) — `@fullcalendar/react` ternyata tak terpasang di node_modules asli.
+- origin remote = github.com/uranghalus/opt-work.
+
+## Artefak
+- Worktree: `D:\Laravel Project\opti-works-reconcile` (branch `integration/wo-reconcile`, sudah di-push).
+- PR: https://github.com/uranghalus/opt-work/pull/12
+- Backup branch (repo asli): `backup/features-department-syncronize-20261110`
+- Repo asli `opti-works` TIDAK disentuh (tetap di `features/department-syncronize`).

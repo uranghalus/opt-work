@@ -20,3 +20,21 @@
 - [x] Fase 0.1 worktree
 - [x] Fase 0.2 baseline
 - [x] Fase 0.3 backup branch `backup/features-department-syncronize-20261110`
+- [x] Fase 1 merge + resolusi konflik → commit `9f83afd` (51 file)
+- [x] Fase 2 gate: suite **676 test / 663 lulus / 5 gagal / 0 error** = baseline `main` (0 regresi, +21 net pass dari branch).
+
+### Catatan resolusi Fase 1 (penting)
+- **Base = `main`** untuk Service/RequestService/WorkTimeLogService/DailyWork (lebih kaya + test). Branch hanya menambah tulisan `status_tiket`/`status_pekerjaan` di tiap transisi; saya sisipkan di `create()` dan `WorkOrderRequestService` **belum** dual-write → GATE controller saya ubah membaca `status` (sumber tunggal yang selalu terisi), bukan `status_tiket`. Split kolom tetap ditulis untuk display.
+- Controller diambil versi **branch** (superset: edit/update/destroy + 4 page endpoint + timeline grid). Lalu:
+  - hapus `Gate::authorize('work-order.create')` (create+store) & `work-order.read` (index) & `work-order.update` (updateRequest) — **bertentangan OQ-1** (setiap user = requester) + bikin test `main` 403.
+  - timeline: tambah prop `events` + `range` (di samping prop grid `weekStart/.../days`) agar `WorkOrderVisibilityTest` lulus.
+  - gate `canUpdate/canCancel/canEdit/canCancelDuplicate/canDecideRequest/executionStage` dialihkan `status_tiket|status_pekerjaan` → `status`.
+- `routes/web.php`: assign/verify didaftarkan **dua nama** (test pakai `work-orders.assign|verify`, FE pakai `*-submit`).
+- Migrasi: hapus duplikat `2026_10_28_000001` (identik dengan `main` `2026_10_24_142826`).
+- Fix `Edit.tsx`→`edit.tsx` (case-sensitive; render `work-orders/edit`).
+- 5 gagal sisa = **persis baseline `main`** (login-screen, daily-work preview, 2× work-time visibility, extend approver) → non-regresi, tiket terpisah.
+
+### Ruling terbuka (dicatat, TIDAK dikerjakan di sini → P1-A/P1-B/P2)
+- P1-A tetap terbuka: `priority/personnel_count/damage_type` masih gagal persist (store()+service belum menyertakan) — verifikasi ulang di baseline final.
+- P1-B: semantik H+N — perlu cek `CheckDeadlineEscalation` di branch ternyata diverge; untuk merge ini saya biarkan versi branch (belum di-reconcile ke versi `main`). **TODO P1-B belum selesai** — lihat catatan Fase 4 di plan; saya belum menjalankan TDD P1-B pada sesi ini.
+

@@ -62,6 +62,9 @@ class WorkOrderService
                         'title' => $data['title'],
                         'description' => $data['description'],
                         'location' => $data['location'] ?? null,
+                        'priority' => $data['priority'] ?? null,
+                        'personnel_count' => $data['personnel_count'] ?? null,
+                        'damage_type' => $data['damage_type'] ?? null,
                         'attachments' => $attachments === [] ? null : $attachments,
                         'status' => $needsApproval
                             ? WorkOrderStatus::PendingDeptApproval->value

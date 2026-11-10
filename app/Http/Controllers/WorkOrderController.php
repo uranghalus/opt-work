@@ -379,6 +379,9 @@ class WorkOrderController extends Controller
             'description' => ['required', 'string'],
             'location' => ['nullable', 'string', 'max:255'],
             'category' => ['required', Rule::enum(WorkOrderCategory::class)],
+            'priority' => ['nullable', 'in:low,medium,high'],
+            'personnel_count' => ['nullable', 'integer', 'min:1'],
+            'damage_type' => ['nullable', 'string', 'max:255'],
             'target_department_id' => [
                 'required',
                 // FR-4.1: hanya department AKTIF ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â department yang dinonaktifkan

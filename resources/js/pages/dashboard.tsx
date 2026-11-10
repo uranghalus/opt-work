@@ -4,7 +4,6 @@ import {
     Bolt,
     CalendarClock,
     CheckCircle,
-    ChevronDown,
     ClipboardList,
     Clock,
     Construction,
@@ -16,7 +15,6 @@ import {
     History,
     ListFilter,
     MapPin,
-    MonitorCog,
     Plus,
     Search,
     ShieldCheck,
@@ -32,7 +30,6 @@ import {
 import { useState, type ReactNode } from 'react';
 import { InfoBanner } from '@/components/info-banner';
 import { Button } from '@/components/ui/button';
-import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 import { create, index as workOrdersIndex } from '@/routes/work-orders';
@@ -40,11 +37,10 @@ import type { InertiaConfig } from '@inertiajs/core';
 import { useRequiredTenant } from '@/lib/tenant';
 
 /*
- * Executive overview home (Stitch reference, DESIGN.md §13 executive
- * scorecard). Authored fixture data: the Work Order module has no dashboard
- * controller yet, so the KPI scorecard, weekly throughput, departmental
- * health, priority queue and audit trail render sample values at production
- * fidelity. Swap for Inertia props when DashboardController ships.
+ * Dashboard utama — Executive overview home (Stitch reference, DESIGN.md §13).
+ * Authored fixture data: the Work Order module has no dashboard controller yet,
+ * so KPI scorecard, departmental health, priority queue and audit trail render
+ * sample values. Swap for Inertia props when DashboardController ships.
  */
 
 type KpiCard = {
@@ -66,28 +62,6 @@ type KpiCard = {
     footer: ReactNode;
 };
 
-function FootCount({
-    tone,
-    count,
-    label,
-}: {
-    tone: string;
-    count: number;
-    label: string;
-}) {
-    return (
-        <span className="flex items-center gap-1.5">
-            <span
-                aria-hidden="true"
-                className={cn('size-2 shrink-0 rounded-full', tone)}
-            >
-            </span>
-            <span className="font-semibold text-ink tabular-nums">{count}</span>
-            <span className="text-ink-subtle">{label}</span>
-        </span>
-    );
-}
-
 const kpiCards: KpiCard[] = [
     {
         id: 'total-wo',
@@ -105,9 +79,30 @@ const kpiCards: KpiCard[] = [
         progress: { pct: 88.8, caption: 'Target 160 WO' },
         footer: (
             <div className="flex flex-wrap items-center gap-3">
-                <FootCount tone="bg-success" count={118} label="Selesai" />
-                <FootCount tone="bg-warning" count={18} label="Berjalan" />
-                <FootCount tone="bg-info" count={6} label="Approval" />
+                <span className="flex items-center gap-1.5">
+                    <span
+                        aria-hidden="true"
+                        className="size-2 shrink-0 rounded-full bg-success"
+                    />
+                    <span className="font-semibold text-ink tabular-nums">118</span>
+                    <span className="text-ink-subtle">Selesai</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                    <span
+                        aria-hidden="true"
+                        className="size-2 shrink-0 rounded-full bg-warning"
+                    />
+                    <span className="font-semibold text-ink tabular-nums">18</span>
+                    <span className="text-ink-subtle">Berjalan</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                    <span
+                        aria-hidden="true"
+                        className="size-2 shrink-0 rounded-full bg-info"
+                    />
+                    <span className="font-semibold text-ink tabular-nums">6</span>
+                    <span className="text-ink-subtle">Approval</span>
+                </span>
             </div>
         ),
     },
@@ -194,20 +189,6 @@ const kpiCards: KpiCard[] = [
         ),
     },
 ];
-
-const weeklyThroughput = [
-    { day: 'Sen', date: '17 Feb', masuk: 18, selesai: 22, sla: 97 },
-    { day: 'Sel', date: '18 Feb', masuk: 20, selesai: 24, sla: 98 },
-    { day: 'Rab', date: '19 Feb', masuk: 25, selesai: 23, sla: 95 },
-    { day: 'Kam', date: '20 Feb', masuk: 16, selesai: 20, sla: 96 },
-    { day: 'Jum', date: '21 Feb', masuk: 28, selesai: 30, sla: 99 },
-    { day: 'Sab', date: '22 Feb', masuk: 10, selesai: 12, sla: 93 },
-    { day: 'Min', date: '23 Feb', masuk: 8, selesai: 11, sla: 96 },
-];
-
-const throughputScale = Math.max(
-    ...weeklyThroughput.flatMap((d) => [d.masuk, d.selesai]),
-);
 
 type DepartmentRow = {
     name: string;
@@ -458,89 +439,6 @@ const auditEntries: AuditEntry[] = [
 
 const rangeOptions = ['Hari ini', '7 hari', '30 hari'] as const;
 
-function SectionHeading({
-    icon: Icon,
-    iconWrap,
-    title,
-    description,
-    trailing,
-}: {
-    icon: LucideIcon;
-    iconWrap: string;
-    title: string;
-    description: string;
-    trailing?: ReactNode;
-}) {
-    return (
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
-            <div className="flex min-w-0 items-start gap-2.5">
-                <span
-                    aria-hidden="true"
-                    className={cn(
-                        'flex size-8 shrink-0 items-center justify-center rounded-lg',
-                        iconWrap,
-                    )}
-                >
-                    <Icon className="size-4" />
-                </span>
-                <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold text-ink">
-                        {title}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-ink-muted">
-                        {description}
-                    </p>
-                </div>
-            </div>
-            {trailing}
-        </header>
-    );
-}
-
-function Th({
-    children,
-    align = 'left',
-}: {
-    children: ReactNode;
-    align?: 'left' | 'center' | 'right';
-}) {
-    return (
-        <th
-            scope="col"
-            className={cn(
-                'px-3 py-2.5 text-xs font-semibold tracking-wider whitespace-nowrap text-ink-subtle uppercase',
-                align === 'center' && 'text-center',
-                align === 'right' && 'text-right',
-            )}
-        >
-            {children}
-        </th>
-    );
-}
-
-function AvatarStack({ people }: { people: string }) {
-    const getInitials = useInitials();
-
-    return (
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand ring-1 ring-border">
-            {getInitials(people)}
-        </span>
-    );
-}
-
-function DashboardActions() {
-    const tenant = useRequiredTenant('work-orders.create');
-
-    return (
-        <Button asChild size="lg">
-            <Link href={create({ tenant })}>
-                <Plus aria-hidden="true" className="size-4" />
-                Buat Work Order
-            </Link>
-        </Button>
-    );
-}
-
 export default function Dashboard() {
     const tenant = useRequiredTenant('dashboard');
     const [range, setRange] = useState<(typeof rangeOptions)[number]>('7 hari');
@@ -560,39 +458,48 @@ export default function Dashboard() {
             )}
 
             <div className="flex flex-col gap-6">
-                <div className="-mt-2 flex flex-wrap items-center gap-2 self-end">
-                    <div
-                        role="group"
-                        aria-label="Rentang laporan"
-                        className="flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
-                    >
-                        {rangeOptions.map((option) => (
-                            <button
-                                key={option}
-                                type="button"
-                                aria-pressed={range === option}
-                                onClick={() => setRange(option)}
-                                className={cn(
-                                    'h-9 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none',
-                                    range === option
-                                        ? 'bg-surface text-ink shadow-card'
-                                        : 'text-ink-muted hover:text-ink',
-                                )}
-                            >
-                                {option}
-                            </button>
-                        ))}
+                {/* Dashboard Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-normal text-ink leading-tight">
+                            Ruang Kerja Operasional
+                        </h1>
+                        <p className="text-sm text-ink-muted font-medium leading-relaxed">
+                            Pantau kinerja tim, kelola antrian, dan pastikan SLA terpenuhi
+                        </p>
                     </div>
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                        <Upload aria-hidden="true" className="size-3.5" />
-                        Ekspor
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div
+                            role="group"
+                            aria-label="Rentang laporan"
+                            className="flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
+                        >
+                            {rangeOptions.map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    aria-pressed={range === option}
+                                    onClick={() => setRange(option)}
+                                    className={cn(
+                                        'h-9 cursor-pointer rounded-md px-3 text-xs font-medium transition-colors duration-200',
+                                        range === option
+                                            ? 'bg-surface text-ink shadow-card'
+                                            : 'text-ink-muted hover:bg-surface hover:text-ink',
+                                    )}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
+                        <Button variant="outline" size="sm" className="h-9 gap-1 px-4 font-medium border-1" aria-label="Ekspor data dashboard">
+                            <Upload aria-hidden="true" className="size-3.5" />
+                            Ekspor
+                        </Button>
+                    </div>
                 </div>
 
-                <section
-                    aria-label="Ringkasan eksekutif"
-                    className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-                >
+                {/* KPI Row */}
+                <section aria-label="Ringkasan eksekutif" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {kpiCards.map((card) => (
                         <article
                             key={card.id}
@@ -669,262 +576,132 @@ export default function Dashboard() {
                     ))}
                 </section>
 
-                <section
-                    aria-labelledby="throughput-heading"
-                    className="rounded-2xl border border-border bg-card p-5 shadow-card"
-                >
-                    <SectionHeading
-                        icon={MonitorCog}
-                        iconWrap="bg-info-subtle text-info"
-                        title="Throughput mingguan & tren SLA"
-                        description="Tiket WO masuk dibanding WO selesai, 7 hari terakhir."
-                        trailing={
-                            <div className="flex items-center gap-3 text-xs text-ink-muted">
-                                <span className="flex items-center gap-1.5">
-                                    <span
-                                        aria-hidden="true"
-                                        className="size-2.5 rounded-sm bg-brand"
-                                    />
-                                    WO selesai
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                    <span
-                                        aria-hidden="true"
-                                        className="size-2.5 rounded-sm bg-info"
-                                    />
-                                    WO masuk
-                                </span>
-                            </div>
-                        }
-                    />
-
-                    <div className="grid grid-cols-7 gap-3 pt-5 pb-2">
-                        {weeklyThroughput.map((day) => (
-                            <div
-                                key={day.day}
-                                className="flex flex-col items-center gap-2"
-                            >
-                                <span
-                                    className={cn(
-                                        'text-xs font-semibold tabular-nums',
-                                        day.sla >= 95
-                                            ? 'text-success'
-                                            : 'text-warning',
-                                    )}
-                                >
-                                    {day.sla}%
-                                </span>
-                                <div className="flex h-24 w-full items-end justify-center gap-1.5 rounded-xl bg-surface-sunken p-1.5 ring-1 ring-border">
-                                    <div
-                                        className="w-2.5 rounded-t-sm bg-info"
-                                        style={{
-                                            height: `${(day.masuk / throughputScale) * 100}%`,
-                                        }}
-                                        title={`WO masuk: ${day.masuk}`}
-                                    />
-                                    <div
-                                        className="w-2.5 rounded-t-sm bg-brand"
-                                        style={{
-                                            height: `${(day.selesai / throughputScale) * 100}%`,
-                                        }}
-                                        title={`WO selesai: ${day.selesai}`}
-                                    />
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-xs font-medium text-ink">
-                                        {day.day}
-                                    </p>
-                                    <p className="text-xs text-ink-subtle">
-                                        {day.date}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
+                {/* Department Health */}
                 <section
                     aria-labelledby="department-heading"
                     className="rounded-2xl border border-border bg-card shadow-card"
                 >
-                    <div className="p-5">
-                        <SectionHeading
-                            icon={HeartPulse}
-                            iconWrap="bg-info-subtle text-info"
-                            title="Kesehatan operasional lintas departemen"
-                            description="Throughput, rasio penyelesaian, dan kepatuhan SLA per departemen."
-                            trailing={
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9 gap-1.5"
-                                >
-                                    <ListFilter
-                                        aria-hidden="true"
-                                        className="size-3.5"
-                                    />
-                                    Filter
-                                </Button>
-                            }
-                        />
+                    <div className="p-5 border-b border-border/30">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg sm:text-xl font-bold tracking-normal text-ink">
+                                    Kesehatan Departemen
+                                </h2>
+                                <p className="text-sm text-ink-muted mt-1 font-medium">
+                                    Status SLA dan kinerja per departemen.
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-9 gap-1 px-4 font-medium border-1"
+                                aria-label="Filter data kesehatan departemen"
+                            >
+                                <ListFilter aria-hidden="true" className="size-3.5" />
+                                Filter
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="border-y border-border bg-surface-raised">
-                                <tr>
-                                    <Th>Departemen</Th>
-                                    <Th>HOD</Th>
-                                    <Th align="center">WO aktif</Th>
-                                    <Th>Rasio selesai</Th>
-                                    <Th align="center">SLA</Th>
-                                    <Th align="right">Status</Th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {departmentRows.map((row) => (
-                                    <tr
-                                        key={row.name}
-                                        className="transition-colors duration-150 hover:bg-surface-raised motion-reduce:transition-none"
-                                    >
-                                        <td className="px-3 py-3">
-                                            <div className="flex items-center gap-2.5">
-                                                <span
-                                                    aria-hidden="true"
-                                                    className={cn(
-                                                        'flex size-8 shrink-0 items-center justify-center rounded-lg text-on-brand',
-                                                        row.iconWrap,
-                                                    )}
-                                                >
-                                                    <row.icon className="size-4" />
-                                                </span>
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-medium text-ink">
-                                                        {row.name}
-                                                    </p>
-                                                    <p className="truncate text-xs text-ink-subtle">
-                                                        {row.scope}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <AvatarStack people={row.hod} />
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-medium text-ink">
-                                                        {row.hod}
-                                                    </p>
-                                                    <p className="truncate text-xs text-ink-subtle">
-                                                        {row.hodRole}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-3 text-center">
-                                            <span
-                                                className={cn(
-                                                    'inline-flex items-center rounded-md px-2 py-1 font-mono text-xs font-semibold',
-                                                    row.urgent
-                                                        ? 'bg-danger-subtle text-danger ring-danger/25'
-                                                        : 'bg-warning-subtle text-warning ring-warning/25',
-                                                )}
-                                            >
-                                                {row.activeWo} WO
-                                                {row.urgent && (
-                                                    <span className="sr-only">
-                                                        , termasuk 1 prioritas
-                                                        P1
-                                                    </span>
-                                                )}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="flex items-baseline justify-between gap-2 text-xs">
-                                                <span className="text-ink-muted">
-                                                    {row.ratioNote}
-                                                </span>
-                                                <span className="font-medium text-ink tabular-nums">
-                                                    {row.doneRatio}%
-                                                </span>
-                                            </div>
-                                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
-                                                <div
-                                                    className={cn(
-                                                        'h-full rounded-full bg-linear-to-r',
-                                                        row.barClass,
-                                                    )}
-                                                    style={{
-                                                        width: `${row.doneRatio}%`,
-                                                    }}
-                                                />
-                                            </div>
-                                        </td>
-                                        <td
+                    <div className="p-5 space-y-4">
+                        {departmentRows.map((row) => (
+                            <div
+                                key={row.name}
+                                className="flex items-center justify-between p-4 rounded-xl border border-border/30 bg-card shadow-sm transition-colors duration-200 hover:border-border/50 motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                tabIndex={0}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm border border-border/50">
+                                        <row.icon className="size-4 text-brand" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-ink tracking-normal">
+                                            {row.name}
+                                        </h3>
+                                        <p className="text-xs text-ink-muted font-medium">
+                                            {row.hod}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                    <div className="text-right">
+                                        <p className="font-semibold text-ink tabular-nums">
+                                            {row.activeWo}
+                                        </p>
+                                        <p className="text-xs text-ink-muted uppercase tracking-wide font-medium">WO Aktif</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-ink tabular-nums">
+                                            {row.doneRatio}%
+                                        </p>
+                                        <p className="text-xs text-ink-muted uppercase tracking-wide font-medium">Selesai</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold tabular-nums {row.slaClass}">
+                                            {row.sla}
+                                        </p>
+                                        <p className="text-xs text-ink-muted uppercase tracking-wide font-medium">SLA</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span
                                             className={cn(
-                                                'px-3 py-3 text-center font-mono text-xs font-semibold tabular-nums',
-                                                row.slaClass,
+                                                'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition-colors duration-200',
+                                                row.healthy
+                                                    ? 'bg-success-subtle text-success border-success/50 hover:bg-success hover:text-on-brand hover:ring-success/40'
+                                                    : 'bg-warning-subtle text-warning border-warning/50 hover:bg-warning hover:text-on-brand hover:ring-warning/40',
                                             )}
                                         >
-                                            {row.sla}
-                                        </td>
-                                        <td className="px-3 py-3 text-right">
-                                            <span
-                                                className={cn(
-                                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
-                                                    row.healthy
-                                                        ? 'bg-success-subtle text-success ring-success/25'
-                                                        : 'bg-warning-subtle text-warning ring-warning/30',
-                                                )}
-                                            >
-                                                {row.healthy ? (
-                                                    <CheckCircle
-                                                        aria-hidden="true"
-                                                        className="size-3"
-                                                    />
-                                                ) : (
-                                                    <TriangleAlert
-                                                        aria-hidden="true"
-                                                        className="size-3"
-                                                    />
-                                                )}
-                                                {row.healthy
-                                                    ? 'Sehat'
-                                                    : 'Perlu perhatian'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                            {row.healthy ? (
+                                                <CheckCircle aria-hidden="true" className="size-4" />
+                                            ) : (
+                                                <TriangleAlert aria-hidden="true" className="size-4" />
+                                            )}
+                                            {row.healthy ? 'Sehat' : 'Perlu perhatian'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-6 p-5 pt-4 border-t border-border/30">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-ink-muted uppercase tracking-wide">Rata-rata SLA</p>
+                                <p className="text-xl sm:text-2xl font-bold text-success mt-1">92%</p>
+                            </div>
+                            <div className="w-32 h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+                                <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: '92%' }} />
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <div className="grid gap-4 lg:grid-cols-3">
+                {/* Priority Queue & Audit Trail */}
+                <div className="grid gap-6 lg:grid-cols-3">
                     <section
                         aria-labelledby="priority-heading"
-                        className="rounded-2xl border border-border bg-card p-5 lg:col-span-2"
+                        className="rounded-2xl border border-border bg-card p-5 lg:col-span-2 shadow-card"
                     >
-                        <SectionHeading
-                            icon={Zap}
-                            iconWrap="bg-danger-subtle text-danger"
-                            title="Pekerjaan prioritas & insiden aktif"
-                            description="Tiket P1–P3 yang butuh tindakan sebelum SLA terlampaui."
-                            trailing={
-                                <Link
-                                    href={workOrdersIndex({ tenant })}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover"
-                                >
-                                    Lihat semua
-                                    <ArrowUpRight
-                                        aria-hidden="true"
-                                        className="size-3.5"
-                                    />
-                                </Link>
-                            }
-                        />
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-lg sm:text-xl font-bold tracking-normal text-ink">
+                                    Antrian Prioritas
+                                </h2>
+                                <p className="text-sm text-ink-muted mt-1 font-medium">
+                                    Work Order yang memerlukan tindakan segera atau berisiko melanggar SLA.
+                                </p>
+                            </div>
+                            <Link
+                                href={workOrdersIndex({ tenant })}
+                                className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:text-brand-hover"
+                                aria-label="Lihat semua work order prioritas"
+                            >
+                                Lihat semua
+                                <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                            </Link>
+                        </div>
 
-                        <div className="mt-4 space-y-3">
+                        <div className="space-y-3">
                             {priorityTickets.map((ticket) => {
                                 const style = priorityStyles[ticket.priority];
 
@@ -940,9 +717,7 @@ export default function Dashboard() {
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="font-mono text-xs font-medium text-ink-muted">
-                                                        {ticket.id}
-                                                    </span>
+                                                    <span className="font-mono text-xs font-medium text-ink-muted tabular-nums">{ticket.id}</span>
                                                     <span
                                                         className={cn(
                                                             'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
@@ -961,10 +736,7 @@ export default function Dashboard() {
                                                 </h3>
                                                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
                                                     <span className="inline-flex items-center gap-1">
-                                                        <MapPin
-                                                            aria-hidden="true"
-                                                            className="size-3"
-                                                        />
+                                                        <MapPin aria-hidden="true" className="size-3" />
                                                         {ticket.location}
                                                     </span>
                                                     <span className="inline-flex items-center gap-1">
@@ -974,10 +746,7 @@ export default function Dashboard() {
                                                         </span>
                                                     </span>
                                                     <span className="inline-flex items-center gap-1">
-                                                        <Wrench
-                                                            aria-hidden="true"
-                                                            className="size-3"
-                                                        />
+                                                        <Wrench aria-hidden="true" className="size-3" />
                                                         <span className="font-medium text-ink">
                                                             {ticket.technician}
                                                         </span>
@@ -992,10 +761,7 @@ export default function Dashboard() {
                                                         ticket.slaClass,
                                                     )}
                                                 >
-                                                    <Clock
-                                                        aria-hidden="true"
-                                                        className="size-3"
-                                                    />
+                                                    <Clock aria-hidden="true" className="size-3" />
                                                     {ticket.slaLeft}
                                                 </span>
                                                 <div className="flex gap-1.5">
@@ -1003,16 +769,15 @@ export default function Dashboard() {
                                                         variant="outline"
                                                         size="sm"
                                                         className="h-9 gap-1 text-xs"
+                                                        aria-label={`Audit ${ticket.title}`}
                                                     >
-                                                        <Eye
-                                                            aria-hidden="true"
-                                                            className="size-3"
-                                                        />
+                                                        <Eye aria-hidden="true" className="size-3" />
                                                         Audit
                                                     </Button>
                                                     <Button
                                                         size="sm"
                                                         className="h-9 text-xs"
+                                                        aria-label={`Tangani ${ticket.title}`}
                                                     >
                                                         Tangani
                                                     </Button>
@@ -1029,12 +794,16 @@ export default function Dashboard() {
                         aria-labelledby="audit-heading"
                         className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-card"
                     >
-                        <SectionHeading
-                            icon={History}
-                            iconWrap="bg-surface-sunken text-ink-muted"
-                            title="Ringkasan eksekusi"
-                            description="Jejak audit terbaru hari ini."
-                        />
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-lg sm:text-xl font-bold tracking-normal text-ink">
+                                    Aktivitas Terbaru
+                                </h2>
+                                <p className="text-sm text-ink-muted mt-1 font-medium">
+                                    Perubahan penting dalam 24 jam terakhir.
+                                </p>
+                            </div>
+                        </div>
 
                         <ol className="mt-4 space-y-3">
                             {auditEntries.map((entry) => (
@@ -1075,39 +844,10 @@ export default function Dashboard() {
                                 className="inline-flex items-center gap-1 font-medium text-brand hover:text-brand-hover"
                             >
                                 Buka audit log lengkap
-                                <ArrowUpRight
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                />
+                                <ArrowUpRight aria-hidden="true" className="size-3.5" />
                             </Link>
                         </div>
                     </section>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                        <Upload aria-hidden="true" className="size-3.5" />
-                        Impor
-                    </Button>
-                    <label className="relative">
-                        <span className="sr-only">Cari Work Order</span>
-                        <Search
-                            aria-hidden="true"
-                            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-subtle"
-                        />
-                        <input
-                            type="search"
-                            placeholder="Cari…"
-                            className="h-9 w-40 rounded-md border border-border bg-card pl-8 text-sm text-ink placeholder:text-ink-subtle focus:ring-2 focus:ring-brand/40 focus:outline-none"
-                        />
-                    </label>
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                        Urutkan
-                        <ChevronDown
-                            aria-hidden="true"
-                            className="size-3 text-ink-subtle"
-                        />
-                    </Button>
                 </div>
             </div>
         </>
@@ -1118,5 +858,5 @@ Dashboard.layout = {
     breadcrumbs: [{ title: 'Beranda', href: home() }],
     greeting: true,
     description: 'Kelola antrian dan pantau SLA hari ini.',
-    actions: DashboardActions,
+    actions: undefined,
 };

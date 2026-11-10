@@ -93,7 +93,7 @@ it('renders the assign page for an authorized user', function () {
     $actor = actorPageWithPermission('work-order.assign');
 
     $this->actingAs($actor)
-        ->get(route('work-orders.assign-form', [
+        ->get(route('work-orders.assign-page', [
             'tenant' => 'hq',
             'work_order' => $workOrder->getKey(),
         ]))
@@ -124,7 +124,7 @@ it('renders the verify page for an authorized user', function () {
     $actor = actorPageWithPermission('work-order.verify');
 
     $this->actingAs($actor)
-        ->get(route('work-orders.verify-form', [
+        ->get(route('work-orders.verify-page', [
             'tenant' => 'hq',
             'work_order' => $workOrder->getKey(),
         ]))
@@ -151,7 +151,7 @@ it('returns 403 for assign without work-order.assign permission', function () {
     $actor = actorPageWithoutPermission();
 
     $this->actingAs($actor)
-        ->get(route('work-orders.assign-form', [
+        ->get(route('work-orders.assign-page', [
             'tenant' => 'hq',
             'work_order' => $workOrder->getKey(),
         ]))
@@ -175,7 +175,7 @@ it('returns 403 for verify without work-order.verify permission', function () {
     $actor = actorPageWithoutPermission();
 
     $this->actingAs($actor)
-        ->get(route('work-orders.verify-form', [
+        ->get(route('work-orders.verify-page', [
             'tenant' => 'hq',
             'work_order' => $workOrder->getKey(),
         ]))

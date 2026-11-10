@@ -32,7 +32,15 @@ jobs:
           node-version: '22'
 
       - name: Setup Application
-        run: composer setup
+        env:
+          # CI memakai sqlite (sama dgn phpunit.xml) — .env.example default-nya
+          # MySQL lokal developer, sehingga tanpa override ini `migrate --force`
+          # gagal "Connection refused" di runner.
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: |
+          mkdir -p database && touch database/database.sqlite
+          composer setup
 
       - name: Run CI Checks
         run: composer ci:check

@@ -38,6 +38,9 @@ jobs:
           # gagal "Connection refused" di runner.
           DB_CONNECTION: sqlite
           DB_DATABASE: database/database.sqlite
+          # spatie/multitenancy memakai koneksi terpisah (bukan DB_CONNECTION).
+          LANDLORD_DB_CONNECTION: sqlite
+          TENANT_DB_CONNECTION: sqlite
         run: |
           mkdir -p database && touch database/database.sqlite
           composer setup

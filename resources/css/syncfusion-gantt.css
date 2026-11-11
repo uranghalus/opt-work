@@ -1,0 +1,122 @@
+/*
+ * Syncfusion Gantt — token adapter.
+ *
+ * Syncfusion tidak punya `theme` prop; themability-nya murni CSS. Theme
+ * resminya memakai namespace `--color-sf-*`, sedangkan aplikasi ini memakai
+ * namespace sendiri (`--brand`, `--ink`, `--surface`, ... di app.css). Tidak
+ * ada jembatan resmi antar keduanya, jadi file inilah jembatan itu.
+ *
+ * Isinya sengaja HANYA pemetaan variabel + sedikit override class. Semua
+ * override butuh `!important` karena CSS theme Syncfusion punya specificity
+ * tinggi (dokumen mereka sendiri pun memakai `!important` di contoh).
+ *
+ * Yang TIDAK boleh dilakukan: menaruh nilai hex mentah di komponen React.
+ * Semua warna harus lewat token app.css supaya dark mode mengikuti otomatis.
+ */
+
+/* Tema resmi Syncfusion (light). Satu impor, lalu dioverride di bawah. */
+@import '@syncfusion/ej2-tailwind3-theme/styles/gantt/index.css';
+
+/*
+ * Syncfusion menyebut 4 tema modern (material3/fluent2/bootstrap5.3/tailwind3)
+ * mendukung CSS variable, tapi hanya material3 yang memakai triplet RGB.
+ * Theme tailwind3 memakai hex, jadi aman dipetakan dari hex kita.
+ */
+/*
+ * Selector `:root, .dark` sengaja, bukan `:root` saja.
+ *
+ * Aplikasi menyalakan dark mode dengan kelas `.dark` di <html>
+ * (hooks/use-appearance.tsx), sedangkan tema Syncfusion memakai
+ * `.e-dark-mode`. Keduanya bisa saja disinkronkan manual, tapi tidak perlu:
+ * karena pemetaan di bawah hanya berupa `var(--token-app)`, satu selector
+ * yang sama akan otomatis mengambil nilai gelap dari app.css begitu `.dark`
+ * aktif — tanpa menyalin ulang ~30 variabel gelap milik Syncfusion.
+ */
+:root,
+.dark {
+    /* Radius: samakan dengan bahasa bentuk aplikasi (12-16px, bukan 1rem). */
+    --e-radius: 8px;
+
+    /* Surface */
+    --color-sf-content-bg-color: var(--surface);
+    --color-sf-content-bg-color-alt1: var(--surface-raised);
+    --color-sf-content-bg-color-alt2: var(--surface-sunken);
+    --color-sf-content-bg-color-hover: var(--surface-raised);
+    --color-sf-flyout-bg-color: var(--surface);
+
+    /* Ink */
+    --color-sf-content-text-color: var(--ink);
+    --color-sf-content-text-color-alt1: var(--ink);
+    --color-sf-content-text-color-alt2: var(--ink-muted);
+    --color-sf-icon-color: var(--ink-muted);
+
+    /* Border */
+    --color-sf-border: var(--border);
+    --color-sf-border-light: var(--border);
+    --color-sf-border-dark: var(--border-strong);
+
+    /* Aksen utama = brand aplikasi, bukan indigo bawaan Syncfusion. */
+    --color-sf-primary: var(--brand);
+    --color-sf-primary-light: var(--brand-strong);
+    --color-sf-primary-lighter: var(--brand-soft);
+    --color-sf-primary-bg-color: var(--brand);
+    --color-sf-primary-bg-color-hover: var(--brand-hover);
+    --color-sf-primary-text-color: var(--on-brand);
+
+    /* Sinyal semantik — dipakai queryTaskbarInfo di sisi React. */
+    --color-sf-success: var(--success);
+    --color-sf-success-light: var(--success);
+    --color-sf-warning: var(--warning);
+    --color-sf-warning-light: var(--warning);
+    --color-sf-warning-text: var(--warning);
+    --color-sf-danger: var(--danger);
+    --color-sf-danger-light: var(--danger);
+    --color-sf-white: var(--on-brand);
+}
+
+/*
+ * Dark mode: aplikasi memakai `.dark` pada <html> (lihat appearance-tabs).
+ * Theme Syncfusion memakai `.e-dark-mode`; kita cerminkan kelas-nya supaya
+ * keduanya tidak perlu disinkronkan manual oleh setiap pemanggil.
+ */
+.dark {
+    --e-radius: 8px;
+}
+
+/*
+ * Font: tema Syncfusion memaksa Inter. Brand aplikasi adalah Source Sans 3 —
+ * override ini menjaga tipografi tetap satu bahasa visual.
+ */
+.e-gantt,
+.e-gantt * {
+    font-family: inherit !important;
+}
+
+/* Label header timeline: jangan di-uppercase paksa (bahasa brand = normal case). */
+.e-gantt .e-header-cell-label,
+.e-gantt .e-headercelldiv {
+    text-transform: none !important;
+}
+
+/*
+ * Header grid dan tooltip memakai surface terang dari tema, jadi di dark
+ * mode muncul panel putih menyala di atas canvas gelap. Samakan ke token app.
+ */
+.dark .e-gantt .e-gridheader,
+.dark .e-gantt .e-columnheader,
+.dark .e-gantt .e-tooltip-wrap,
+.dark .e-gantt .e-gantt-tooltip {
+    background-color: var(--surface-raised) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+
+/*
+ * Tombol toolbar & seleksi memakai aksen indigo bawaan Syncfusion. Pakai
+ * brand supaya Geser/Zoom tidak terbaca seperti aplikasi lain.
+ */
+.e-gantt .e-toolbar .e-tbar-btn.e-active,
+.e-gantt .e-grid .e-rowcell.e-selected {
+    background-color: var(--brand-soft) !important;
+    color: var(--brand) !important;
+}

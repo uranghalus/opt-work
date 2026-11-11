@@ -3,6 +3,7 @@ import {
     BriefcaseBusiness,
     Building2,
     CalendarClock,
+    ChartGantt,
     ClipboardList,
     Database,
     House,
@@ -27,6 +28,7 @@ import positions from '@/routes/positions';
 import { edit as profileEdit } from '@/routes/profile';
 import {
     index as workOrdersIndex,
+    gantt as workOrdersGantt,
     timeline as workOrdersTimeline,
 } from '@/routes/work-orders';
 import tenants from '@/routes/tenants';
@@ -227,6 +229,16 @@ export function navGroups({
                     },
                     tenant,
                     (t) => workOrdersTimeline({ tenant: t }),
+                ),
+                tenantItem(
+                    {
+                        title: 'Gantt Jadwal',
+                        shortTitle: 'Gantt',
+                        icon: ChartGantt,
+                        tone: 'ops',
+                    },
+                    tenant,
+                    (t) => workOrdersGantt({ tenant: t }),
                 ),
                 modulePending(
                     {

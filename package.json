@@ -27,6 +27,8 @@
         "@radix-ui/react-toggle": "^1.1.2",
         "@radix-ui/react-toggle-group": "^1.1.2",
         "@radix-ui/react-tooltip": "^1.1.8",
+        "@syncfusion/ej2-react-gantt": "^35.1.43",
+        "@syncfusion/ej2-tailwind3-theme": "^35.1.43",
         "@tailwindcss/vite": "^4.1.11",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",

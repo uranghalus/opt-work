@@ -15,6 +15,7 @@ use App\Http\Controllers\TenantSwitchController;
 use App\Http\Controllers\WorkDataController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkPlanningController;
+use App\Http\Controllers\WorkPlanningGanttController;
 use App\Http\Controllers\WorkTimeLogController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
@@ -144,6 +145,12 @@ Route::middleware(['auth', 'tenant.access'])->prefix('{tenant}')->group(function
     // swallow the literal "timeline" segment.
     Route::get('work-orders/timeline', [WorkOrderController::class, 'timeline'])
         ->name('work-orders.timeline');
+
+    // Gantt reads work_plannings (durasi), not work_orders.scheduled_date
+    // (satu tanggal) — keduanya tetap hidup berdampingan sampai Timeline
+    // ikut pindah sumber jadwalnya.
+    Route::get('work-orders/gantt', WorkPlanningGanttController::class)
+        ->name('work-orders.gantt');
 
     Route::get('work-orders/approvals', [WorkOrderController::class, 'approvals'])
         ->name('work-orders.approvals');

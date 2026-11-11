@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Timer durasi kerja (R17): dasarnya SELALU dihitung server dari timestamp
- * tersimpan (`elapsedSeconds` dari payload) — komponen ini hanya
+ * tersimpan (`elapsedSeconds` dari payload) â€” komponen ini hanya
  * men-tick tampilan tiap detik di antara request, sehingga tetap benar
  * setelah refresh atau dibuka dari perangkat lain. State `paused`
  * membeku pada nilai server; `finished` juga.
@@ -26,7 +26,7 @@ const stateStyles: Record<TimerState, string> = {
 
 const stateLabels: Record<TimerState, string> = {
     not_started: 'Belum dimulai',
-    accepted: 'Diterima — belum mulai',
+    accepted: 'Diterima â€” belum mulai',
     running: 'Durasi berjalan',
     paused: 'Durasi dijeda',
     finished: 'Durasi selesai',

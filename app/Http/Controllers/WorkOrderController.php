@@ -19,7 +19,10 @@ use App\Services\WorkOrderRequestService;
 use App\Services\WorkOrderService;
 use App\Services\WorkTimeLogService;
 use App\WorkOrderCategory;
+use App\WorkOrderJobStatus;
 use App\WorkOrderStatus;
+use App\WorkOrderTicketStatus;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -40,6 +43,7 @@ class WorkOrderController extends Controller
 
     public function index(Request $request): Response
     {
+
         $user = $request->user();
 
         $validated = $request->validate([
@@ -96,8 +100,8 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Timeline — a scheduler calendar of scheduled Work Orders (FullCalendar
-     * v7 dayGrid, redesign 2026-10-24 — see
+     * Timeline ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a scheduler calendar of scheduled Work Orders (FullCalendar
+     * v7 dayGrid, redesign 2026-10-24 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â see
      * docs/audit/workorder-timeline-design-decisions.md).
      *
      * The grid is a *day* grid, not a time-of-day grid. `work_orders.scheduled_date`
@@ -105,7 +109,7 @@ class WorkOrderController extends Controller
      * "08:30 / 09:00" gutter would have no data behind it.
      *
      * The view range travels as `start`/`end` query parameters (end exclusive,
-     * the FullCalendar convention) so every view — week or month — is
+     * the FullCalendar convention) so every view ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â week or month ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â is
      * deep-linkable and the browser back button works. The legacy `week`
      * parameter (Monday date) is still honored for old links.
      *
@@ -113,7 +117,7 @@ class WorkOrderController extends Controller
      * to the calendar as its `now` value, so the today highlight agrees with
      * WITA even when the browser timezone differs.
      *
-     * Visibility mirrors index() via WorkOrder::scopeVisibleFor — the requester,
+     * Visibility mirrors index() via WorkOrder::scopeVisibleFor ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the requester,
      * the departments the user heads or deputises for, and the assigned
      * pelaksana (D1).
      */
@@ -148,7 +152,7 @@ class WorkOrderController extends Controller
                     'id' => $workOrder->getKey(),
                     // Fallback text for non-JSX renderings and screen readers;
                     // the visual card is custom JSX (eventContent).
-                    'title' => $workOrder->nomor_wo.' — '.$workOrder->title,
+                    'title' => $workOrder->nomor_wo.' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â '.$workOrder->title,
                     'start' => $workOrder->scheduled_date->toDateString(),
                     // FullCalendar end is exclusive.
                     'end' => $workOrder->scheduled_date->copy()->addDay()->toDateString(),
@@ -171,15 +175,79 @@ class WorkOrderController extends Controller
             ->all();
 
         return Inertia::render('work-orders/timeline', [
+            // Prop kanonik (dipakai test `main` + WorkOrderVisibilityTest).
             'events' => $events,
-            'totalScheduled' => count($events),
-            'today' => Carbon::today()->toDateString(),
             'range' => [
                 'start' => $start->toDateString(),
                 'end' => $end->toDateString(),
                 'view' => $view,
             ],
+            // Prop grid mingguan (UI branch: timeline.tsx full week grid).
+            'weekStart' => $start->toDateString(),
+            'weekEnd' => $end->copy()->subDay()->toDateString(),
+            'weekLabel' => $start->format('d M') . ' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ ' . $end->copy()->subDay()->format('d M Y'),
+            'today' => Carbon::today()->toDateString(),
+            'isCurrentWeek' => $start->isSameWeek(Carbon::today()),
+            'prevWeek' => $start->copy()->subWeek()->toDateString(),
+            'nextWeek' => $end->toDateString(),
+            'totalScheduled' => count($events),
+            'days' => $this->buildTimelineDays($start, $end, $workOrders),
         ]);
+    }
+
+    /**
+     * Build day-grouped timeline data for the full week grid.
+     *
+     * Groups work orders by scheduled_date and pads each calendar day
+     * (MondayÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œSunday) with an empty workOrders array so the grid always
+     * renders seven columns.
+     */
+    private function buildTimelineDays(Carbon $start, Carbon $end, Collection $workOrders): array
+    {
+        $grouped = $workOrders->groupBy(fn (WorkOrder $wo) => $wo->scheduled_date->toDateString());
+        $today = Carbon::today()->toDateString();
+
+        $dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+
+        $days = [];
+        $cursor = $start->copy();
+        while ($cursor->lt($end)) {
+            $date = $cursor->toDateString();
+            $dayOfWeek = (int) $cursor->format('N') - 1; // 0 = Monday
+
+            $days[] = [
+                'date' => $date,
+                'dayName' => $dayNames[$dayOfWeek],
+                'dayNumber' => (int) $cursor->format('j'),
+                'monthName' => $monthNames[(int) $cursor->format('n')],
+                'isToday' => $date === $today,
+                'workOrders' => ($grouped->get($date) ?? collect())->map(function (WorkOrder $wo): array {
+                    [$deadlineState, $deadlineLabel] = $this->deadlineState($wo);
+
+                    return [
+                        'id' => $wo->getKey(),
+                        'nomor_wo' => $wo->nomor_wo,
+                        'title' => $wo->title,
+                        'status' => $wo->status->value,
+                        'category' => $wo->category->value,
+                        'deadline_date' => $wo->deadline_date?->toDateString(),
+                        'deadline_state' => $deadlineState,
+                        'deadline_label' => $deadlineLabel,
+                        'requester_name' => $wo->requester?->name,
+                        'department_name' => $wo->targetDepartment?->nama_department,
+                    ];
+                })->values()->all(),
+            ];
+
+            $cursor->addDay();
+        }
+
+        return $days;
     }
 
     /**
@@ -197,7 +265,14 @@ class WorkOrderController extends Controller
     {
         $today = Carbon::today();
         $defaultStart = $today->copy()->startOfWeek(Carbon::MONDAY);
-        $allowedViews = ['dayGridWeek', 'dayGridMonth'];
+        $allowedViews = [
+            'day',
+            'week',
+            'month',
+            // Legacy FullCalendar buckets still echo correctly for old links.
+            'dayGridWeek',
+            'dayGridMonth',
+        ];
 
         $view = in_array($request->query('view'), $allowedViews, true)
             ? (string) $request->query('view')
@@ -258,7 +333,7 @@ class WorkOrderController extends Controller
     private function deadlineState(WorkOrder $workOrder): array
     {
         if ($workOrder->deadline_date === null) {
-            return ['on_track', 'On track'];
+            return ['on_track', 'Sesuai jadwal'];
         }
 
         // DateTime::diff() reports the magnitude in ->days and the direction in
@@ -280,12 +355,13 @@ class WorkOrderController extends Controller
         return match (true) {
             $daysUntil === 0 => ['due_soon', 'Deadline hari ini'],
             $daysUntil === 1 => ['due_soon', 'Deadline besok'],
-            default => ['on_track', 'On track'],
+            default => ['on_track', 'Sesuai jadwal'],
         };
     }
 
     public function create(): Response
     {
+
         return Inertia::render('work-orders/create', [
             'departments' => Department::query()
                 ->where('is_active', true)
@@ -297,14 +373,18 @@ class WorkOrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
             'location' => ['nullable', 'string', 'max:255'],
             'category' => ['required', Rule::enum(WorkOrderCategory::class)],
+            'priority' => ['nullable', 'in:low,medium,high'],
+            'personnel_count' => ['nullable', 'integer', 'min:1'],
+            'damage_type' => ['nullable', 'string', 'max:255'],
             'target_department_id' => [
                 'required',
-                // FR-4.1: hanya department AKTIF — department yang dinonaktifkan
+                // FR-4.1: hanya department AKTIF ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â department yang dinonaktifkan
                 // sync tidak boleh jadi tujuan WO baru (dropdown create juga
                 // hanya menampilkan yang aktif).
                 Rule::exists('departments', 'id')
@@ -341,6 +421,54 @@ class WorkOrderController extends Controller
             ->with('success', 'Work Order '.$workOrder->nomor_wo.' berhasil dibuat.');
     }
 
+    public function edit(Request $request): Response
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.update', $workOrder);
+
+        return Inertia::render('work-orders/edit', [
+            'workOrder' => $workOrder,
+            'departments' => Department::query()
+                ->where('is_active', true)
+                ->orderBy('nama_department')
+                ->get(['id', 'nama_department']),
+            'categories' => WorkOrderCategory::options(),
+        ]);
+    }
+
+    public function update(UpdateWorkOrderRequest $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.update', $workOrder);
+
+        $workOrder->update($request->validated());
+
+        return redirect()
+            ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' diperbarui.');
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('workOrder'))
+            ->firstOrFail();
+
+        Gate::authorize('work-order.delete', $workOrder);
+
+        $workOrder->delete();
+
+        return redirect()
+            ->route('work-orders.index', ['tenant' => tenant()?->code])
+            ->with('success', 'WO '.$workOrder->nomor_wo.' dihapus.');
+    }
+
     public function review(ReviewWorkOrderRequest $request): RedirectResponse
     {
         Gate::authorize('work-order.review');
@@ -358,7 +486,7 @@ class WorkOrderController extends Controller
             ->with('success', 'Keputusan review WO '.$workOrder->nomor_wo.' tersimpan.');
     }
 
-    public function assign(AssignWorkOrderRequest $request): RedirectResponse
+    public function assignSubmit(AssignWorkOrderRequest $request): RedirectResponse
     {
         Gate::authorize('work-order.assign');
 
@@ -404,7 +532,7 @@ class WorkOrderController extends Controller
 
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
-            ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' diserahkan — menunggu verifikasi HOD.');
+            ->with('success', 'Hasil WO '.$workOrder->nomor_wo.' diserahkan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â menunggu verifikasi HOD.');
     }
 
     public function verify(Request $request): RedirectResponse
@@ -451,7 +579,7 @@ class WorkOrderController extends Controller
 
     /**
      * R2/R3: approver department pengaju menyetujui permintaan lintas-
-     * department — WO rilis ke department tujuan dan alur lama berjalan.
+     * department ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â WO rilis ke department tujuan dan alur lama berjalan.
      */
     public function approveRequest(Request $request): RedirectResponse
     {
@@ -465,11 +593,11 @@ class WorkOrderController extends Controller
 
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
-            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' disetujui — diteruskan ke department tujuan.');
+            ->with('success', 'Permintaan WO '.$workOrder->nomor_wo.' disetujui ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â diteruskan ke department tujuan.');
     }
 
     /**
-     * R4: tolak permintaan (alasan wajib) — WO berhenti sebelum dept tujuan.
+     * R4: tolak permintaan (alasan wajib) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â WO berhenti sebelum dept tujuan.
      */
     public function rejectRequest(RejectWorkOrderRequest $request): RedirectResponse
     {
@@ -487,10 +615,11 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * R12: revisi WO yang ditolak — hanya requester, saat RejectedByDept.
+     * R12: revisi WO yang ditolak ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â hanya requester, saat RejectedByDept.
      */
     public function updateRequest(UpdateWorkOrderRequest $request): RedirectResponse
     {
+
         $workOrder = WorkOrder::query()
             ->where('id', $request->route('workOrder'))
             ->firstOrFail();
@@ -501,11 +630,11 @@ class WorkOrderController extends Controller
 
         return redirect()
             ->route('work-orders.show', ['tenant' => tenant()?->code, 'workOrder' => $workOrder])
-            ->with('success', 'Revisi WO '.$workOrder->nomor_wo.' tersimpan — silakan ajukan ulang.');
+            ->with('success', 'Revisi WO '.$workOrder->nomor_wo.' tersimpan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â silakan ajukan ulang.');
     }
 
     /**
-     * R12: ajukan ulang setelah revisi — kembali ke gerbang approval.
+     * R12: ajukan ulang setelah revisi ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kembali ke gerbang approval.
      */
     public function resubmitRequest(Request $request): RedirectResponse
     {
@@ -523,7 +652,7 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * R12: cancel — (a) requester/approver dept pengaju saat belum rilis,
+     * R12: cancel ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â (a) requester/approver dept pengaju saat belum rilis,
      * (b) reviewer dept tujuan membatalkan duplikat saat review.
      */
     public function cancelRequest(CancelWorkOrderRequest $request): RedirectResponse
@@ -547,7 +676,7 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * R20: Approval inbox — permintaan WO lintas-department yang MENUNGGU
+     * R20: Approval inbox ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â permintaan WO lintas-department yang MENUNGGU
      * keputusan department PENGAJU, terpisah dari antrian WO masuk
      * department tujuan. Anggota rantai approver (ADR-0011) melihat
      * permintaan dari department-nya sendiri; keputusan tetap dipaksa di
@@ -594,7 +723,7 @@ class WorkOrderController extends Controller
             'requester_name' => $workOrder->requester?->name,
             'target_department' => $workOrder->targetDepartment?->nama_department,
             'created_at' => $workOrder->created_at->toIso8601String(),
-            // OQ-4b: penanda kandidat duplikat — keputusan tetap manusia.
+            // OQ-4b: penanda kandidat duplikat ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â keputusan tetap manusia.
             'duplicate_numbers' => $this->requestService
                 ->duplicateCandidates($workOrder, 3)
                 ->pluck('nomor_wo')
@@ -607,7 +736,7 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * R15: "Tugasan Saya" — WO eksekusi aktif yang ditugaskan ke karyawan
+     * R15: "Tugasan Saya" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â WO eksekusi aktif yang ditugaskan ke karyawan
      * ini (assigned/in_progress/revision), lengkap dengan penugasi, lokasi,
      * deadline proximity, dan timer durasi server-computed (R17). Akses
      * terbuka untuk akun ter-authentikasi; daftar hanya memuat WO yang
@@ -680,7 +809,7 @@ class WorkOrderController extends Controller
                 'target_department' => $workOrder->targetDepartment?->nama_department,
                 'assigner_name' => $assigners->get($workOrder->getKey()),
                 'attachments_count' => count($workOrder->attachments ?? []),
-                // R17: dihitung server dari timestamp tersimpan — dasar
+                // R17: dihitung server dari timestamp tersimpan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â dasar
                 // yang benar setelah refresh atau di perangkat lain.
                 'time_log' => $timeLog === null ? null : [
                     'state' => $timeLog->timerState(),
@@ -699,7 +828,7 @@ class WorkOrderController extends Controller
         $workOrderId = $request->route('workOrder');
 
         // The tenant global scope must apply here: the work order has to
-        // belong to the tenant the URL (and tenant.access) resolved to —
+        // belong to the tenant the URL (and tenant.access) resolved to ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
         // withoutGlobalScope() would serve another branch's WO by id.
         $workOrderModel = WorkOrder::query()
             ->where('id', $workOrderId)
@@ -728,7 +857,7 @@ class WorkOrderController extends Controller
                 ->get(['id', 'nama_employee'])
             : collect();
 
-        // FR-1.9: full audit trail of the WO, newest first — every recorded
+        // FR-1.9: full audit trail of the WO, newest first ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â every recorded
         // WorkOrderEvent with its actor.
         $events = $workOrderModel->events()
             ->with('user:id,name')
@@ -744,7 +873,7 @@ class WorkOrderController extends Controller
                 'created_at' => $event->created_at->toIso8601String(),
             ]);
 
-        // FR-2.3: pengajuan extend deadline WO telat — panel keputusan dan
+        // FR-2.3: pengajuan extend deadline WO telat ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â panel keputusan dan
         // status pengajuan di halaman detail, terbaru dulu. Visibilitas
         // panel (boleh mengaju / boleh memutuskan) dihitung server-side
         // agar browser tidak menduplikasi aturan jendela extend.
@@ -779,7 +908,7 @@ class WorkOrderController extends Controller
             ? $this->extendRequestService->canDecideExtend($user, $pendingExtend)
             : false;
 
-        // ADR-0011: gerbang approval — mirror server-side untuk panel
+        // ADR-0011: gerbang approval ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â mirror server-side untuk panel
         // frontend (keputusan tetap dipaksa ulang di service).
         $canDecideRequest = $user !== null
             && $workOrderModel->status === WorkOrderStatus::PendingDeptApproval
@@ -819,7 +948,7 @@ class WorkOrderController extends Controller
                 ->get(['id', 'nama_department'])
             : collect();
 
-        // ADR-0011 R15–R17: timer durasi untuk pelaksana — mirror
+        // ADR-0011 R15ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œR17: timer durasi untuk pelaksana ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â mirror
         // server-side; aksi tetap dipaksa ulang di WorkTimeLogService.
         $myEmployeeId = (string) ($user?->employee_id ?? '');
         $isAssignee = $myEmployeeId !== ''
@@ -854,7 +983,7 @@ class WorkOrderController extends Controller
             'finished_at' => $myTimeLog->finished_at?->toIso8601String(),
         ];
 
-        // FR-2.4: Work Planning untuk WO Terjadwal — detail jadwal + status
+        // FR-2.4: Work Planning untuk WO Terjadwal ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â detail jadwal + status
         // extend schedule; visibilitas panel dihitung server-side.
         $planning = $workOrderModel->planning()->with('extendRequester:id,name')->first();
 
@@ -920,11 +1049,103 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Load the Work Order and its target-department employees for a workflow page.
+     *
+     * The route carries a `{tenant}` parameter, so `ControllerDispatcher` splats
+     * all route parameters into the method ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â `WorkOrder $workOrder` route model
+     * binding would bind `{tenant}` to `$workOrder` instead of the model.
+     * Manual resolution mirrors the existing `show()` method.
+     *
+     * @return array{workOrder: WorkOrder, employees: Collection<Employee>}
+     */
+    private function loadWorkOrderAndEmployees(Request $request): array
+    {
+        $workOrder = WorkOrder::query()
+            ->where('id', $request->route('work_order'))
+            ->firstOrFail();
+
+        $employees = Employee::query()
+            ->where('department_id', $workOrder->target_department_id)
+            ->orderBy('nama_employee')
+            ->get(['id', 'nama_employee']);
+
+        return compact('workOrder', 'employees');
+    }
+
+    /**
+     * HOD review page ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â render the HOD decision screen for a work order.
+     *
+     * Loads target department employees for the assign/review selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function hodReview(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.review', $workOrder);
+
+        return Inertia::render('work-orders/hod-review', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Assign page ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â render the employee assignment screen for a work order.
+     *
+     * Loads target department employees for selection.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function assignForm(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.assign', $workOrder);
+
+        return Inertia::render('work-orders/assign', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Submit results page ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â render the result submission screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showSubmitResults(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.submit', $workOrder);
+
+        return Inertia::render('work-orders/submit-results', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
+     * Verify page ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â render the HOD verification screen.
+     * See loadWorkOrderAndEmployees() note on manual WorkOrder resolution.
+     */
+    public function showVerify(Request $request): Response
+    {
+        ['workOrder' => $workOrder, 'employees' => $employees] = $this->loadWorkOrderAndEmployees($request);
+
+        Gate::authorize('work-order.verify', $workOrder);
+
+        return Inertia::render('work-orders/verify', [
+            'workOrder' => $workOrder,
+            'employees' => $employees,
+        ]);
+    }
+
+    /**
      * Redirect browser to the S3 public URL for one attachment of a work order.
      *
      * Attachments now live on S3 (visibility: public). We still route through
      * this controller so the tenant middleware stack can verify ownership before
-     * handing the browser a CDN URL — no unauthenticated cross-branch access.
+     * handing the browser a CDN URL ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no unauthenticated cross-branch access.
      *
      * @return RedirectResponse
      */
@@ -947,7 +1168,7 @@ class WorkOrderController extends Controller
 
         abort_if(! Storage::disk('s3')->exists($path), 404);
 
-        // Redirect to the public CDN URL — no streaming through Laravel.
+        // Redirect to the public CDN URL ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no streaming through Laravel.
         return redirect(Storage::disk('s3')->url($path));
     }
 }

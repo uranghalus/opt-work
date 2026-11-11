@@ -12,6 +12,7 @@ import {
     LayoutGrid,
     LifeBuoy,
     ListChecks,
+    ListTree,
     Network,
     Settings,
     ShieldCheck,
@@ -32,6 +33,7 @@ import { index as permissionsIndex } from '@/routes/permissions';
 import { index as rolesIndex } from '@/routes/roles';
 import { index as workDataIndex } from '@/routes/work-data';
 import positions from '@/routes/positions';
+import { tree as positionsTreeIndex } from '@/routes/positions';
 import { edit as profileEdit } from '@/routes/profile';
 import {
     index as workOrdersIndex,
@@ -217,6 +219,11 @@ export function navGroups({
             { title: 'Posisi', icon: BriefcaseBusiness, tone: 'master' },
             tenant,
             (t) => positions.index({ tenant: t }),
+        ),
+        tenantItem(
+            { title: 'Struktur Jabatan', icon: ListTree, tone: 'master' },
+            tenant,
+            (t) => positionsTreeIndex({ tenant: t }),
         ),
         ...(isSuperAdmin
             ? [

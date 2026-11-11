@@ -138,6 +138,8 @@ class DemoSeeder extends Seeder
             'maya' => ['email' => 'maya.it@appdutamall.com', 'nama' => 'Maya Anggraini', 'role' => 'karyawan', 'is_hod' => false, 'dept' => 'IT', 'position' => 'Staf IT', 'division' => 'INF', 'phone' => null],
             'citra' => ['email' => 'citra.hk@appdutamall.com', 'nama' => 'Citra Ayu', 'role' => 'karyawan', 'is_hod' => false, 'dept' => 'HK', 'position' => 'Petugas Kebersihan', 'division' => null, 'phone' => null],
             'dedik' => ['email' => 'admin.tenant@appdutamall.com', 'nama' => 'Dedi Kurniawan', 'role' => 'admin_tenant', 'is_hod' => false, 'dept' => null, 'position' => 'Staf Administrasi', 'division' => null, 'phone' => null],
+            // Staf admin department (OQ-8): co-approver permintaan lintas-dept.
+            'fajar' => ['email' => 'fajar.staf@appdutamall.com', 'nama' => 'Fajar Nugroho', 'role' => 'staf_admin_dept', 'is_hod' => false, 'dept' => 'MTC', 'position' => 'Staf Administrasi', 'division' => null, 'phone' => null],
             'hendra' => ['email' => 'gm@appdutamall.com', 'nama' => 'Hendra Gunawan', 'role' => 'general_manager', 'is_hod' => false, 'dept' => null, 'position' => null, 'division' => null, 'phone' => null],
             'iwan' => ['email' => 'dgm@appdutamall.com', 'nama' => 'Iwan Pranowo', 'role' => 'deputy_general_manager', 'is_hod' => false, 'dept' => null, 'position' => null, 'division' => null, 'phone' => null],
             'titi' => ['email' => 'viewer@appdutamall.com', 'nama' => 'Titi Rahmawati', 'role' => 'viewer', 'is_hod' => false, 'dept' => null, 'position' => null, 'division' => null, 'phone' => null],

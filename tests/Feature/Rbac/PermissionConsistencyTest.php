@@ -102,9 +102,10 @@ function rbacForwardLookingPermissions(): array
 {
     return [
         // work-order — CRUD gating lands with the WO flow, same as the verbs below.
+        // work-order.update dan work-order.delete kini di-gate di
+        // WorkOrderController::edit/update/destroy (Task 10, 2026-10-28),
+        // entri-annya dikeluarkan dari allowlist.
         'work-order.create' => 'gated when the WO flow lands',
-        'work-order.update' => 'gated when the WO flow lands',
-        'work-order.delete' => 'gated when the WO flow lands',
         // work-order workflow verbs — review/assign/submit/verify all
         // gated in WorkOrderController.
 

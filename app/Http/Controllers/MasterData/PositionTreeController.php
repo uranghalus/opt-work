@@ -25,14 +25,15 @@ class PositionTreeController extends Controller
                 $q->whereNull('parent_position_id')
                     ->orWhere('is_direct', true);
             })
+            ->withCount('employees')
             ->with([
                 'department',
                 'division',
                 'children' => function ($q) {
-                    $q->with(['department', 'division', 'children' => function ($q2) {
-                        $q2->with(['department', 'division', 'children' => function ($q3) {
-                            $q3->with(['department', 'division', 'children' => function ($q4) {
-                                $q4->with(['department', 'division']);
+                    $q->withCount('employees')->with(['department', 'division', 'children' => function ($q2) {
+                        $q2->withCount('employees')->with(['department', 'division', 'children' => function ($q3) {
+                            $q3->withCount('employees')->with(['department', 'division', 'children' => function ($q4) {
+                                $q4->withCount('employees')->with(['department', 'division']);
                             }]);
                         }]);
                     }]);
@@ -57,15 +58,16 @@ class PositionTreeController extends Controller
         // Verify position belongs to tenant
         abort_unless($position->tenant_id === $tenant->id, 404);
 
+        $position->loadCount('employees');
         $position->load([
             'department',
             'division',
             'parentPosition',
             'children' => function ($q) {
-                $q->with(['department', 'division', 'children' => function ($q2) {
-                    $q2->with(['department', 'division', 'children' => function ($q3) {
-                        $q3->with(['department', 'division', 'children' => function ($q4) {
-                            $q4->with(['department', 'division']);
+                $q->withCount('employees')->with(['department', 'division', 'children' => function ($q2) {
+                    $q2->withCount('employees')->with(['department', 'division', 'children' => function ($q3) {
+                        $q3->withCount('employees')->with(['department', 'division', 'children' => function ($q4) {
+                            $q4->withCount('employees')->with(['department', 'division']);
                         }]);
                     }]);
                 }]);

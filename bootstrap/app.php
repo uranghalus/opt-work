@@ -50,7 +50,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // There is no local login page; guests are sent straight to the SSO portal.
-        $middleware->redirectGuestsTo(fn () => route('saml.redirect'));
+        // SSO parked (AUTH_SSO_ENABLED=false): guests land on the local Fortify
+        // login screen instead.
+        $middleware->redirectGuestsTo(fn () => route(
+            config('auth.sso.enabled', true) ? 'saml.redirect' : 'login'
+        ));
+
+        // Authenticated users bouncing off guest-only routes (e.g. GET /login)
+        // go to the role-aware root instead of the framework default — which
+        // would crash generating route('dashboard') without its {tenant} param.
+        $middleware->redirectUsersTo(fn () => route('home'));
 
         $middleware->web(append: [
             IdentifyTenant::class,

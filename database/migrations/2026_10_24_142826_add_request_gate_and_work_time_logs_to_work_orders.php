@@ -39,7 +39,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('tenant_id');
             $table->foreignUuid('work_order_id')->constrained('work_orders')->cascadeOnDelete();
-            $table->foreignUuid('employee_id')->constrained('employees')->nullOnDelete();
+            // Nullable — nullOnDelete: hapus employee tidak menghapus log timer.
+            $table->foreignUuid('employee_id')->nullable()->constrained('employees')->nullOnDelete();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('finished_at')->nullable();

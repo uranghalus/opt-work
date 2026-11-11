@@ -34,8 +34,7 @@ afterEach(function () {
 });
 
 it('creates a work order, generates its number, and notifies the department hod', function () {
-    initTenant('hq');
-    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    initTenant('hq');    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
     $department = Department::create([
         'kode_department' => 'DEP-IT',
         'nama_department' => 'IT',
@@ -438,9 +437,9 @@ it('registers only the work order routes backed by controller methods', function
         ->and(Route::has('work-orders.show'))->toBeTrue()
         ->and(Route::has('work-orders.timeline'))->toBeTrue()
         ->and(Route::has('work-orders.assign'))->toBeTrue()
-        ->and(Route::has('work-orders.edit'))->toBeFalse()
-        ->and(Route::has('work-orders.update'))->toBeFalse()
-        ->and(Route::has('work-orders.destroy'))->toBeFalse();
+        ->and(Route::has('work-orders.edit'))->toBeTrue()
+        ->and(Route::has('work-orders.update'))->toBeTrue()
+        ->and(Route::has('work-orders.destroy'))->toBeTrue();
 });
 
 it('passes the WO event history on the detail page', function () {
@@ -496,4 +495,32 @@ it('lists only active departments on the WO create page', function () {
             ->component('work-orders/create')
             ->has('departments', 1)
             ->where('departments.0.nama_department', 'Aktif'));
+});
+
+it('persists priority, personnel_count and damage_type on create (FR-1.1)', function () {
+    initTenant('hq');
+    $hod = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    $department = Department::create([
+        'kode_department' => 'DEP-IT',
+        'nama_department' => 'IT',
+        'hod_user_id' => $hod->getKey(),
+    ]);
+    $requester = createUser(['tenant_id' => Tenant::where('code', 'hq')->first()->id]);
+    Notification::fake();
+
+    $this->actingAs($requester)
+        ->post('/hq/work-orders', [
+            'title' => 'AC mati',
+            'description' => 'AC ruang server mati total',
+            'category' => 'normal',
+            'target_department_id' => $department->getKey(),
+            'priority' => 'high',
+            'personnel_count' => 3,
+            'damage_type' => 'elektrikal',
+        ])->assertRedirect();
+
+    $wo = WorkOrder::query()->sole();
+    expect($wo->priority)->toBe('high')
+        ->and((int) $wo->personnel_count)->toBe(3)
+        ->and($wo->damage_type)->toBe('elektrikal');
 });

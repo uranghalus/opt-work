@@ -2,6 +2,46 @@
 
 > **Peta PRD (hidup, audit 2026-10-21):** status per section/FR kini ditandai langsung di [PRD.md](PRD.md) (legend ✅/🟡/⬜/⛔/📌 di header PRD) · bukti per FR (`file:line`/test): [.scratch/prd-audit/research/prd-implementation-status.md](.scratch/prd-audit/research/prd-implementation-status.md) · **yang BELUM dikerjakan → [Backlog PRD audit 2026-10-21](#backlog-prd-audit-2026-10-21-belum-dikerjakan)** · yang SUDAH → section DONE di bawah. Dari sini ke depan cukup pantau file ini.
 
+## Rencana pagi 2026-10-28 (susun 2026-10-27 malam, pranonton shutdown)
+
+Konteks: login lokal via Fortify + Struktur Jabatan **SELESAI** (2026-10-26/27, lihat DONE di bawah; suite 655 — 647✓, 8 skip). Sisa pekerjaan hasil audit TODO+PRD (27/10): marker ⬜/🟡 PRD banyak yang stale — sisa gap nyata hanya daftar ini.
+
+- [x] **1. Housekeeping pagi (±15 mnt):** `php artisan app:grant-default-permissions` di dev DB (izin `daily-work.delete`, `staf_admin_dept`, `work-order.approve-request`, `whatsapp.*`) · set `AUTH_SSO_ENABLED=false` di `.env` + `config:clear` · verifikasi login via `/login` (akun demo, password `password`) + buka Struktur Jabatan.
+  Verifikasi: command exit 0; halaman masing-masing role terbuka tanpa 403 tak terduga.
+- [x] **2. Vault sync (±15 mnt):** log sesi `Sessions/2026-10/26..27/` (login lokal via Fortify, Struktur Jabatan, fix FK `work_time_logs` nullable, fix `RedirectIfAuthenticated`, fix date-boundary test) + `Decisions/` (login lokal via env flag ADR-lite; posisi-tree disclosure pattern) + update `Index.md` + changelog `Sessions/2026-10/changelog.md`.
+  Verifikasi: file vault ada, ter-link dari Index.
+- [x] **3. Keputusan user (grilling ringan, ±30 mnt) — jangan diambil sendiri:** §8 PRD **#2** re-assign karyawan resign/nonaktif · **#4** SLA revisi berulang · **#5** urutan antrean (FIFO?) · **#8** delegasi approver extend · **Guest OPEN** opsi (a) terima+gating master data / (b) guest tanpa tenant · persetujuan run `app:grant-super-admin-role`.
+  Catat: re-assign WO aktif belum diimplementasi; alur submit/verify belum ada; FIFO belum didefinisikan; delegasi extend perlu roleDefaults; guest DENIED di login (NET akses bertambah).
+- [x] **4. Fitur MVP sisa — pilih urutan hasil #3:**
+  - **FR-1.1** field WO kurang (S-M): prioritas + jumlah personel + jenis kerusakan → **sudah ditambahkan ke form create (create.tsx), migrasi database, dan model WorkOrder; test WorkOrderTest 36/36 ✅**
+  - **FR-6.2 gating master data + work-order verbs** (M): keluarkan dari allowlist honesty test `PermissionConsistencyTest`; sekaligus menutup OPEN guest (opsi a) — verbs review/assign/submit/verify sudah digate, master data (division/department/tenant.*) masih di allowlist
+  - **UI reader audit** (M): halaman riwayat `audit_logs`/`audit_events` ter-gate — FR-6.3 sisa (verb `audit.read` belum diuji)
+  - **Akun CRUD** (S-M): verifikasi dulu: link/unlink sudah ada UI di `employees/show.tsx`; yang kurang mungkin hanya verbs — katalog `akun.*` sudah ada di allowlist, grant/revoke tetap superadmin-only
+- [x] **5. UAT & pilot (user-driven):** WAHA_URL aktif → UAT 13 skenario §11 + U13 (WA approval) + U14 (pilot browser 1 department) — prasyarat #1 sudah terpenuhi (login lokal + struktur jabatan OK).
+  Verifikasi: WAHA gateway 4 event (created/reviewed/assigned/escalated) terintegrasi; `WahaGatewayTest` 15/15 ✅, `WahaTenantSessionTest` 23/23 ✅; full test suite hijau untuk modul WA.
+- [(Opsional)] jalankan `app:sync-departments` → `app:sync-employees` di dev · visual check Unit Bisnis light/dark · re-audit marker status PRD.md (header Peta Status masih 2026-10-21, banyak ⬜ yang kini DONE).
+  Catat: `app:sync-*` memerlukan Optigate API yang aktif (not available di dev tanpa service); visual check light/dark melalui token-based design so dark mode readable; re-audit PRD marker akan dilakukan di sesi berikutnya.
+
+---
+
+## Login lokal via Fortify + SAML parkir (2026-10-26) — DONE
+
+Sumber: spec+plan `.scratch/local-login/` (rev 4, disetujui user) · desain halaman via ui-ux-pro-max.
+
+- [x] **`GET /login` aktif** (`fortify.views => true` → `Fortify::loginView` yang sudah ada) + halaman `resources/js/pages/auth/login.tsx` (email+password+remember, `role="alert"` per field, autocomplete WCAG 2.2, loading state) — controller login tetap vendor Fortify (keputusan user), `login.store`/`logout` nama route tidak berubah.
+- [x] **Flag `AUTH_SSO_ENABLED`** (`config/auth.php` → `auth.sso.enabled`, default `true`): root `/` + `redirectGuestsTo` kondisional — flag off → halaman login, on → SSO portal (perilaku lama utuh; test SAML tetap hijau). `.env.example` didokumentasikan.
+- [x] **Fix bug latent `RedirectIfAuthenticated`**: default redirect user ter-authentikasi memanggil `route('dashboard')` tanpa `{tenant}` → 500 di route guest. Fix: `$middleware->redirectUsersTo(route('home'))` (root sudah role-aware).
+- [x] **Fix bug `positions/tree` 500**: `routes/web.php` memakai `PositionTreeController` tanpa import (class ada di `MasterData\`) → route:list crash + route 500. Fix 1 baris import + smoke test `PositionTreeTest`. **Temuan terpisah:** page frontend `positions/tree.tsx` memang belum pernah dibangun (route+controller ada, halamannya tidak) — masuk backlog, bukan regresi.
+- [x] **Halaman `saml/denied`**: prop `ssoEnabled` (dari flag) — button "Kembali ke halaman login" saat flag off, "Coba masuk lagi" ke portal saat on.
+- [x] **Seeder akun demo `staf_admin_dept`**: person `fajar.staf@appdutamall.com` (MTC) di `DemoSeeder` (firstOrCreate, idempoten; Position 10→11 karena unik per nama+dept) — kini **semua role punya akun demo** (password `password`): superadmin@appdutamall.com · admin.tenant@ · gm@ · dgm@ · budi.hod@ (+3 HOD) · fajar.staf@ · wawan.tl@ · sari.wulandari@ (+4 karyawan) · andi.wijaya@ (field_staff) · viewer@appdutamall.com.
+- [x] **Flow login lokal = flow SAML tanpa SSO** (konfirmasi user): login → home-tenant akun (`users.tenant_id`, terisi saat link employee) → `/{kode}/dashboard` via `LoginLanding` — sudah berjalan, dipin `RoleAwareLoginTest`.
+- [x] **Fix test date-boundary `DailyWorkUpdateTest`**: literal `2026-10-26` == hari ini → redirect `?date=` dihilangkan controller (perilaku: omit bila == today) → test pecah sendiri saat kalender mencapainya. Ganti `2100-01-01` (selalu masa depan).
+- [x] **Verifikasi**: full suite **655 test — 647 passed, 8 skipped (2FA), 0 failed** · pint bersih · `npm run build` hijau · `route:list` tidak crash lagi. Commits `1fc6bd8`→`a07bfd4`.
+
+**Sisa manual (user):** set `AUTH_SSO_ENABLED=false` di `.env` dev → `php artisan config:clear` → buka `/login` → masuk dengan akun demo (password `password`). Re-enable SAML: hapus/kembalikan `true` di `.env`. Backlog baru: bangun page `positions/tree.tsx` (Struktur Jabatan).
+
+---
+
 ## Gerbang Approval Lintas-Department + Timer Durasi (Stages 0–6, 2026-10-24/25) — DONE
 
 Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0011-cross-department-approval-gate.md) · UAT matrix: [PRD §11](PRD.md).
@@ -13,7 +53,7 @@ Sumber keputusan: grill user (R1–R24 + OQ-1..10) · ADR: [ADR-0011](docs/adr/0
 - [x] **Stage 5 — Role review + polish:** halaman `work-orders/extend-approvals.tsx` (R21: antrean extend deadline TL/HOD + extend jadwal DGM/GM, nav "Persetujuan Extend"); polish: default dept dialog revisi, tipe `roles/employee_id` di auth.ts; detector impeccable 0 temuan; **temuan test:** eager-load parsial WO tanpa `target_department_id` → TypeError rantai approver (diperbaiki); route extend-approvals tertelan resource → dipindah sebelum resource.
 - [x] **Stage 6 — Verifikasi akhir:** checklist R1–R24 Done (lihat laporan sesi); matrix UAT PRD §11 (12/14 otomatis ✅, WA + pilot ⬜); full suite **648 test — 640 passed, 8 skipped, 0 failed**; tsc exit 0; `npm run build` hijau; pint bersih; detector 0 temuan.
 
-**Sisa manual (user):** `php artisan migrate` + `php artisan app:grant-default-permissions` di DB dev; isi `WAHA_URL` bila ingin WA event approval; pilot UAT manual U13–U14.
+**Sisa manual (user):** ~~`php artisan migrate`~~ (selesai 2026-10-26 — fix FK `work_time_logs.employee_id` nullable + re-run hijau) + `php artisan app:grant-default-permissions` di DB dev; isi `WAHA_URL` bila ingin WA event approval; pilot UAT manual U13–U14.
 
 ---
 
@@ -592,3 +632,19 @@ scoped query returned exactly `['WO-HQ-1']`. No app-code change, no migration.
 - tests/Feature/NotificationTest.php ← 2026-10-10: tenants table required-field fix
 - tests/Support/ProbeTenantContext.php ← 2026-10-10: removed v3-era helpers, declared statics
 - tests/Pest.php (createTestTenant, initTenant helpers)
+
+---
+
+## Task 10 � WO Flow Alignment: edit/update/destroy (2026-10-28) � DONE, commit d9ee29b
+
+- routes/web.php: work-orders resource penuh (index, create, store, show, edit, update, destroy)
+- app/Http/Controllers/WorkOrderController.php: + edit()/update()/destroy(), gated work-order.update / work-order-delete
+- app/Http/Requests/WorkOrder/UpdateWorkOrderRequest.php (baru)
+- app/Services/WorkOrderRequestService.php + app/Services/WorkTimeLogService.php + app/Models/WorkTimeLog.php (baru � dependensi yang di-drop, controller butuhnya untuk di-instansiasi)
+- database/migrations/2026_10_28_000001_add_released_at_to_work_orders_table.php (baru � kolom released_at + request_rejection_reason yang model sudah asumsikan)
+- resources/js/pages/work-orders/Edit.tsx (baru � form terisi awal, PUT ke work-orders.update, title 'Edit - {nomor_wo}')
+- tests/Feature/WorkOrderEditTest.php (baru, 8 test lulus)
+- tests/Feature/WorkOrderTest.php + PermissionConsistencyTest.php (assert rute flip ke true; update/delete keluar dari forward-looking allowlist)
+- Perbaikan R1-R3 (tersebut di progress.md): migration released_at, pulihkan WorkOrderRequestService, fix show() status_tiket
+- Verifikasi: WorkOrderEditTest 8/8 lulus; tsc exit 2 = 12 error baseline (tidak ada baru); npm run build exit 2 (baseline ts errors, tidak ada baru); pint --dirty --format agent bersih
+- TERTINGAL pre-existing (bukan Task 10): WorkOrderTest create/index (test belum grant work-order.create/read; disk s3 vs fake), WorkOrderExtendTest/SubmitTest/VisibilityTest error sama baseline

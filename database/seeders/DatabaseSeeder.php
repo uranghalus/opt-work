@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             TenantSeeder::class,
+            // Data dev untuk halaman Gantt Jadwal (work_plannings).
+            WorkPlanningSeeder::class,
         ]);
 
         User::factory()->create([
